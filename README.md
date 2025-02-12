@@ -26,7 +26,7 @@ Judify is a revolutionary hybrid tutoring platform that bridges the gap between 
 
 #### BACKEND
 - Spring Boot Framework
-- Jitsi Meet API
+- Jitsi Meet Video Conferencing API
 
 ## 👥 Meet the Team!
 
