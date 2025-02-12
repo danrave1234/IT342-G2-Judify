@@ -1,5 +1,5 @@
 <div align="center">
-# Judify: Where Knowledge Meets Convenience
+Judify: Where Knowledge Meets Convenience
 
 🎓 Connect with tutors anytime, anywhere! 📚
 </div>
