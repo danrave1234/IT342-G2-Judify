@@ -1,4 +1,4 @@
-package com.Storix;
+package edu.cit.Storix;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
