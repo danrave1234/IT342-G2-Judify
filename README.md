@@ -1,17 +1,49 @@
-# README.md
+<div align="center">
+# Judify: Where Knowledge Meets Convenience
 
-### SYSTEM NAME: 
-JUDIFY
+🎓 Connect with tutors anytime, anywhere! 📚
+</div>
 
-### PRODUCT DESCRIPTION:
-Judify is a hybrid online/offline tutoring platform that connects students with tutors through GPS-based location matching or remote sessions. The system integrates web and mobile applications to enable real-time video calls, chat, document sharing, and hourly billing. Tutors can offer in-person meetings (tracked via GPS) or virtual sessions, while students search, book, and rate tutors based on expertise, availability, and reviews. The platform automates payment processing, session scheduling, and progress tracking, leveraging APIs like Google Maps for location services, Stripe for payments, and Jitsi Meet/Zoom for video conferencing.
+## 🌟 What is Judify?
 
-### LIST OF FEATURES 
+Judify is a revolutionary hybrid tutoring platform that bridges the gap between online and offline learning. Whether you prefer face-to-face sessions or the comfort of your own home, Judify has got you covered!
+
+### 🚀 Key Features
+#### WEB VIEW
+- Tutor Registration & Profile Management
 - Session Scheduling & Calendar Sync
-- Payment & Billing Information
+- Payment & Billing Automation
 
-### LINKS
+#### MOBILE VIEW
+-  GPS-Based Tutor Search
+-  Real-Time Video Tutoring & Collaboration
+-  Session Feedback & Rating System
 
-DEVELOPER PROFILES:
+## 🛠️ Tech Stack
+#### FRONTEND
+- Tailwind CSS
+- ReactJS
 
-A
+#### BACKEND
+- Spring Boot Framework
+- Jitsi Meet API
+
+## 👥 Meet the Team!
+
+| Role | Name |
+|------|------|
+| Team Leader & Mobile Frontend | Danrave Keh |
+| Backend Development | Vincent Pacana |
+| Frontend Development | Judiel Oppura |
+
+## 🔗 Important Links
+
+- [Figma Designs](your-figma-link-here)
+- [System Diagrams](your-diagrams-link-here)
+
+## 🚧 Work in Progress
+
+Stay tuned for more exciting features!
+
+<div align="center">
+</div>
