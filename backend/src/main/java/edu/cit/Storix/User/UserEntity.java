@@ -4,8 +4,6 @@ import edu.cit.Storix.TutorProfile.TutorProfileEntity;
 import jakarta.persistence.*;
 
 import java.util.Date;
-import java.util.ArrayList;
-import java.util.List;
 
 @Entity
 @Table(name = "users")
