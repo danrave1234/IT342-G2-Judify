@@ -1,10 +1,14 @@
 package edu.cit.Judify.User;
 
+import edu.cit.Judify.User.DTO.AuthenticatedUserDTO;
+import edu.cit.Judify.User.DTO.UserDTO;
+import edu.cit.Judify.User.DTO.UserDTOMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/users")
@@ -12,66 +16,75 @@ import java.util.List;
 public class UserController {
 
     private final UserService userService;
+    private final UserDTOMapper userDTOMapper;
 
     @Autowired
-    public UserController(UserService userService) {
+    public UserController(UserService userService, UserDTOMapper userDTOMapper) {
         this.userService = userService;
+        this.userDTOMapper = userDTOMapper;
     }
 
-    @PostMapping
-    public ResponseEntity<UserEntity> createUser(@RequestBody UserEntity user) {
-        return ResponseEntity.ok(userService.createUser(user));
+    @PostMapping("/addUser")
+    public ResponseEntity<UserDTO> createUser(@RequestBody UserEntity user) {
+        return ResponseEntity.ok(userDTOMapper.toDTO(userService.createUser(user)));
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<UserEntity> getUserById(@PathVariable Long id) {
+    @GetMapping("/findById/{id}")
+    public ResponseEntity<UserDTO> getUserById(@PathVariable Long id) {
         return userService.getUserById(id)
+                .map(userDTOMapper::toDTO)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @GetMapping("/email/{email}")
-    public ResponseEntity<UserEntity> getUserByEmail(@PathVariable String email) {
+    @GetMapping("/findByEmail/{email}")
+    public ResponseEntity<UserDTO> getUserByEmail(@PathVariable String email) {
         return userService.getUserByEmail(email)
+                .map(userDTOMapper::toDTO)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @GetMapping
-    public ResponseEntity<List<UserEntity>> getAllUsers() {
-        return ResponseEntity.ok(userService.getAllUsers());
+    @GetMapping("/getAllUsers")
+    public ResponseEntity<List<UserDTO>> getAllUsers() {
+        return ResponseEntity.ok(userService.getAllUsers()
+                .stream()
+                .map(userDTOMapper::toDTO)
+                .collect(Collectors.toList()));
     }
 
-    @GetMapping("/role/{role}")
-    public ResponseEntity<List<UserEntity>> getUsersByRole(@PathVariable String role) {
-        return ResponseEntity.ok(userService.getUsersByRole(role));
+    @GetMapping("/findByRole/{role}")
+    public ResponseEntity<List<UserDTO>> getUsersByRole(@PathVariable String role) {
+        return ResponseEntity.ok(userService.getUsersByRole(role)
+                .stream()
+                .map(userDTOMapper::toDTO)
+                .collect(Collectors.toList()));
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<UserEntity> updateUser(
+    @PutMapping("/updateUser/{id}")
+    public ResponseEntity<UserDTO> updateUser(
             @PathVariable Long id,
             @RequestBody UserEntity userDetails) {
-        return ResponseEntity.ok(userService.updateUser(id, userDetails));
+        return ResponseEntity.ok(userDTOMapper.toDTO(userService.updateUser(id, userDetails)));
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/deleteUser/{id}")
     public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
         userService.deleteUser(id);
         return ResponseEntity.ok().build();
     }
 
-    @PutMapping("/{id}/role")
-    public ResponseEntity<UserEntity> updateUserRole(
+    @PutMapping("/updateRole/{id}")
+    public ResponseEntity<UserDTO> updateUserRole(
             @PathVariable Long id,
             @RequestBody String role) {
-        return ResponseEntity.ok(userService.updateUserRole(id, role));
+        return ResponseEntity.ok(userDTOMapper.toDTO(userService.updateUserRole(id, role)));
     }
 
     @PostMapping("/authenticate")
-    public ResponseEntity<Boolean> authenticateUser(
+    public ResponseEntity<AuthenticatedUserDTO> authenticateUser(
             @RequestParam String email,
             @RequestParam String password) {
-        boolean isAuthenticated = userService.authenticateUser(email, password);
-        return ResponseEntity.ok(isAuthenticated);
+        return ResponseEntity.ok(userService.authenticateUser(email, password));
     }
 } 

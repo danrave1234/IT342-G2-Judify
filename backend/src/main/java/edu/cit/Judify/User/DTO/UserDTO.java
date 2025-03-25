@@ -1,53 +1,22 @@
-package edu.cit.Judify.User;
+package edu.cit.Judify.User.DTO;
 
-import edu.cit.Judify.TutorProfile.TutorProfileEntity;
-import jakarta.persistence.*;
-
+import edu.cit.Judify.User.UserRole;
 import java.util.Date;
 
-@Entity
-@Table(name = "users")
-public class UserEntity {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+public class UserDTO {
     private Long userId;
-
-    @Column(unique = true, nullable = false)
     private String username;
-
-    @Column(unique = true, nullable = false)
     private String email;
-
-    @Column(nullable = false)
-    private String password;
-
-    @Column(nullable = false)
     private String firstName;
-
-    @Column(nullable = false)
     private String lastName;
-
-    @Enumerated(EnumType.STRING)
     private UserRole role;
-
     private String profilePicture;
     private String contactDetails;
-
-    @Temporal(TemporalType.TIMESTAMP)
-    @Column(nullable = false, updatable = false)
     private Date createdAt;
-
-    @Temporal(TemporalType.TIMESTAMP)
     private Date updatedAt;
 
-    // One-to-One relationship with TutorProfileEntity (optional)
-    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private TutorProfileEntity tutorProfile;
-
-    // Constructors
-    public UserEntity() {
-        this.createdAt = new Date();
+    // Default constructor
+    public UserDTO() {
     }
 
     // Getters and Setters
@@ -73,14 +42,6 @@ public class UserEntity {
 
     public void setEmail(String email) {
         this.email = email;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
     }
 
     public String getFirstName() {
@@ -138,23 +99,4 @@ public class UserEntity {
     public void setUpdatedAt(Date updatedAt) {
         this.updatedAt = updatedAt;
     }
-
-    public TutorProfileEntity getTutorProfile() {
-        return tutorProfile;
-    }
-
-    public void setTutorProfile(TutorProfileEntity tutorProfile) {
-        this.tutorProfile = tutorProfile;
-    }
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = new Date();
-        updatedAt = createdAt;
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = new Date();
-    }
-}
+} 

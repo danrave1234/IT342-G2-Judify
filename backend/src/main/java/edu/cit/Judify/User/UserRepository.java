@@ -9,6 +9,6 @@ import java.util.List;
 public interface UserRepository extends JpaRepository<UserEntity, Long> {
     Optional<UserEntity> findByEmail(String email);
     boolean existsByEmail(String email);
-    List<UserEntity> findByRolesContaining(String role);
-    Optional<UserEntity> findByEmailAndPasswordHash(String email, String passwordHash);
+    List<UserEntity> findByRole(UserRole role);
+    Optional<UserEntity> findByEmailAndPassword(String email, String password);
 } 

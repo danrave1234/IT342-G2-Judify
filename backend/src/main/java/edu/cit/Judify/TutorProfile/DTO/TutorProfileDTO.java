@@ -1,72 +1,57 @@
-package edu.cit.Judify.TutorProfile;
+package edu.cit.Judify.TutorProfile.DTO;
 
-import edu.cit.Judify.User.UserEntity;
-import jakarta.persistence.*;
 import java.util.Date;
 import java.util.Set;
 
-@Entity
-@Table(name = "tutor_profiles")
-public class TutorProfileEntity {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    // One-to-one relationship with UserEntity
-    @OneToOne
-    @JoinColumn(name = "user_id", nullable = false)
-    private UserEntity user;
-
-    @Column(columnDefinition = "TEXT")
-    private String biography;
-
+public class TutorProfileDTO {
+    private Long profileId;
+    private Long userId;
+    private String username;
+    private String bio;
     private String expertise;
-
     private Double hourlyRate;
-
-    @ElementCollection
-    @CollectionTable(name = "tutor_subjects", joinColumns = @JoinColumn(name = "tutor_id"))
-    @Column(name = "subject")
     private Set<String> subjects;
-
     private Double rating;
-
     private Integer totalReviews;
-
-    @Temporal(TemporalType.TIMESTAMP)
     private Date createdAt;
 
     // Default constructor
-    public TutorProfileEntity() {
-        this.createdAt = new Date();
+    public TutorProfileDTO() {
         this.rating = 0.0;
         this.totalReviews = 0;
     }
 
     // Getters and Setters
-    public Long getId() {
-        return id;
+    public Long getProfileId() {
+        return profileId;
     }
 
-    public void setId(Long id) {
-        this.id = id;
+    public void setProfileId(Long profileId) {
+        this.profileId = profileId;
     }
 
-    public UserEntity getUser() {
-        return user;
+    public Long getUserId() {
+        return userId;
     }
 
-    public void setUser(UserEntity user) {
-        this.user = user;
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
 
-    public String getBiography() {
-        return biography;
+    public String getUsername() {
+        return username;
     }
 
-    public void setBiography(String biography) {
-        this.biography = biography;
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getBio() {
+        return bio;
+    }
+
+    public void setBio(String bio) {
+        this.bio = bio;
     }
 
     public String getExpertise() {
@@ -116,4 +101,4 @@ public class TutorProfileEntity {
     public void setCreatedAt(Date createdAt) {
         this.createdAt = createdAt;
     }
-}
+} 

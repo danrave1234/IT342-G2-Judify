@@ -25,8 +25,8 @@ public class ReviewEntity {
     private UserEntity tutor;
 
     @ManyToOne
-    @JoinColumn(name = "learner_id", nullable = false)
-    private UserEntity learner;
+    @JoinColumn(name = "student_id", nullable = false)
+    private UserEntity student;
 
     @Column(nullable = false)
     private Integer rating;  // e.g., 1-5 stars
@@ -65,11 +65,11 @@ public class ReviewEntity {
         this.tutor = tutor;
     }
 
-    public UserEntity getLearner() {
-        return learner;
+    public UserEntity getStudent() {
+        return student;
     }
-    public void setLearner(UserEntity learner) {
-        this.learner = learner;
+    public void setStudent(UserEntity student) {
+        this.student = student;
     }
 
     public Integer getRating() {

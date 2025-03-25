@@ -3,6 +3,10 @@ package edu.cit.Judify.Message;
 import edu.cit.Judify.Conversation.ConversationEntity;
 import edu.cit.Judify.User.UserEntity;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -59,5 +63,33 @@ public class MessageService {
     @Transactional
     public void deleteMessage(Long id) {
         messageRepository.deleteById(id);
+    }
+
+    // Paginated version of getConversationMessages
+    public Page<MessageEntity> getConversationMessagesPaginated(
+            ConversationEntity conversation, String order, int page, int size) {
+        
+        Sort sort = order.equalsIgnoreCase("ASC") ?
+                Sort.by("timestamp").ascending() :
+                Sort.by("timestamp").descending();
+                
+        Pageable pageable = PageRequest.of(page, size, sort);
+        return messageRepository.findByConversation(conversation, pageable);
+    }
+    
+    // Paginated version of getUnreadMessagesBySender
+    public Page<MessageEntity> getUnreadMessagesBySenderPaginated(
+            UserEntity sender, int page, int size) {
+        
+        Pageable pageable = PageRequest.of(page, size, Sort.by("timestamp").descending());
+        return messageRepository.findBySenderAndIsReadFalse(sender, pageable);
+    }
+    
+    // Paginated version of getUnreadConversationMessages
+    public Page<MessageEntity> getUnreadConversationMessagesPaginated(
+            ConversationEntity conversation, int page, int size) {
+        
+        Pageable pageable = PageRequest.of(page, size, Sort.by("timestamp").descending());
+        return messageRepository.findByConversationAndIsReadFalse(conversation, pageable);
     }
 } 

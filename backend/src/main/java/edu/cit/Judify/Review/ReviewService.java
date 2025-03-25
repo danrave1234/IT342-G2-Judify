@@ -2,6 +2,10 @@ package edu.cit.Judify.Review;
 
 import edu.cit.Judify.User.UserEntity;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,8 +36,8 @@ public class ReviewService {
         return reviewRepository.findByTutorOrderByCreatedAtDesc(tutor);
     }
 
-    public List<ReviewEntity> getLearnerReviews(UserEntity learner) {
-        return reviewRepository.findByLearnerOrderByCreatedAtDesc(learner);
+    public List<ReviewEntity> getStudentReviews(UserEntity student) {
+        return reviewRepository.findByStudentOrderByCreatedAtDesc(student);
     }
 
     public List<ReviewEntity> getReviewsByRating(Integer rating) {
@@ -69,5 +73,33 @@ public class ReviewService {
                 .mapToInt(ReviewEntity::getRating)
                 .sum();
         return sum / reviews.size();
+    }
+
+    // Paginated version of getTutorReviews with sorting
+    public Page<ReviewEntity> getTutorReviewsPaginated(
+            UserEntity tutor, String sortBy, String direction, int page, int size) {
+        
+        Sort sort = direction.equalsIgnoreCase("ASC") ? 
+                Sort.by(sortBy).ascending() : 
+                Sort.by(sortBy).descending();
+                
+        Pageable pageable = PageRequest.of(page, size, sort);
+        return reviewRepository.findByTutor(tutor, pageable);
+    }
+    
+    // Paginated version of getStudentReviews
+    public Page<ReviewEntity> getStudentReviewsPaginated(
+            UserEntity student, int page, int size) {
+        
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        return reviewRepository.findByStudent(student, pageable);
+    }
+    
+    // Paginated version of getReviewsByRating
+    public Page<ReviewEntity> getReviewsByRatingPaginated(
+            Integer rating, int page, int size) {
+        
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        return reviewRepository.findByRating(rating, pageable);
     }
 } 

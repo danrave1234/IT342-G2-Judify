@@ -1,11 +1,14 @@
 package edu.cit.Judify.Conversation;
 
+import edu.cit.Judify.Conversation.DTO.ConversationDTO;
+import edu.cit.Judify.Conversation.DTO.ConversationDTOMapper;
 import edu.cit.Judify.User.UserEntity;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/conversations")
@@ -13,44 +16,51 @@ import java.util.List;
 public class ConversationController {
 
     private final ConversationService conversationService;
+    private final ConversationDTOMapper conversationDTOMapper;
 
     @Autowired
-    public ConversationController(ConversationService conversationService) {
+    public ConversationController(ConversationService conversationService, ConversationDTOMapper conversationDTOMapper) {
         this.conversationService = conversationService;
+        this.conversationDTOMapper = conversationDTOMapper;
     }
 
-    @PostMapping
-    public ResponseEntity<ConversationEntity> createConversation(@RequestBody ConversationEntity conversation) {
-        return ResponseEntity.ok(conversationService.createConversation(conversation));
+    @PostMapping("/createConversation")
+    public ResponseEntity<ConversationDTO> createConversation(@RequestBody ConversationDTO conversationDTO) {
+        ConversationEntity conversation = conversationDTOMapper.toEntity(conversationDTO, null); // Participants will be set by the service
+        return ResponseEntity.ok(conversationDTOMapper.toDTO(conversationService.createConversation(conversation)));
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<ConversationEntity> getConversationById(@PathVariable Long id) {
+    @GetMapping("/findById/{id}")
+    public ResponseEntity<ConversationDTO> getConversationById(@PathVariable Long id) {
         return conversationService.getConversationById(id)
+                .map(conversationDTOMapper::toDTO)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<List<ConversationEntity>> getUserConversations(@PathVariable UserEntity participant) {
-        return ResponseEntity.ok(conversationService.getUserConversations(participant));
+    @GetMapping("/findByUser/{userId}")
+    public ResponseEntity<List<ConversationDTO>> getUserConversations(@PathVariable UserEntity participant) {
+        return ResponseEntity.ok(conversationService.getUserConversations(participant)
+                .stream()
+                .map(conversationDTOMapper::toDTO)
+                .collect(Collectors.toList()));
     }
 
-    @PutMapping("/{id}/participants/add")
-    public ResponseEntity<ConversationEntity> addParticipant(
+    @PutMapping("/addParticipant/{id}")
+    public ResponseEntity<ConversationDTO> addParticipant(
             @PathVariable Long id,
             @RequestBody UserEntity participant) {
-        return ResponseEntity.ok(conversationService.addParticipant(id, participant));
+        return ResponseEntity.ok(conversationDTOMapper.toDTO(conversationService.addParticipant(id, participant)));
     }
 
-    @PutMapping("/{id}/participants/remove")
-    public ResponseEntity<ConversationEntity> removeParticipant(
+    @PutMapping("/removeParticipant/{id}")
+    public ResponseEntity<ConversationDTO> removeParticipant(
             @PathVariable Long id,
             @RequestBody UserEntity participant) {
-        return ResponseEntity.ok(conversationService.removeParticipant(id, participant));
+        return ResponseEntity.ok(conversationDTOMapper.toDTO(conversationService.removeParticipant(id, participant)));
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/deleteConversation/{id}")
     public ResponseEntity<Void> deleteConversation(@PathVariable Long id) {
         conversationService.deleteConversation(id);
         return ResponseEntity.ok().build();

@@ -1,13 +1,17 @@
 package edu.cit.Judify.TutoringSession;
 
+import edu.cit.Judify.TutoringSession.DTO.TutoringSessionDTO;
+import edu.cit.Judify.TutoringSession.DTO.TutoringSessionDTOMapper;
 import edu.cit.Judify.User.UserEntity;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Date;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/tutoring-sessions")
@@ -15,77 +19,146 @@ import java.util.List;
 public class TutoringSessionController {
 
     private final TutoringSessionService sessionService;
+    private final TutoringSessionDTOMapper sessionDTOMapper;
 
     @Autowired
-    public TutoringSessionController(TutoringSessionService sessionService) {
+    public TutoringSessionController(TutoringSessionService sessionService, 
+                                    TutoringSessionDTOMapper sessionDTOMapper) {
         this.sessionService = sessionService;
+        this.sessionDTOMapper = sessionDTOMapper;
     }
 
-    @PostMapping
-    public ResponseEntity<TutoringSessionEntity> createSession(@RequestBody TutoringSessionEntity session) {
-        return ResponseEntity.ok(sessionService.createSession(session));
+    @PostMapping("/createSession")
+    public ResponseEntity<TutoringSessionDTO> createSession(@RequestBody TutoringSessionDTO sessionDTO) {
+        TutoringSessionEntity session = sessionDTOMapper.toEntity(sessionDTO);
+        return ResponseEntity.ok(sessionDTOMapper.toDTO(sessionService.createSession(session)));
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<TutoringSessionEntity> getSessionById(@PathVariable Long id) {
+    @GetMapping("/findById/{id}")
+    public ResponseEntity<TutoringSessionDTO> getSessionById(@PathVariable Long id) {
         return sessionService.getSessionById(id)
+                .map(sessionDTOMapper::toDTO)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @GetMapping("/tutor/{tutorId}")
-    public ResponseEntity<List<TutoringSessionEntity>> getTutorSessions(@PathVariable UserEntity tutor) {
-        return ResponseEntity.ok(sessionService.getTutorSessions(tutor));
+    @GetMapping("/findByTutor/{tutorId}")
+    public ResponseEntity<List<TutoringSessionDTO>> getTutorSessions(@PathVariable UserEntity tutor) {
+        return ResponseEntity.ok(sessionService.getTutorSessions(tutor)
+                .stream()
+                .map(sessionDTOMapper::toDTO)
+                .collect(Collectors.toList()));
     }
 
-    @GetMapping("/learner/{learnerId}")
-    public ResponseEntity<List<TutoringSessionEntity>> getLearnerSessions(@PathVariable UserEntity learner) {
-        return ResponseEntity.ok(sessionService.getLearnerSessions(learner));
+    @GetMapping("/findByStudent/{studentId}")
+    public ResponseEntity<List<TutoringSessionDTO>> getStudentSessions(@PathVariable UserEntity student) {
+        return ResponseEntity.ok(sessionService.getStudentSessions(student)
+                .stream()
+                .map(sessionDTOMapper::toDTO)
+                .collect(Collectors.toList()));
     }
 
-    @GetMapping("/status/{status}")
-    public ResponseEntity<List<TutoringSessionEntity>> getSessionsByStatus(@PathVariable String status) {
-        return ResponseEntity.ok(sessionService.getSessionsByStatus(status));
+    @GetMapping("/findByStatus/{status}")
+    public ResponseEntity<List<TutoringSessionDTO>> getSessionsByStatus(@PathVariable String status) {
+        return ResponseEntity.ok(sessionService.getSessionsByStatus(status)
+                .stream()
+                .map(sessionDTOMapper::toDTO)
+                .collect(Collectors.toList()));
     }
 
-    @GetMapping("/date-range")
-    public ResponseEntity<List<TutoringSessionEntity>> getSessionsBetweenDates(
-            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") Date start,
-            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") Date end) {
-        return ResponseEntity.ok(sessionService.getSessionsBetweenDates(start, end));
+    @GetMapping("/findByDateRange")
+    public ResponseEntity<List<TutoringSessionDTO>> getSessionsBetweenDates(
+            @RequestParam("start") @DateTimeFormat(pattern = "yyyy-MM-dd") Date start,
+            @RequestParam("end") @DateTimeFormat(pattern = "yyyy-MM-dd") Date end) {
+        return ResponseEntity.ok(sessionService.getSessionsBetweenDates(start, end)
+                .stream()
+                .map(sessionDTOMapper::toDTO)
+                .collect(Collectors.toList()));
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<TutoringSessionEntity> updateSession(
+    @PutMapping("/updateSession/{id}")
+    public ResponseEntity<TutoringSessionDTO> updateSession(
             @PathVariable Long id,
-            @RequestBody TutoringSessionEntity sessionDetails) {
-        return ResponseEntity.ok(sessionService.updateSession(id, sessionDetails));
+            @RequestBody TutoringSessionDTO sessionDTO) {
+        TutoringSessionEntity sessionDetails = sessionDTOMapper.toEntity(sessionDTO);
+        return ResponseEntity.ok(sessionDTOMapper.toDTO(
+                sessionService.updateSession(id, sessionDetails)));
     }
 
-    @PutMapping("/{id}/status")
-    public ResponseEntity<TutoringSessionEntity> updateSessionStatus(
+    @PutMapping("/updateStatus/{id}")
+    public ResponseEntity<TutoringSessionDTO> updateSessionStatus(
             @PathVariable Long id,
-            @RequestParam String status) {
-        return ResponseEntity.ok(sessionService.updateSessionStatus(id, status));
+            @RequestBody String status) {
+        return ResponseEntity.ok(sessionDTOMapper.toDTO(
+                sessionService.updateSessionStatus(id, status)));
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/deleteSession/{id}")
     public ResponseEntity<Void> deleteSession(@PathVariable Long id) {
         sessionService.deleteSession(id);
         return ResponseEntity.ok().build();
     }
 
-    @GetMapping("/tutor/{tutorId}/status/{status}")
-    public ResponseEntity<List<TutoringSessionEntity>> getTutorSessionsByStatus(
+    @GetMapping("/findByTutorAndStatus/{tutorId}/{status}")
+    public ResponseEntity<List<TutoringSessionDTO>> getTutorSessionsByStatus(
             @PathVariable UserEntity tutor,
             @PathVariable String status) {
-        return ResponseEntity.ok(sessionService.getTutorSessionsByStatus(tutor, status));
+        return ResponseEntity.ok(sessionService.getTutorSessionsByStatus(tutor, status)
+                .stream()
+                .map(sessionDTOMapper::toDTO)
+                .collect(Collectors.toList()));
     }
 
-    @GetMapping("/learner/{learnerId}/status/{status}")
-    public ResponseEntity<List<TutoringSessionEntity>> getLearnerSessionsByStatus(
-            @PathVariable UserEntity learner,
+    @GetMapping("/findByStudentAndStatus/{studentId}/{status}")
+    public ResponseEntity<List<TutoringSessionDTO>> getStudentSessionsByStatus(
+            @PathVariable UserEntity student,
             @PathVariable String status) {
-        return ResponseEntity.ok(sessionService.getLearnerSessionsByStatus(learner, status));
+        return ResponseEntity.ok(sessionService.getStudentSessionsByStatus(student, status)
+                .stream()
+                .map(sessionDTOMapper::toDTO)
+                .collect(Collectors.toList()));
+    }
+
+    @GetMapping("/findByTutorPaginated/{tutorId}")
+    public ResponseEntity<Page<TutoringSessionDTO>> getTutorSessionsPaginated(
+            @PathVariable UserEntity tutor,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date startDate,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date endDate,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        
+        Page<TutoringSessionEntity> sessions = sessionService.getTutorSessionsPaginated(
+                tutor, startDate, endDate, page, size);
+                
+        Page<TutoringSessionDTO> sessionDTOs = sessions.map(sessionDTOMapper::toDTO);
+        return ResponseEntity.ok(sessionDTOs);
+    }
+    
+    @GetMapping("/findByStudentPaginated/{studentId}")
+    public ResponseEntity<Page<TutoringSessionDTO>> getStudentSessionsPaginated(
+            @PathVariable UserEntity student,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date startDate,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date endDate,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        
+        Page<TutoringSessionEntity> sessions = sessionService.getStudentSessionsPaginated(
+                student, startDate, endDate, page, size);
+                
+        Page<TutoringSessionDTO> sessionDTOs = sessions.map(sessionDTOMapper::toDTO);
+        return ResponseEntity.ok(sessionDTOs);
+    }
+    
+    @GetMapping("/findByStatusPaginated/{status}")
+    public ResponseEntity<Page<TutoringSessionDTO>> getSessionsByStatusPaginated(
+            @PathVariable String status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        
+        Page<TutoringSessionEntity> sessions = sessionService.getSessionsByStatusPaginated(
+                status, page, size);
+                
+        Page<TutoringSessionDTO> sessionDTOs = sessions.map(sessionDTOMapper::toDTO);
+        return ResponseEntity.ok(sessionDTOs);
     }
 } 
