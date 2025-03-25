@@ -1,85 +1,140 @@
-import { NavLink } from 'react-router-dom';
-import { 
-  FaHome, 
-  FaUserCircle, 
-  FaCalendarAlt, 
-  FaDollarSign, 
-  FaUsers, 
-  FaComments, 
-  FaSearch, 
-  FaClipboardList
-} from 'react-icons/fa';
+import { Link, useLocation } from 'react-router-dom';
+import { FaHome, FaUser, FaCalendarAlt, FaChartLine, FaSearch, FaComments } from 'react-icons/fa';
 
 const Sidebar = ({ userType }) => {
-  const tutorLinks = [
-    { name: 'Dashboard', path: '/tutor', icon: <FaHome /> },
-    { name: 'Profile', path: '/tutor/profile', icon: <FaUserCircle /> },
-    { name: 'Sessions', path: '/tutor/sessions', icon: <FaCalendarAlt /> },
-    { name: 'Students', path: '/tutor/students', icon: <FaUsers /> },
-    { name: 'Messages', path: '/tutor/messages', icon: <FaComments /> },
-    { name: 'Earnings', path: '/tutor/earnings', icon: <FaDollarSign /> },
-  ];
-  
-  const studentLinks = [
-    { name: 'Dashboard', path: '/student', icon: <FaHome /> },
-    { name: 'Find Tutors', path: '/student/find-tutors', icon: <FaSearch /> },
-    { name: 'My Sessions', path: '/student/sessions', icon: <FaCalendarAlt /> },
-    { name: 'Messages', path: '/student/messages', icon: <FaComments /> },
-    { name: 'Profile', path: '/student/profile', icon: <FaUserCircle /> },
-    { name: 'Payments', path: '/student/payments', icon: <FaDollarSign /> },
-  ];
-  
-  const links = userType === 'tutor' ? tutorLinks : studentLinks;
+  const location = useLocation();
+
+  const isActive = (path) => {
+    return location.pathname === path;
+  };
 
   return (
-    <aside className="hidden md:block w-64 bg-white shadow-md h-screen sticky top-0">
-      <div className="p-6">
-        <h3 className="text-lg font-semibold text-gray-700">
-          {userType === 'tutor' ? 'Tutor Portal' : 'Student Portal'}
-        </h3>
+    <div className="h-full flex flex-col border-r border-gray-200 dark:border-dark-700 bg-white dark:bg-dark-800">
+      <div className="p-4 border-b border-gray-200 dark:border-dark-700">
+        <Link to="/" className="flex items-center justify-center">
+          <span className="text-primary-600 dark:text-primary-500 text-2xl font-bold">Judify</span>
+        </Link>
       </div>
-      <nav className="mt-2">
-        <ul>
-          {links.map((link) => (
-            <li key={link.path}>
-              <NavLink
-                to={link.path}
-                className={({ isActive }) =>
-                  `flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors ${
-                    isActive ? 'bg-blue-50 text-blue-600 border-r-4 border-blue-600' : ''
-                  }`
-                }
-              >
-                <span className="mr-3 text-lg">{link.icon}</span>
-                {link.name}
-              </NavLink>
-            </li>
-          ))}
-        </ul>
+      <nav className="flex-1 p-4 space-y-1">
+        {userType === 'tutor' ? (
+          <>
+            <Link
+              to="/tutor"
+              className={`flex items-center space-x-3 p-3 rounded-lg transition-colors ${
+                isActive('/tutor')
+                  ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-500'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-700'
+              }`}
+            >
+              <FaHome className="text-xl" />
+              <span>Dashboard</span>
+            </Link>
+            <Link
+              to="/tutor/profile"
+              className={`flex items-center space-x-3 p-3 rounded-lg transition-colors ${
+                isActive('/tutor/profile')
+                  ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-500'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-700'
+              }`}
+            >
+              <FaUser className="text-xl" />
+              <span>Profile</span>
+            </Link>
+            <Link
+              to="/tutor/sessions"
+              className={`flex items-center space-x-3 p-3 rounded-lg transition-colors ${
+                isActive('/tutor/sessions')
+                  ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-500'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-700'
+              }`}
+            >
+              <FaCalendarAlt className="text-xl" />
+              <span>Sessions</span>
+            </Link>
+            <Link
+              to="/tutor/earnings"
+              className={`flex items-center space-x-3 p-3 rounded-lg transition-colors ${
+                isActive('/tutor/earnings')
+                  ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-500'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-700'
+              }`}
+            >
+              <FaChartLine className="text-xl" />
+              <span>Earnings</span>
+            </Link>
+            <Link
+              to="/tutor/messages"
+              className={`flex items-center space-x-3 p-3 rounded-lg transition-colors ${
+                isActive('/tutor/messages')
+                  ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-500'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-700'
+              }`}
+            >
+              <FaComments className="text-xl" />
+              <span>Messages</span>
+            </Link>
+          </>
+        ) : (
+          <>
+            <Link
+              to="/student"
+              className={`flex items-center space-x-3 p-3 rounded-lg transition-colors ${
+                isActive('/student')
+                  ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-500'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-700'
+              }`}
+            >
+              <FaHome className="text-xl" />
+              <span>Dashboard</span>
+            </Link>
+            <Link
+              to="/student/profile"
+              className={`flex items-center space-x-3 p-3 rounded-lg transition-colors ${
+                isActive('/student/profile')
+                  ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-500'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-700'
+              }`}
+            >
+              <FaUser className="text-xl" />
+              <span>Profile</span>
+            </Link>
+            <Link
+              to="/student/find-tutors"
+              className={`flex items-center space-x-3 p-3 rounded-lg transition-colors ${
+                isActive('/student/find-tutors')
+                  ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-500'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-700'
+              }`}
+            >
+              <FaSearch className="text-xl" />
+              <span>Find Tutors</span>
+            </Link>
+            <Link
+              to="/student/sessions"
+              className={`flex items-center space-x-3 p-3 rounded-lg transition-colors ${
+                isActive('/student/sessions')
+                  ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-500'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-700'
+              }`}
+            >
+              <FaCalendarAlt className="text-xl" />
+              <span>My Sessions</span>
+            </Link>
+            <Link
+              to="/student/messages"
+              className={`flex items-center space-x-3 p-3 rounded-lg transition-colors ${
+                isActive('/student/messages')
+                  ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-500'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-700'
+              }`}
+            >
+              <FaComments className="text-xl" />
+              <span>Messages</span>
+            </Link>
+          </>
+        )}
       </nav>
-      {userType === 'tutor' && (
-        <div className="absolute bottom-0 left-0 right-0 p-6 border-t">
-          <div className="flex flex-col space-y-2">
-            <h4 className="font-medium text-gray-700">Availability</h4>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Status:</span>
-              <div className="relative inline-block w-10 mr-2 align-middle select-none">
-                <input 
-                  type="checkbox" 
-                  id="availability-toggle" 
-                  className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
-                />
-                <label 
-                  htmlFor="availability-toggle" 
-                  className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"
-                ></label>
-              </div>
-              <span className="text-sm font-medium text-green-600">Available</span>
-            </div>
-          </div>
-        </div>
-      )}
-    </aside>
+    </div>
   );
 };
 
