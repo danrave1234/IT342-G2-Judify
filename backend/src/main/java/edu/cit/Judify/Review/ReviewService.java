@@ -32,8 +32,8 @@ public class ReviewService {
         return reviewRepository.findByTutorOrderByCreatedAtDesc(tutor);
     }
 
-    public List<ReviewEntity> getLearnerReviews(UserEntity learner) {
-        return reviewRepository.findByLearnerOrderByCreatedAtDesc(learner);
+    public List<ReviewEntity> getStudentReviews(UserEntity student) {
+        return reviewRepository.findByStudentOrderByCreatedAtDesc(student);
     }
 
     public List<ReviewEntity> getReviewsByRating(Integer rating) {

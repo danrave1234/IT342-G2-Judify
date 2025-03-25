@@ -1,11 +1,14 @@
 package edu.cit.Judify.PaymentTransaction;
 
+import edu.cit.Judify.PaymentTransaction.DTO.PaymentTransactionDTO;
+import edu.cit.Judify.PaymentTransaction.DTO.PaymentTransactionDTOMapper;
 import edu.cit.Judify.User.UserEntity;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/payments")
@@ -13,69 +16,80 @@ import java.util.List;
 public class PaymentTransactionController {
 
     private final PaymentTransactionService paymentService;
+    private final PaymentTransactionDTOMapper paymentDTOMapper;
 
     @Autowired
-    public PaymentTransactionController(PaymentTransactionService paymentService) {
+    public PaymentTransactionController(PaymentTransactionService paymentService, 
+                                       PaymentTransactionDTOMapper paymentDTOMapper) {
         this.paymentService = paymentService;
+        this.paymentDTOMapper = paymentDTOMapper;
     }
 
-    @PostMapping
-    public ResponseEntity<PaymentTransactionEntity> createTransaction(
-            @RequestBody PaymentTransactionEntity transaction) {
-        return ResponseEntity.ok(paymentService.createTransaction(transaction));
+    @PostMapping("/createTransaction")
+    public ResponseEntity<PaymentTransactionDTO> createTransaction(
+            @RequestBody PaymentTransactionDTO transactionDTO) {
+        PaymentTransactionEntity transaction = paymentDTOMapper.toEntity(transactionDTO);
+        return ResponseEntity.ok(paymentDTOMapper.toDTO(paymentService.createTransaction(transaction)));
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<PaymentTransactionEntity> getTransactionById(@PathVariable Long id) {
+    @GetMapping("/findById/{id}")
+    public ResponseEntity<PaymentTransactionDTO> getTransactionById(@PathVariable Long id) {
         return paymentService.getTransactionById(id)
+                .map(paymentDTOMapper::toDTO)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @GetMapping("/payer/{payerId}")
-    public ResponseEntity<List<PaymentTransactionEntity>> getPayerTransactions(
+    @GetMapping("/findByPayer/{payerId}")
+    public ResponseEntity<List<PaymentTransactionDTO>> getPayerTransactions(
             @PathVariable UserEntity payer) {
-        return ResponseEntity.ok(paymentService.getPayerTransactions(payer));
+        return ResponseEntity.ok(paymentService.getPayerTransactions(payer)
+                .stream()
+                .map(paymentDTOMapper::toDTO)
+                .collect(Collectors.toList()));
     }
 
-    @GetMapping("/payee/{payeeId}")
-    public ResponseEntity<List<PaymentTransactionEntity>> getPayeeTransactions(
+    @GetMapping("/findByPayee/{payeeId}")
+    public ResponseEntity<List<PaymentTransactionDTO>> getPayeeTransactions(
             @PathVariable UserEntity payee) {
-        return ResponseEntity.ok(paymentService.getPayeeTransactions(payee));
+        return ResponseEntity.ok(paymentService.getPayeeTransactions(payee)
+                .stream()
+                .map(paymentDTOMapper::toDTO)
+                .collect(Collectors.toList()));
     }
 
-    @GetMapping("/status/{status}")
-    public ResponseEntity<List<PaymentTransactionEntity>> getTransactionsByStatus(
+    @GetMapping("/findByStatus/{status}")
+    public ResponseEntity<List<PaymentTransactionDTO>> getTransactionsByStatus(
             @PathVariable String status) {
-        return ResponseEntity.ok(paymentService.getTransactionsByStatus(status));
+        return ResponseEntity.ok(paymentService.getTransactionsByStatus(status)
+                .stream()
+                .map(paymentDTOMapper::toDTO)
+                .collect(Collectors.toList()));
     }
 
-    @GetMapping("/reference/{reference}")
-    public ResponseEntity<List<PaymentTransactionEntity>> getTransactionsByReference(
+    @GetMapping("/findByReference/{reference}")
+    public ResponseEntity<List<PaymentTransactionDTO>> getTransactionsByReference(
             @PathVariable String reference) {
-        return ResponseEntity.ok(paymentService.getTransactionsByReference(reference));
+        return ResponseEntity.ok(paymentService.getTransactionsByReference(reference)
+                .stream()
+                .map(paymentDTOMapper::toDTO)
+                .collect(Collectors.toList()));
     }
 
-    @PutMapping("/{id}/status")
-    public ResponseEntity<PaymentTransactionEntity> updateTransactionStatus(
+    @PutMapping("/updateStatus/{id}")
+    public ResponseEntity<PaymentTransactionDTO> updateTransactionStatus(
             @PathVariable Long id,
-            @RequestParam String status) {
-        return ResponseEntity.ok(paymentService.updateTransactionStatus(id, status));
+            @RequestBody String status) {
+        return ResponseEntity.ok(paymentDTOMapper.toDTO(
+                paymentService.updateTransactionStatus(id, status)));
     }
 
-    @PutMapping("/{id}/reference")
-    public ResponseEntity<PaymentTransactionEntity> updatePaymentReference(
-            @PathVariable Long id,
-            @RequestParam String reference) {
-        return ResponseEntity.ok(paymentService.updatePaymentReference(id, reference));
+    @PostMapping("/processRefund/{id}")
+    public ResponseEntity<PaymentTransactionDTO> processRefund(@PathVariable Long id) {
+        return ResponseEntity.ok(paymentDTOMapper.toDTO(paymentService.processRefund(id)));
     }
 
-    @PostMapping("/{id}/refund")
-    public ResponseEntity<PaymentTransactionEntity> processRefund(@PathVariable Long id) {
-        return ResponseEntity.ok(paymentService.processRefund(id));
-    }
-
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/deleteTransaction/{id}")
     public ResponseEntity<Void> deleteTransaction(@PathVariable Long id) {
         paymentService.deleteTransaction(id);
         return ResponseEntity.ok().build();

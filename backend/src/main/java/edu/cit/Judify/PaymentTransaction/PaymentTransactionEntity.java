@@ -15,7 +15,7 @@ public class PaymentTransactionEntity {
     private Long transactionId;
 
     // One-to-one mapping with a tutoring session
-    @OneToOne
+    @ManyToOne
     @JoinColumn(name = "session_id", nullable = false)
     private TutoringSessionEntity session;
 
@@ -32,16 +32,23 @@ public class PaymentTransactionEntity {
     private Double amount;
 
     @Column(nullable = false)
-    private String currency;
+    private String status;
 
     @Column(nullable = false)
-    private String paymentStatus; // e.g., pending, completed, refunded
+    private String paymentStatus; // e.g., pending, completed, failed, refunded
 
+    @Column(nullable = false)
     private String paymentGatewayReference; // External reference (e.g., Stripe)
+
+    @Column(nullable = false)
+    private String transactionReference;
 
     @Temporal(TemporalType.TIMESTAMP)
     @Column(nullable = false, updatable = false)
     private Date createdAt;
+
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date updatedAt;
 
     // Constructors
     public PaymentTransactionEntity() {
@@ -84,11 +91,11 @@ public class PaymentTransactionEntity {
         this.amount = amount;
     }
 
-    public String getCurrency() {
-        return currency;
+    public String getStatus() {
+        return status;
     }
-    public void setCurrency(String currency) {
-        this.currency = currency;
+    public void setStatus(String status) {
+        this.status = status;
     }
 
     public String getPaymentStatus() {
@@ -105,6 +112,13 @@ public class PaymentTransactionEntity {
         this.paymentGatewayReference = paymentGatewayReference;
     }
 
+    public String getTransactionReference() {
+        return transactionReference;
+    }
+    public void setTransactionReference(String transactionReference) {
+        this.transactionReference = transactionReference;
+    }
+
     public Date getCreatedAt() {
         return createdAt;
     }
@@ -112,8 +126,21 @@ public class PaymentTransactionEntity {
         this.createdAt = createdAt;
     }
 
+    public Date getUpdatedAt() {
+        return updatedAt;
+    }
+    public void setUpdatedAt(Date updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
     @PrePersist
     protected void onCreate() {
         createdAt = new Date();
+        updatedAt = createdAt;
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = new Date();
     }
 }

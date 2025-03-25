@@ -8,10 +8,10 @@ import java.util.List;
 
 @Repository
 public interface TutoringSessionRepository extends JpaRepository<TutoringSessionEntity, Long> {
-    List<TutoringSessionEntity> findByTutorOrderByScheduledStartDesc(UserEntity tutor);
-    List<TutoringSessionEntity> findByLearnerOrderByScheduledStartDesc(UserEntity learner);
+    List<TutoringSessionEntity> findByTutorOrderByStartTimeDesc(UserEntity tutor);
+    List<TutoringSessionEntity> findByStudentOrderByStartTimeDesc(UserEntity student);
     List<TutoringSessionEntity> findByStatus(String status);
-    List<TutoringSessionEntity> findByScheduledStartBetween(Date start, Date end);
+    List<TutoringSessionEntity> findByStartTimeBetween(Date start, Date end);
     List<TutoringSessionEntity> findByTutorAndStatus(UserEntity tutor, String status);
-    List<TutoringSessionEntity> findByLearnerAndStatus(UserEntity learner, String status);
+    List<TutoringSessionEntity> findByStudentAndStatus(UserEntity student, String status);
 } 

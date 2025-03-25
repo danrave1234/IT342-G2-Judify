@@ -1,11 +1,14 @@
 package edu.cit.Judify.TutorAvailability;
 
+import edu.cit.Judify.TutorAvailability.DTO.TutorAvailabilityDTO;
+import edu.cit.Judify.TutorAvailability.DTO.TutorAvailabilityDTOMapper;
 import edu.cit.Judify.User.UserEntity;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/tutor-availability")
@@ -13,64 +16,80 @@ import java.util.List;
 public class TutorAvailabilityController {
 
     private final TutorAvailabilityService availabilityService;
+    private final TutorAvailabilityDTOMapper availabilityDTOMapper;
 
     @Autowired
-    public TutorAvailabilityController(TutorAvailabilityService availabilityService) {
+    public TutorAvailabilityController(TutorAvailabilityService availabilityService, 
+                                      TutorAvailabilityDTOMapper availabilityDTOMapper) {
         this.availabilityService = availabilityService;
+        this.availabilityDTOMapper = availabilityDTOMapper;
     }
 
-    @PostMapping
-    public ResponseEntity<TutorAvailabilityEntity> createAvailability(
-            @RequestBody TutorAvailabilityEntity availability) {
-        return ResponseEntity.ok(availabilityService.createAvailability(availability));
+    @PostMapping("/createAvailability")
+    public ResponseEntity<TutorAvailabilityDTO> createAvailability(
+            @RequestBody TutorAvailabilityDTO availabilityDTO) {
+        TutorAvailabilityEntity availability = availabilityDTOMapper.toEntity(availabilityDTO); // Tutor will be set by service
+        return ResponseEntity.ok(availabilityDTOMapper.toDTO(availabilityService.createAvailability(availability)));
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<TutorAvailabilityEntity> getAvailabilityById(@PathVariable Long id) {
+    @GetMapping("/findById/{id}")
+    public ResponseEntity<TutorAvailabilityDTO> getAvailabilityById(@PathVariable Long id) {
         return availabilityService.getAvailabilityById(id)
+                .map(availabilityDTOMapper::toDTO)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @GetMapping("/tutor/{tutorId}")
-    public ResponseEntity<List<TutorAvailabilityEntity>> getTutorAvailability(
+    @GetMapping("/findByTutor/{tutorId}")
+    public ResponseEntity<List<TutorAvailabilityDTO>> getTutorAvailability(
             @PathVariable UserEntity tutor) {
-        return ResponseEntity.ok(availabilityService.getTutorAvailability(tutor));
+        return ResponseEntity.ok(availabilityService.getTutorAvailability(tutor)
+                .stream()
+                .map(availabilityDTOMapper::toDTO)
+                .collect(Collectors.toList()));
     }
 
-    @GetMapping("/day/{dayOfWeek}")
-    public ResponseEntity<List<TutorAvailabilityEntity>> getAvailabilityByDay(
+    @GetMapping("/findByDay/{dayOfWeek}")
+    public ResponseEntity<List<TutorAvailabilityDTO>> getAvailabilityByDay(
             @PathVariable String dayOfWeek) {
-        return ResponseEntity.ok(availabilityService.getAvailabilityByDay(dayOfWeek));
+        return ResponseEntity.ok(availabilityService.getAvailabilityByDay(dayOfWeek)
+                .stream()
+                .map(availabilityDTOMapper::toDTO)
+                .collect(Collectors.toList()));
     }
 
-    @GetMapping("/tutor/{tutorId}/day/{dayOfWeek}")
-    public ResponseEntity<List<TutorAvailabilityEntity>> getTutorAvailabilityByDay(
+    @GetMapping("/findByTutorAndDay/{tutorId}/{dayOfWeek}")
+    public ResponseEntity<List<TutorAvailabilityDTO>> getTutorAvailabilityByDay(
             @PathVariable UserEntity tutor,
             @PathVariable String dayOfWeek) {
-        return ResponseEntity.ok(availabilityService.getTutorAvailabilityByDay(tutor, dayOfWeek));
+        return ResponseEntity.ok(availabilityService.getTutorAvailabilityByDay(tutor, dayOfWeek)
+                .stream()
+                .map(availabilityDTOMapper::toDTO)
+                .collect(Collectors.toList()));
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<TutorAvailabilityEntity> updateAvailability(
+    @PutMapping("/updateAvailability/{id}")
+    public ResponseEntity<TutorAvailabilityDTO> updateAvailability(
             @PathVariable Long id,
-            @RequestBody TutorAvailabilityEntity availabilityDetails) {
-        return ResponseEntity.ok(availabilityService.updateAvailability(id, availabilityDetails));
+            @RequestBody TutorAvailabilityDTO availabilityDTO) {
+        TutorAvailabilityEntity availability = availabilityDTOMapper.toEntity(availabilityDTO);
+        return ResponseEntity.ok(availabilityDTOMapper.toDTO(
+                availabilityService.updateAvailability(id, availability)));
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/deleteAvailability/{id}")
     public ResponseEntity<Void> deleteAvailability(@PathVariable Long id) {
         availabilityService.deleteAvailability(id);
         return ResponseEntity.ok().build();
     }
 
-    @DeleteMapping("/tutor/{tutorId}")
+    @DeleteMapping("/deleteAllForTutor/{tutorId}")
     public ResponseEntity<Void> deleteTutorAvailability(@PathVariable UserEntity tutor) {
         availabilityService.deleteTutorAvailability(tutor);
         return ResponseEntity.ok().build();
     }
 
-    @GetMapping("/check-availability")
+    @GetMapping("/checkAvailability")
     public ResponseEntity<Boolean> isTimeSlotAvailable(
             @RequestParam UserEntity tutor,
             @RequestParam String dayOfWeek,

@@ -1,13 +1,16 @@
 package edu.cit.Judify.TutorProfile;
 
+import edu.cit.Judify.TutorProfile.DTO.TutorProfileDTO;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/tutor-profiles")
+@RequestMapping("/api/tutors")
 @CrossOrigin(origins = "*")
 public class TutorProfileController {
 
@@ -18,54 +21,80 @@ public class TutorProfileController {
         this.tutorProfileService = tutorProfileService;
     }
 
-    @PostMapping
-    public ResponseEntity<TutorProfileEntity> createTutorProfile(@RequestBody TutorProfileEntity profile) {
-        return ResponseEntity.ok(tutorProfileService.createTutorProfile(profile));
+    @GetMapping("/getAllProfiles")
+    public ResponseEntity<List<TutorProfileDTO>> getAllTutorProfiles() {
+        List<TutorProfileDTO> tutors = tutorProfileService.getAllTutorProfiles();
+        return ResponseEntity.ok(tutors);
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<TutorProfileEntity> getTutorProfileById(@PathVariable Long id) {
-        return tutorProfileService.getTutorProfileById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    @GetMapping("/findById/{id}")
+    public ResponseEntity<TutorProfileDTO> getTutorProfileById(@PathVariable Long id) {
+        try {
+            TutorProfileDTO tutor = tutorProfileService.getTutorProfileById(id);
+            return ResponseEntity.ok(tutor);
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
-    @GetMapping("/expertise/{expertise}")
-    public ResponseEntity<List<TutorProfileEntity>> findTutorsByExpertise(@PathVariable String expertise) {
-        return ResponseEntity.ok(tutorProfileService.findTutorsByExpertise(expertise));
+    @GetMapping("/findByUserId/{userId}")
+    public ResponseEntity<TutorProfileDTO> getTutorProfileByUserId(@PathVariable Long userId) {
+        try {
+            TutorProfileDTO tutor = tutorProfileService.getTutorProfileByUserId(userId);
+            return ResponseEntity.ok(tutor);
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
-    @GetMapping("/price-range")
-    public ResponseEntity<List<TutorProfileEntity>> findTutorsByPriceRange(
-            @RequestParam Double minRate,
-            @RequestParam Double maxRate) {
-        return ResponseEntity.ok(tutorProfileService.findTutorsByPriceRange(minRate, maxRate));
+    @PostMapping("/createProfile")
+    public ResponseEntity<TutorProfileDTO> createTutorProfile(@RequestBody TutorProfileDTO tutorProfileDTO) {
+        try {
+            TutorProfileDTO createdProfile = tutorProfileService.createTutorProfile(tutorProfileDTO);
+            return new ResponseEntity<>(createdProfile, HttpStatus.CREATED);
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
-    @GetMapping("/top-rated")
-    public ResponseEntity<List<TutorProfileEntity>> findTopRatedTutors(
-            @RequestParam(defaultValue = "4.0") Double minRating) {
-        return ResponseEntity.ok(tutorProfileService.findTopRatedTutors(minRating));
-    }
-
-    @PutMapping("/{id}")
-    public ResponseEntity<TutorProfileEntity> updateTutorProfile(
+    @PutMapping("/updateProfile/{id}")
+    public ResponseEntity<TutorProfileDTO> updateTutorProfile(
             @PathVariable Long id,
-            @RequestBody TutorProfileEntity profileDetails) {
-        return ResponseEntity.ok(tutorProfileService.updateTutorProfile(id, profileDetails));
+            @RequestBody TutorProfileDTO tutorProfileDTO) {
+        try {
+            TutorProfileDTO updatedProfile = tutorProfileService.updateTutorProfile(id, tutorProfileDTO);
+            return ResponseEntity.ok(updatedProfile);
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
-    @PutMapping("/{id}/rating")
-    public ResponseEntity<TutorProfileEntity> updateTutorRating(
-            @PathVariable Long id,
-            @RequestParam Double newRating,
-            @RequestParam Integer newCount) {
-        return ResponseEntity.ok(tutorProfileService.updateTutorRating(id, newRating, newCount));
-    }
-
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/deleteProfile/{id}")
     public ResponseEntity<Void> deleteTutorProfile(@PathVariable Long id) {
-        tutorProfileService.deleteTutorProfile(id);
-        return ResponseEntity.ok().build();
+        try {
+            tutorProfileService.deleteTutorProfile(id);
+            return ResponseEntity.noContent().build();
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @GetMapping("/searchBySubject")
+    public ResponseEntity<List<TutorProfileDTO>> searchTutorProfiles(
+            @RequestParam String subject) {
+        List<TutorProfileDTO> tutors = tutorProfileService.searchTutorProfiles(subject);
+        return ResponseEntity.ok(tutors);
+    }
+
+    @PutMapping("/updateRating/{id}")
+    public ResponseEntity<TutorProfileDTO> updateTutorRating(
+            @PathVariable Long id,
+            @RequestParam Double rating) {
+        try {
+            TutorProfileDTO updatedProfile = tutorProfileService.updateTutorRating(id, rating);
+            return ResponseEntity.ok(updatedProfile);
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 } 
