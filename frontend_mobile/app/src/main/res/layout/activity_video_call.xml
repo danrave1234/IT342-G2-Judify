@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/black"
+    tools:context=".ui.session.VideoCallActivity">
+
+    <!-- Remote Video (Full Screen) -->
+    <View
+        android:id="@+id/remoteVideoView"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="#333333"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Participant Name -->
+    <TextView
+        android:id="@+id/participantNameText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:background="#80000000"
+        android:padding="8dp"
+        android:text="Participant Name"
+        android:textColor="@android:color/white"
+        android:textSize="16sp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Call Status -->
+    <TextView
+        android:id="@+id/callStatusText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:background="#80000000"
+        android:padding="8dp"
+        android:text="Connecting..."
+        android:textColor="@android:color/white"
+        android:textSize="14sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Call Duration -->
+    <TextView
+        android:id="@+id/callDurationText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:background="#80000000"
+        android:padding="8dp"
+        android:text="00:00"
+        android:textColor="@android:color/white"
+        android:textSize="14sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/callStatusText" />
+
+    <!-- Local Video (Picture-in-Picture) -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/localVideoContainer"
+        android:layout_width="120dp"
+        android:layout_height="160dp"
+        android:layout_margin="16dp"
+        app:cardCornerRadius="8dp"
+        app:cardElevation="8dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@id/controlsPanel"
+        app:layout_constraintVertical_bias="0.0">
+
+        <View
+            android:id="@+id/localVideoView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#555555" />
+    </androidx.cardview.widget.CardView>
+
+    <!-- Controls Panel -->
+    <LinearLayout
+        android:id="@+id/controlsPanel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#80000000"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:padding="16dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <ImageButton
+            android:id="@+id/toggleMicButton"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_margin="8dp"
+            android:background="@drawable/circle_button_background"
+            android:contentDescription="Toggle Microphone"
+            android:padding="12dp"
+            android:src="@drawable/ic_mic_on"
+            android:tint="@android:color/white" />
+
+        <ImageButton
+            android:id="@+id/toggleCameraButton"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_margin="8dp"
+            android:background="@drawable/circle_button_background"
+            android:contentDescription="Toggle Camera"
+            android:padding="12dp"
+            android:src="@drawable/ic_video_on"
+            android:tint="@android:color/white" />
+
+        <ImageButton
+            android:id="@+id/endCallButton"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:layout_margin="8dp"
+            android:background="@drawable/circle_button_red_background"
+            android:contentDescription="End Call"
+            android:padding="12dp"
+            android:src="@drawable/ic_call_end"
+            android:tint="@android:color/white" />
+
+        <ImageButton
+            android:id="@+id/toggleScreenShareButton"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_margin="8dp"
+            android:background="@drawable/circle_button_background"
+            android:contentDescription="Toggle Screen Share"
+            android:padding="12dp"
+            android:src="@drawable/ic_screen_share"
+            android:tint="@android:color/white" />
+
+        <ImageButton
+            android:id="@+id/toggleSpeakerButton"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_margin="8dp"
+            android:background="@drawable/circle_button_background"
+            android:contentDescription="Toggle Speaker"
+            android:padding="12dp"
+            android:src="@drawable/ic_speaker_on"
+            android:tint="@android:color/white" />
+    </LinearLayout>
+
+    <!-- Join Button (Visible before call starts) -->
+    <Button
+        android:id="@+id/joinButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:text="Join Call"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Loading Progress -->
+    <ProgressBar
+        android:id="@+id/loadingProgressBar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Status Text -->
+    <TextView
+        android:id="@+id/statusText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Loading session..."
+        android:textColor="@android:color/white"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/loadingProgressBar" />
+
+</androidx.constraintlayout.widget.ConstraintLayout> 

@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base dark theme -->
+    <style name="Theme.Judify" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- Primary brand colors -->
+        <item name="colorPrimary">@color/primary_blue</item>
+        <item name="colorPrimaryVariant">@color/primary_dark_blue</item>
+        <item name="colorOnPrimary">@color/white</item>
+        
+        <!-- Secondary brand colors -->
+        <item name="colorSecondary">@color/secondary_color</item>
+        <item name="colorSecondaryVariant">@color/secondary_dark_color</item>
+        <item name="colorOnSecondary">@color/white</item>
+        
+        <!-- Background colors -->
+        <item name="android:colorBackground">@color/dark_background</item>
+        <item name="colorSurface">@color/dark_surface</item>
+        <item name="colorOnBackground">@color/white</item>
+        <item name="colorOnSurface">@color/white</item>
+        
+        <!-- Status bar and Navigation bar -->
+        <item name="android:statusBarColor">@color/dark_status_bar</item>
+        <item name="android:navigationBarColor">@color/dark_nav_bar</item>
+        
+        <!-- Text colors -->
+        <item name="android:textColorPrimary">@color/white</item>
+        <item name="android:textColorSecondary">@color/dark_text_secondary</item>
+        
+        <!-- Dialog Theme -->
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.App.MaterialAlertDialog</item>
+        
+        <!-- Error color -->
+        <item name="colorError">@color/error</item>
+        <item name="colorOnError">@color/white</item>
+        
+        <!-- Text appearances -->
+        <item name="textAppearanceHeadline1">@style/TextAppearance.Judify.Dark.Headline1</item>
+        <item name="textAppearanceHeadline2">@style/TextAppearance.Judify.Dark.Headline2</item>
+        <item name="textAppearanceHeadline3">@style/TextAppearance.Judify.Dark.Headline3</item>
+        <item name="textAppearanceHeadline4">@style/TextAppearance.Judify.Dark.Headline4</item>
+        <item name="textAppearanceHeadline5">@style/TextAppearance.Judify.Dark.Headline5</item>
+        <item name="textAppearanceHeadline6">@style/TextAppearance.Judify.Dark.Headline6</item>
+        <item name="textAppearanceSubtitle1">@style/TextAppearance.Judify.Dark.Subtitle1</item>
+        <item name="textAppearanceSubtitle2">@style/TextAppearance.Judify.Dark.Subtitle2</item>
+        <item name="textAppearanceBody1">@style/TextAppearance.Judify.Dark.Body1</item>
+        <item name="textAppearanceBody2">@style/TextAppearance.Judify.Dark.Body2</item>
+        <item name="textAppearanceCaption">@style/TextAppearance.Judify.Dark.Caption</item>
+        <item name="textAppearanceButton">@style/TextAppearance.Judify.Dark.Button</item>
+        
+        <!-- Component styles -->
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.Judify.SmallComponent</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Judify.MediumComponent</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.Judify.LargeComponent</item>
+    </style>
+
+    <style name="ThemeOverlay.App.MaterialAlertDialog" parent="ThemeOverlay.MaterialComponents.MaterialAlertDialog">
+        <item name="colorPrimary">@color/primary_blue</item>
+        <item name="colorSurface">@color/dark_surface</item>
+        <item name="colorOnSurface">@color/white</item>
+        <item name="buttonBarPositiveButtonStyle">@style/Widget.App.Button</item>
+        <item name="buttonBarNegativeButtonStyle">@style/Widget.App.Button</item>
+    </style>
+
+    <style name="Widget.App.Button" parent="Widget.MaterialComponents.Button.TextButton.Dialog">
+        <item name="android:textColor">@color/primary_blue</item>
+    </style>
+
+    <!-- Splash screen theme (dark version) -->
+    <style name="Theme.Judify.Splash" parent="Theme.Judify">
+        <item name="android:windowBackground">@drawable/splash_background</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowTranslucentStatus">true</item>
+        <item name="android:windowTranslucentNavigation">true</item>
+    </style>
+</resources> 

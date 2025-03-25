@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Duration options for booking a session -->
+    <string-array name="duration_options">
+        <item>1 hour</item>
+        <item>1.5 hours</item>
+        <item>2 hours</item>
+        <item>2.5 hours</item>
+        <item>3 hours</item>
+    </string-array>
+</resources> 
