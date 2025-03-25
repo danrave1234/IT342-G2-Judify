@@ -30,21 +30,21 @@ const Login = () => {
   return (
     <div>
       <div className="text-center mb-6">
-        <Link to="/" className="text-blue-600 text-2xl font-bold">Judify</Link>
-        <h2 className="mt-6 text-xl font-bold text-gray-800">Sign in to your account</h2>
-        <p className="mt-2 text-sm text-gray-500">Access your personalized tutoring dashboard</p>
+        <Link to="/" className="auth-title">Judify</Link>
+        <h2 className="mt-6 text-xl font-bold text-gray-800 dark:text-white">Sign in to your account</h2>
+        <p className="auth-subtitle">Access your personalized tutoring dashboard</p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
+          <label htmlFor="email" className="auth-form-label">Email Address</label>
           <input
             id="email"
             type="email"
             placeholder="your@email.com"
-            className={`mt-1 block w-full px-3 py-2 border ${
-              errors.email ? 'border-red-500' : 'border-gray-300'
-            } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
+            className={`auth-form-input ${
+              errors.email ? 'border-red-500 dark:border-red-400' : ''
+            }`}
             {...register('email', {
               required: 'Email is required',
               pattern: {
@@ -54,19 +54,19 @@ const Login = () => {
             })}
           />
           {errors.email && (
-            <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
+            <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.email.message}</p>
           )}
         </div>
 
         <div>
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
+          <label htmlFor="password" className="auth-form-label">Password</label>
           <input
             id="password"
             type="password"
             placeholder="••••••••"
-            className={`mt-1 block w-full px-3 py-2 border ${
-              errors.password ? 'border-red-500' : 'border-gray-300'
-            } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
+            className={`auth-form-input ${
+              errors.password ? 'border-red-500 dark:border-red-400' : ''
+            }`}
             {...register('password', {
               required: 'Password is required',
               minLength: {
@@ -76,7 +76,7 @@ const Login = () => {
             })}
           />
           {errors.password && (
-            <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
+            <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.password.message}</p>
           )}
         </div>
 
@@ -86,15 +86,15 @@ const Login = () => {
               id="remember-me"
               name="remember-me"
               type="checkbox"
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-dark-600 rounded"
             />
-            <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
+            <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
               Remember me
             </label>
           </div>
           <Link
             to="/forgot-password"
-            className="text-sm text-blue-600 hover:text-blue-500"
+            className="auth-form-link text-sm"
           >
             Forgot password?
           </Link>
@@ -104,7 +104,7 @@ const Login = () => {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+            className="auth-form-button disabled:opacity-50"
           >
             {isSubmitting ? 'Signing in...' : 'Sign in'}
           </button>
@@ -114,39 +114,30 @@ const Login = () => {
       <div className="mt-6">
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-300"></div>
+            <div className="w-full border-t border-gray-300 dark:border-dark-600"></div>
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white text-gray-500">Or continue with</span>
+            <span className="px-2 bg-white dark:bg-dark-800 text-gray-500 dark:text-gray-400">Or continue with</span>
           </div>
         </div>
 
         <div className="mt-6 grid grid-cols-3 gap-3">
-          <button
-            type="button"
-            className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
+          <button type="button" className="auth-social-button">
             <FaGoogle className="text-red-500" />
           </button>
-          <button
-            type="button"
-            className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            <FaApple className="text-gray-800" />
+          <button type="button" className="auth-social-button">
+            <FaApple className="text-gray-800 dark:text-white" />
           </button>
-          <button
-            type="button"
-            className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            <FaFacebook className="text-blue-800" />
+          <button type="button" className="auth-social-button">
+            <FaFacebook className="text-primary-700" />
           </button>
         </div>
       </div>
 
       <div className="text-center mt-6">
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-gray-600 dark:text-gray-400">
           Don't have an account?{' '}
-          <Link to="/register" className="font-medium text-blue-600 hover:text-blue-500">
+          <Link to="/register" className="auth-form-link">
             Sign up
           </Link>
         </p>
