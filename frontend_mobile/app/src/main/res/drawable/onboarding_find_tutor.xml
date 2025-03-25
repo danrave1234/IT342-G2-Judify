@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="240dp"
+    android:height="240dp"
+    android:viewportWidth="240"
+    android:viewportHeight="240">
+    
+    <!-- Search magnifying glass -->
+    <path
+        android:strokeColor="?attr/colorPrimary"
+        android:strokeWidth="12"
+        android:strokeLineCap="round"
+        android:pathData="M140,140 L180,180" />
+    <path
+        android:strokeColor="?attr/colorPrimary"
+        android:strokeWidth="12"
+        android:fillColor="@android:color/transparent"
+        android:pathData="M100,100 A40,40 0 1,1 100,99.9" />
+        
+    <!-- Stylized person silhouette -->
+    <path
+        android:fillColor="?attr/colorSecondary"
+        android:pathData="M60,80 A20,20 0 1,1 60,79.9" />
+    <path
+        android:fillColor="?attr/colorSecondary"
+        android:pathData="M40,140 L80,140 L80,110 L40,110 Z" />
+    
+    <!-- Stars -->
+    <path
+        android:fillColor="?attr/colorPrimary"
+        android:pathData="M160,60 L165,70 L175,70 L167,77 L170,87 L160,82 L150,87 L153,77 L145,70 L155,70 Z" />
+    <path
+        android:fillColor="?attr/colorSecondary"
+        android:pathData="M190,90 L195,100 L205,100 L197,107 L200,117 L190,112 L180,117 L183,107 L175,100 L185,100 Z" />
+</vector> 

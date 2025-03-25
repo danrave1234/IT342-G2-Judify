@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="240dp"
+    android:height="240dp"
+    android:viewportWidth="240"
+    android:viewportHeight="240">
+    
+    <!-- Stylized book stack -->
+    <path
+        android:fillColor="?attr/colorPrimary"
+        android:pathData="M40,160 L200,160 L180,180 L20,180 Z" />
+    <path
+        android:fillColor="?attr/colorSecondary"
+        android:pathData="M50,140 L210,140 L200,160 L40,160 Z" />
+    <path
+        android:fillColor="?attr/colorPrimary"
+        android:pathData="M60,120 L220,120 L210,140 L50,140 Z" />
+        
+    <!-- Graduation cap -->
+    <path
+        android:fillColor="?attr/colorPrimary"
+        android:pathData="M120,60 L180,80 L120,100 L60,80 Z" />
+    <path
+        android:fillColor="?attr/colorSecondary"
+        android:pathData="M120,100 L120,120 L70,95 L70,80 Z" />
+    <path
+        android:strokeColor="?attr/colorPrimary"
+        android:strokeWidth="4"
+        android:pathData="M120,60 L120,40" />
+    <path
+        android:fillColor="?attr/colorPrimary"
+        android:pathData="M110,35 L130,35 L120,25 Z" />
+</vector> 
