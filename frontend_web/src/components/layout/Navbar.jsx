@@ -1,0 +1,151 @@
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useUser } from '../../context/UserContext';
+import { FaUser, FaBell, FaSignOutAlt, FaEnvelope } from 'react-icons/fa';
+
+const Navbar = ({ userType }) => {
+  const { user, logout } = useUser();
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showNotificationsMenu, setShowNotificationsMenu] = useState(false);
+
+  const toggleProfileMenu = () => {
+    setShowProfileMenu(!showProfileMenu);
+    setShowNotificationsMenu(false);
+  };
+
+  const toggleNotificationsMenu = () => {
+    setShowNotificationsMenu(!showNotificationsMenu);
+    setShowProfileMenu(false);
+  };
+
+  const handleLogout = () => {
+    logout();
+  };
+
+  return (
+    <nav className="bg-white shadow-md">
+      <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between h-16">
+          <div className="flex items-center">
+            <Link to="/" className="flex-shrink-0 text-blue-600 text-2xl font-bold">
+              Judify
+            </Link>
+            <div className="hidden md:ml-10 md:flex space-x-8">
+              {userType === 'tutor' ? (
+                <>
+                  <Link to="/tutor" className="text-gray-700 hover:text-blue-600 px-3 py-2">
+                    Dashboard
+                  </Link>
+                  <Link to="/tutor/sessions" className="text-gray-700 hover:text-blue-600 px-3 py-2">
+                    Sessions
+                  </Link>
+                  <Link to="/tutor/earnings" className="text-gray-700 hover:text-blue-600 px-3 py-2">
+                    Earnings
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link to="/student" className="text-gray-700 hover:text-blue-600 px-3 py-2">
+                    Dashboard
+                  </Link>
+                  <Link to="/student/find-tutors" className="text-gray-700 hover:text-blue-600 px-3 py-2">
+                    Find Tutors
+                  </Link>
+                  <Link to="/student/sessions" className="text-gray-700 hover:text-blue-600 px-3 py-2">
+                    My Sessions
+                  </Link>
+                </>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center">
+            <Link to={userType === 'tutor' ? "/tutor/messages" : "/student/messages"} className="p-2 text-gray-600 hover:text-blue-600 relative">
+              <FaEnvelope size={20} />
+              <span className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs">
+                3
+              </span>
+            </Link>
+            <div className="ml-3 relative">
+              <button
+                onClick={toggleNotificationsMenu}
+                className="p-2 text-gray-600 hover:text-blue-600 relative"
+              >
+                <FaBell size={20} />
+                <span className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs">
+                  5
+                </span>
+              </button>
+              {showNotificationsMenu && (
+                <div className="origin-top-right absolute right-0 mt-2 w-80 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 z-50">
+                  <div className="px-4 py-2 text-sm text-gray-700 border-b">
+                    <p className="font-semibold">Notifications</p>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto">
+                    {[1, 2, 3, 4, 5].map((item) => (
+                      <div key={item} className="px-4 py-3 hover:bg-gray-100 border-b">
+                        <p className="text-sm font-medium text-gray-900">New session request</p>
+                        <p className="text-xs text-gray-500">
+                          You received a new session request for next Tuesday.
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1">2 hours ago</p>
+                      </div>
+                    ))}
+                  </div>
+                  <Link
+                    to={userType === 'tutor' ? "/tutor/notifications" : "/student/notifications"}
+                    className="block px-4 py-2 text-sm text-center text-blue-600 hover:bg-gray-100"
+                  >
+                    View all notifications
+                  </Link>
+                </div>
+              )}
+            </div>
+            <div className="ml-3 relative">
+              <button
+                onClick={toggleProfileMenu}
+                className="flex items-center space-x-2 focus:outline-none"
+              >
+                <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-700">
+                  {user?.profileImage ? (
+                    <img
+                      src={user.profileImage}
+                      alt="Profile"
+                      className="w-full h-full rounded-full object-cover"
+                    />
+                  ) : (
+                    <FaUser />
+                  )}
+                </div>
+              </button>
+              {showProfileMenu && (
+                <div className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 z-50">
+                  <div className="px-4 py-2 text-sm text-gray-700 border-b">
+                    <p className="font-semibold">{user?.name || "User"}</p>
+                    <p className="text-gray-500">{user?.email}</p>
+                  </div>
+                  <Link
+                    to={userType === 'tutor' ? "/tutor/profile" : "/student/profile"}
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  >
+                    Profile
+                  </Link>
+                  <button
+                    onClick={handleLogout}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  >
+                    <div className="flex items-center">
+                      <FaSignOutAlt className="mr-2" />
+                      Sign out
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </nav>
+  );
+};
+
+export default Navbar; 
