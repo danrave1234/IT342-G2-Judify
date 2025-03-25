@@ -1,6 +1,8 @@
 package edu.cit.Judify.Review;
 
 import edu.cit.Judify.User.UserEntity;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,4 +17,8 @@ public interface ReviewRepository extends JpaRepository<ReviewEntity, Long> {
     
     @Query("SELECT AVG(r.rating) FROM ReviewEntity r WHERE r.tutor = :tutor")
     Double findAverageRatingByTutor(@Param("tutor") UserEntity tutor);
+    
+    Page<ReviewEntity> findByTutor(UserEntity tutor, Pageable pageable);
+    Page<ReviewEntity> findByStudent(UserEntity student, Pageable pageable);
+    Page<ReviewEntity> findByRating(Integer rating, Pageable pageable);
 } 

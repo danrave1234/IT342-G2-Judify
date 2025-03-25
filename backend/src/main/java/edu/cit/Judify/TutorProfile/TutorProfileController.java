@@ -3,6 +3,7 @@ package edu.cit.Judify.TutorProfile;
 import edu.cit.Judify.TutorProfile.DTO.TutorProfileDTO;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -24,6 +25,20 @@ public class TutorProfileController {
     @GetMapping("/getAllProfiles")
     public ResponseEntity<List<TutorProfileDTO>> getAllTutorProfiles() {
         List<TutorProfileDTO> tutors = tutorProfileService.getAllTutorProfiles();
+        return ResponseEntity.ok(tutors);
+    }
+
+    @GetMapping("/getAllProfilesPaginated")
+    public ResponseEntity<Page<TutorProfileDTO>> getAllTutorProfilesPaginated(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String expertise,
+            @RequestParam(required = false) Double minRate,
+            @RequestParam(required = false) Double maxRate,
+            @RequestParam(required = false) Double minRating) {
+        
+        Page<TutorProfileDTO> tutors = tutorProfileService.getAllTutorProfilesPaginated(
+                page, size, expertise, minRate, maxRate, minRating);
         return ResponseEntity.ok(tutors);
     }
 

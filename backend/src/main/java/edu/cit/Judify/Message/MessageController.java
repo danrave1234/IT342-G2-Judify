@@ -5,6 +5,7 @@ import edu.cit.Judify.Message.DTO.MessageDTO;
 import edu.cit.Judify.Message.DTO.MessageDTOMapper;
 import edu.cit.Judify.User.UserEntity;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -64,6 +65,46 @@ public class MessageController {
                 .stream()
                 .map(messageDTOMapper::toDTO)
                 .collect(Collectors.toList()));
+    }
+
+    @GetMapping("/findByConversationPaginated/{conversationId}")
+    public ResponseEntity<Page<MessageDTO>> getConversationMessagesPaginated(
+            @PathVariable ConversationEntity conversation,
+            @RequestParam(defaultValue = "DESC") String order,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        
+        Page<MessageEntity> messages = messageService.getConversationMessagesPaginated(
+                conversation, order, page, size);
+                
+        Page<MessageDTO> messageDTOs = messages.map(messageDTOMapper::toDTO);
+        return ResponseEntity.ok(messageDTOs);
+    }
+    
+    @GetMapping("/findUnreadBySenderPaginated/{senderId}")
+    public ResponseEntity<Page<MessageDTO>> getUnreadMessagesBySenderPaginated(
+            @PathVariable UserEntity sender,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        
+        Page<MessageEntity> messages = messageService.getUnreadMessagesBySenderPaginated(
+                sender, page, size);
+                
+        Page<MessageDTO> messageDTOs = messages.map(messageDTOMapper::toDTO);
+        return ResponseEntity.ok(messageDTOs);
+    }
+    
+    @GetMapping("/findUnreadByConversationPaginated/{conversationId}")
+    public ResponseEntity<Page<MessageDTO>> getUnreadConversationMessagesPaginated(
+            @PathVariable ConversationEntity conversation,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        
+        Page<MessageEntity> messages = messageService.getUnreadConversationMessagesPaginated(
+                conversation, page, size);
+                
+        Page<MessageDTO> messageDTOs = messages.map(messageDTOMapper::toDTO);
+        return ResponseEntity.ok(messageDTOs);
     }
 
     @PutMapping("/markAsRead/{id}")

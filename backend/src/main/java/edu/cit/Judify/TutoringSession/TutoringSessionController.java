@@ -4,6 +4,7 @@ import edu.cit.Judify.TutoringSession.DTO.TutoringSessionDTO;
 import edu.cit.Judify.TutoringSession.DTO.TutoringSessionDTOMapper;
 import edu.cit.Judify.User.UserEntity;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -116,5 +117,48 @@ public class TutoringSessionController {
                 .stream()
                 .map(sessionDTOMapper::toDTO)
                 .collect(Collectors.toList()));
+    }
+
+    @GetMapping("/findByTutorPaginated/{tutorId}")
+    public ResponseEntity<Page<TutoringSessionDTO>> getTutorSessionsPaginated(
+            @PathVariable UserEntity tutor,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date startDate,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date endDate,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        
+        Page<TutoringSessionEntity> sessions = sessionService.getTutorSessionsPaginated(
+                tutor, startDate, endDate, page, size);
+                
+        Page<TutoringSessionDTO> sessionDTOs = sessions.map(sessionDTOMapper::toDTO);
+        return ResponseEntity.ok(sessionDTOs);
+    }
+    
+    @GetMapping("/findByStudentPaginated/{studentId}")
+    public ResponseEntity<Page<TutoringSessionDTO>> getStudentSessionsPaginated(
+            @PathVariable UserEntity student,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date startDate,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date endDate,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        
+        Page<TutoringSessionEntity> sessions = sessionService.getStudentSessionsPaginated(
+                student, startDate, endDate, page, size);
+                
+        Page<TutoringSessionDTO> sessionDTOs = sessions.map(sessionDTOMapper::toDTO);
+        return ResponseEntity.ok(sessionDTOs);
+    }
+    
+    @GetMapping("/findByStatusPaginated/{status}")
+    public ResponseEntity<Page<TutoringSessionDTO>> getSessionsByStatusPaginated(
+            @PathVariable String status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        
+        Page<TutoringSessionEntity> sessions = sessionService.getSessionsByStatusPaginated(
+                status, page, size);
+                
+        Page<TutoringSessionDTO> sessionDTOs = sessions.map(sessionDTOMapper::toDTO);
+        return ResponseEntity.ok(sessionDTOs);
     }
 } 

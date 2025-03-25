@@ -4,6 +4,7 @@ import edu.cit.Judify.Review.DTO.ReviewDTO;
 import edu.cit.Judify.Review.DTO.ReviewDTOMapper;
 import edu.cit.Judify.User.UserEntity;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -88,5 +89,46 @@ public class ReviewController {
                 .map(reviewDTOMapper::toEntity)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(reviewService.calculateAverageRating(reviews));
+    }
+
+    @GetMapping("/findByTutorSorted/{tutorId}")
+    public ResponseEntity<Page<ReviewDTO>> getTutorReviewsSorted(
+            @PathVariable UserEntity tutor,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "DESC") String direction,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        
+        Page<ReviewEntity> reviews = reviewService.getTutorReviewsPaginated(
+                tutor, sortBy, direction, page, size);
+                
+        Page<ReviewDTO> reviewDTOs = reviews.map(reviewDTOMapper::toDTO);
+        return ResponseEntity.ok(reviewDTOs);
+    }
+    
+    @GetMapping("/findByStudentPaginated/{learnerId}")
+    public ResponseEntity<Page<ReviewDTO>> getStudentReviewsPaginated(
+            @PathVariable UserEntity learner,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        
+        Page<ReviewEntity> reviews = reviewService.getStudentReviewsPaginated(
+                learner, page, size);
+                
+        Page<ReviewDTO> reviewDTOs = reviews.map(reviewDTOMapper::toDTO);
+        return ResponseEntity.ok(reviewDTOs);
+    }
+    
+    @GetMapping("/findByRatingPaginated/{rating}")
+    public ResponseEntity<Page<ReviewDTO>> getReviewsByRatingPaginated(
+            @PathVariable Integer rating,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        
+        Page<ReviewEntity> reviews = reviewService.getReviewsByRatingPaginated(
+                rating, page, size);
+                
+        Page<ReviewDTO> reviewDTOs = reviews.map(reviewDTOMapper::toDTO);
+        return ResponseEntity.ok(reviewDTOs);
     }
 } 

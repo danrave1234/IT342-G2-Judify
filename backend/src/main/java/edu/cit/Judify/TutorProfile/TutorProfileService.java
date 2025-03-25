@@ -6,6 +6,10 @@ import edu.cit.Judify.User.UserEntity;
 import edu.cit.Judify.User.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -99,5 +103,48 @@ public class TutorProfileService {
 
         TutorProfileEntity updatedEntity = tutorProfileRepository.save(profile);
         return dtoMapper.toDTO(updatedEntity);
+    }
+
+    // New method for paginated and filtered tutor profiles
+    public Page<TutorProfileDTO> getAllTutorProfilesPaginated(int page, int size, 
+                                                           String expertise, 
+                                                           Double minRate, 
+                                                           Double maxRate, 
+                                                           Double minRating) {
+        Pageable pageable = PageRequest.of(page, size);
+        
+        // Build dynamic query based on provided filters
+        Page<TutorProfileEntity> profiles;
+        
+        if (expertise != null || minRate != null || maxRate != null || minRating != null) {
+            // Create specifications based on filters
+            Specification<TutorProfileEntity> spec = Specification.where(null);
+            
+            if (expertise != null && !expertise.isEmpty()) {
+                spec = spec.and((root, query, cb) -> 
+                    cb.like(cb.lower(root.get("expertise")), "%" + expertise.toLowerCase() + "%"));
+            }
+            
+            if (minRate != null) {
+                spec = spec.and((root, query, cb) -> 
+                    cb.greaterThanOrEqualTo(root.get("hourlyRate"), minRate));
+            }
+            
+            if (maxRate != null) {
+                spec = spec.and((root, query, cb) -> 
+                    cb.lessThanOrEqualTo(root.get("hourlyRate"), maxRate));
+            }
+            
+            if (minRating != null) {
+                spec = spec.and((root, query, cb) -> 
+                    cb.greaterThanOrEqualTo(root.get("rating"), minRating));
+            }
+            
+            profiles = tutorProfileRepository.findAll(spec, pageable);
+        } else {
+            profiles = tutorProfileRepository.findAll(pageable);
+        }
+        
+        return profiles.map(dtoMapper::toDTO);
     }
 } 
