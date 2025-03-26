@@ -5,6 +5,7 @@ import edu.cit.Judify.TutorProfile.DTO.TutorProfileDTOMapper;
 import edu.cit.Judify.TutorSubject.TutorSubjectService;
 import edu.cit.Judify.User.UserEntity;
 import edu.cit.Judify.User.UserRepository;
+import edu.cit.Judify.User.UserRole;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -14,6 +15,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -58,6 +60,11 @@ public class TutorProfileService {
     public TutorProfileDTO createTutorProfile(TutorProfileDTO dto) {
         UserEntity user = userRepository.findById(dto.getUserId())
                 .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + dto.getUserId()));
+
+        // Update the user's role to TUTOR
+        user.setRole(UserRole.TUTOR);
+        user.setUpdatedAt(new Date());
+        userRepository.save(user);
 
         TutorProfileEntity entity = dtoMapper.toEntity(dto);
         entity.setUser(user);
