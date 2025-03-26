@@ -38,7 +38,6 @@ class RegisterActivity : AppCompatActivity() {
         val rememberMeCheckbox = binding.rememberMeCheckbox
         val facebookButton = binding.facebookButton
         val googleButton = binding.googleButton
-        val appleButton = binding.appleButton
         val signInTextView = binding.signInTextView
 
         // Set up text watchers for validation
@@ -104,13 +103,6 @@ class RegisterActivity : AppCompatActivity() {
             ).show()
         }
 
-        appleButton.setOnClickListener {
-            Toast.makeText(
-                applicationContext,
-                "Apple login coming soon!",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
 
         // Set up sign in text view
         signInTextView.setOnClickListener {

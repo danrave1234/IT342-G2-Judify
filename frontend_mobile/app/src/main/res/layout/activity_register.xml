@@ -136,34 +136,32 @@
             android:id="@+id/socialButtonsLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="48dp"
+            android:layout_marginTop="24dp"
             android:gravity="center"
             android:orientation="horizontal"
             app:layout_constraintTop_toBottomOf="@id/signUpButton">
 
-            <ImageButton
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/facebookButton"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:layout_margin="8dp"
-                android:background="@drawable/social_button_background"
-                android:src="@drawable/ic_facebook" />
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:layout_weight="1"
+                android:text="Facebook"
+                app:icon="@drawable/ic_facebook"
+                app:iconTint="?attr/colorPrimary" />
 
-            <ImageButton
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/googleButton"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:layout_margin="8dp"
-                android:background="@drawable/social_button_background"
-                android:src="@drawable/ic_google" />
-
-            <ImageButton
-                android:id="@+id/appleButton"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:layout_margin="8dp"
-                android:background="@drawable/social_button_background"
-                android:src="@drawable/ic_apple" />
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:text="Google"
+                app:icon="@drawable/ic_google"
+                app:iconTint="?attr/colorPrimary" />
         </LinearLayout>
 
         <TextView

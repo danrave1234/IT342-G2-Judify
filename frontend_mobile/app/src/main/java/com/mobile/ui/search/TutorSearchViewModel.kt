@@ -61,10 +61,10 @@ class TutorSearchViewModel : ViewModel() {
                         val tutorItems = tutors.map { tutor ->
                             TutorSearchItem(
                                 id = tutor.id,
-                                name = "Tutor ${tutor.userId}", // In a real app, get tutor's name
-                                expertise = tutor.expertise,
-                                pricePerHour = tutor.pricePerHour,
-                                rating = tutor.rating,
+                                name = tutor.name,
+                                expertise = tutor.subjects.joinToString(", "),
+                                pricePerHour = tutor.hourlyRate,
+                                rating = tutor.rating.toDouble(),
                                 distance = calculateDistance(tutor)
                             )
                         }.sortedWith(
