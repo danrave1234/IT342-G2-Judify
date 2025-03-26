@@ -4,7 +4,7 @@ Judify: Where Knowledge Meets Convenience
 🎓 Connect with tutors anytime, anywhere! 📚
 </div>
 
-## 🌟 What is Judify?
+## 🌟 What is Judify??
 
 Judify is a revolutionary hybrid tutoring platform that bridges the gap between online and offline learning. Whether you prefer face-to-face sessions or the comfort of your own home, Judify has got you covered!
 
