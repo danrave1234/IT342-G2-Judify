@@ -17,6 +17,8 @@ public class SecurityConfig {
         http
             .csrf(csrf -> csrf.disable())  // Disable CSRF for development
             .authorizeHttpRequests(auth -> auth
+                // Swagger UI endpoints
+                .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/api-docs/**", "/v3/api-docs/**").permitAll()
                 .anyRequest().permitAll()  // Allow all requests during development
             );
         
