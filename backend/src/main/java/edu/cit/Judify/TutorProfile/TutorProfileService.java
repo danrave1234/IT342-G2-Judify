@@ -2,8 +2,10 @@ package edu.cit.Judify.TutorProfile;
 
 import edu.cit.Judify.TutorProfile.DTO.TutorProfileDTO;
 import edu.cit.Judify.TutorProfile.DTO.TutorProfileDTOMapper;
+import edu.cit.Judify.TutorSubject.TutorSubjectService;
 import edu.cit.Judify.User.UserEntity;
 import edu.cit.Judify.User.UserRepository;
+import edu.cit.Judify.User.UserRole;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -13,6 +15,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -22,14 +25,17 @@ public class TutorProfileService {
     private final TutorProfileRepository tutorProfileRepository;
     private final UserRepository userRepository;
     private final TutorProfileDTOMapper dtoMapper;
+    private final TutorSubjectService tutorSubjectService;
 
     @Autowired
     public TutorProfileService(TutorProfileRepository tutorProfileRepository, 
                              UserRepository userRepository,
-                             TutorProfileDTOMapper dtoMapper) {
+                             TutorProfileDTOMapper dtoMapper,
+                             TutorSubjectService tutorSubjectService) {
         this.tutorProfileRepository = tutorProfileRepository;
         this.userRepository = userRepository;
         this.dtoMapper = dtoMapper;
+        this.tutorSubjectService = tutorSubjectService;
     }
 
     public List<TutorProfileDTO> getAllTutorProfiles() {
@@ -55,10 +61,24 @@ public class TutorProfileService {
         UserEntity user = userRepository.findById(dto.getUserId())
                 .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + dto.getUserId()));
 
+        // Update the user's role to TUTOR
+        user.setRole(UserRole.TUTOR);
+        user.setUpdatedAt(new Date());
+        userRepository.save(user);
+
         TutorProfileEntity entity = dtoMapper.toEntity(dto);
         entity.setUser(user);
         
+        // First save the profile without subjects to get an ID
         TutorProfileEntity savedEntity = tutorProfileRepository.save(entity);
+        
+        // Then add subjects if any are provided (they will be added using the helper method)
+        if (dto.getSubjects() != null && !dto.getSubjects().isEmpty()) {
+            // The setSubjects helper method will handle creating the subject entities
+            savedEntity.setSubjects(dto.getSubjects());
+            savedEntity = tutorProfileRepository.save(savedEntity);
+        }
+        
         return dtoMapper.toDTO(savedEntity);
     }
 
@@ -71,9 +91,13 @@ public class TutorProfileService {
         existingProfile.setBiography(dto.getBio());
         existingProfile.setExpertise(dto.getExpertise());
         existingProfile.setHourlyRate(dto.getHourlyRate());
-        existingProfile.setSubjects(dto.getSubjects());
         existingProfile.setRating(dto.getRating());
         existingProfile.setTotalReviews(dto.getTotalReviews());
+        
+        // Update subjects if provided
+        if (dto.getSubjects() != null) {
+            existingProfile.setSubjects(dto.getSubjects());
+        }
 
         TutorProfileEntity updatedEntity = tutorProfileRepository.save(existingProfile);
         return dtoMapper.toDTO(updatedEntity);
@@ -84,11 +108,12 @@ public class TutorProfileService {
         if (!tutorProfileRepository.existsById(id)) {
             throw new EntityNotFoundException("TutorProfile not found with id: " + id);
         }
+        // The cascade delete will handle removing the related subjects
         tutorProfileRepository.deleteById(id);
     }
 
     public List<TutorProfileDTO> searchTutorProfiles(String subject) {
-        return tutorProfileRepository.findBySubjectsContaining(subject).stream()
+        return tutorProfileRepository.findBySubjectName(subject).stream()
                 .map(dtoMapper::toDTO)
                 .collect(Collectors.toList());
     }

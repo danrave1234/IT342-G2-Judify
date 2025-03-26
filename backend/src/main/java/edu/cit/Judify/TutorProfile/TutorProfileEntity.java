@@ -1,8 +1,10 @@
 package edu.cit.Judify.TutorProfile;
 
+import edu.cit.Judify.TutorSubject.TutorSubjectEntity;
 import edu.cit.Judify.User.UserEntity;
 import jakarta.persistence.*;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.Set;
 
 @Entity
@@ -25,10 +27,8 @@ public class TutorProfileEntity {
 
     private Double hourlyRate;
 
-    @ElementCollection
-    @CollectionTable(name = "tutor_subjects", joinColumns = @JoinColumn(name = "tutor_id"))
-    @Column(name = "subject")
-    private Set<String> subjects;
+    @OneToMany(mappedBy = "tutorProfile", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<TutorSubjectEntity> subjectEntities = new HashSet<>();
 
     private Double rating;
 
@@ -85,12 +85,35 @@ public class TutorProfileEntity {
         this.hourlyRate = hourlyRate;
     }
 
+    public Set<TutorSubjectEntity> getSubjectEntities() {
+        return subjectEntities;
+    }
+
+    public void setSubjectEntities(Set<TutorSubjectEntity> subjectEntities) {
+        this.subjectEntities = subjectEntities;
+    }
+
+    // Helper method to maintain backward compatibility
     public Set<String> getSubjects() {
+        Set<String> subjects = new HashSet<>();
+        for (TutorSubjectEntity entity : subjectEntities) {
+            subjects.add(entity.getSubject());
+        }
         return subjects;
     }
 
+    // Helper method to maintain backward compatibility
     public void setSubjects(Set<String> subjects) {
-        this.subjects = subjects;
+        // Clear existing subjects
+        this.subjectEntities.clear();
+        
+        // Add new subjects
+        if (subjects != null) {
+            for (String subject : subjects) {
+                TutorSubjectEntity subjectEntity = new TutorSubjectEntity(this, subject);
+                this.subjectEntities.add(subjectEntity);
+            }
+        }
     }
 
     public Double getRating() {

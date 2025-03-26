@@ -5,7 +5,6 @@ import edu.cit.Judify.User.DTO.UserDTO;
 import edu.cit.Judify.User.DTO.UserDTOMapper;
 import io.jsonwebtoken.Jwts;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,28 +19,17 @@ public class UserService {
     private final UserRepository userRepository;
     private final UserDTOMapper userDTOMapper;
     private final Key jwtSecretKey;
-    private final PasswordEncoder passwordEncoder;
 
     @Autowired
-    public UserService(UserRepository userRepository, UserDTOMapper userDTOMapper, Key jwtSecretKey, PasswordEncoder passwordEncoder) {
+    public UserService(UserRepository userRepository, UserDTOMapper userDTOMapper, Key jwtSecretKey) {
         this.userRepository = userRepository;
         this.userDTOMapper = userDTOMapper;
         this.jwtSecretKey = jwtSecretKey;
-        this.passwordEncoder = passwordEncoder;
     }
 
     @Transactional
     public UserEntity createUser(UserEntity user) {
-        // First, we need to get the plain text password
-        String plainPassword = user.getPassword();
-        
-        // Hash the password
-        String hashedPassword = passwordEncoder.encode(plainPassword);
-        
-        // Set the hashed password back to the user
-        user.setPassword(hashedPassword);
-        
-        // Now we can save the user with the hashed password
+        // Just save the user with the plain text password
         return userRepository.save(user);
     }
 
@@ -95,21 +83,29 @@ public class UserService {
 
     public AuthenticatedUserDTO authenticateUser(String email, String password) {
         AuthenticatedUserDTO authDTO = new AuthenticatedUserDTO();
-        authDTO.setAuthenticated(false);
+        authDTO.setAuthenticated(false); // Default to not authenticated
 
-        Optional<UserEntity> userOpt = userRepository.findByEmailAndPassword(email, password);
+        // First, find the user by email
+        Optional<UserEntity> userOpt = userRepository.findByEmail(email);
+
         if (userOpt.isPresent()) {
             UserEntity user = userOpt.get();
-            authDTO.setAuthenticated(true);
-            authDTO.setUserId(user.getUserId());
-            authDTO.setUsername(user.getUsername());
-            authDTO.setEmail(user.getEmail());
-            authDTO.setFirstName(user.getFirstName());
-            authDTO.setLastName(user.getLastName());
-            authDTO.setRole(user.getRole());
-            
-            String token = generateJwtToken(user);
-            authDTO.setToken(token);
+
+            // Simple password check (since we've removed hashing)
+            if (password != null && password.equals(user.getPassword())) {
+                // Authentication successful
+                authDTO.setAuthenticated(true);
+                authDTO.setUserId(user.getUserId());
+                authDTO.setUsername(user.getUsername());
+                authDTO.setEmail(user.getEmail());
+                authDTO.setFirstName(user.getFirstName());
+                authDTO.setLastName(user.getLastName());
+                authDTO.setRole(user.getRole());
+
+                // Generate JWT token if needed
+                String token = generateJwtToken(user);
+                authDTO.setToken(token);
+            }
         }
 
         return authDTO;

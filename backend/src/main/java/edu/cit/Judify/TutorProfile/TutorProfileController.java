@@ -1,6 +1,8 @@
 package edu.cit.Judify.TutorProfile;
 
 import edu.cit.Judify.TutorProfile.DTO.TutorProfileDTO;
+import edu.cit.Judify.TutorSubject.DTO.TutorSubjectDTO;
+import edu.cit.Judify.TutorSubject.TutorSubjectService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -24,10 +26,12 @@ import java.util.List;
 public class TutorProfileController {
 
     private final TutorProfileService tutorProfileService;
+    private final TutorSubjectService tutorSubjectService;
 
     @Autowired
-    public TutorProfileController(TutorProfileService tutorProfileService) {
+    public TutorProfileController(TutorProfileService tutorProfileService, TutorSubjectService tutorSubjectService) {
         this.tutorProfileService = tutorProfileService;
+        this.tutorSubjectService = tutorSubjectService;
     }
 
     @Operation(summary = "Get all tutor profiles", description = "Returns a list of all tutor profiles")
@@ -170,6 +174,65 @@ public class TutorProfileController {
         try {
             TutorProfileDTO updatedProfile = tutorProfileService.updateTutorRating(id, rating);
             return ResponseEntity.ok(updatedProfile);
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @Operation(summary = "Get subjects for a tutor profile", description = "Returns all subjects associated with a specific tutor profile")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Successfully retrieved subjects"),
+        @ApiResponse(responseCode = "404", description = "Tutor profile not found")
+    })
+    @GetMapping("/{tutorProfileId}/subjects")
+    public ResponseEntity<List<TutorSubjectDTO>> getSubjectsForTutor(
+            @Parameter(description = "Tutor profile ID") @PathVariable Long tutorProfileId) {
+        try {
+            // First check if the profile exists
+            tutorProfileService.getTutorProfileById(tutorProfileId);
+            
+            List<TutorSubjectDTO> subjects = tutorSubjectService.getSubjectsByTutorProfileId(tutorProfileId);
+            return ResponseEntity.ok(subjects);
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @Operation(summary = "Add subjects to a tutor profile", description = "Adds multiple subjects to a specific tutor profile")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "201", description = "Subjects successfully added"),
+        @ApiResponse(responseCode = "404", description = "Tutor profile not found")
+    })
+    @PostMapping("/{tutorProfileId}/subjects")
+    public ResponseEntity<List<TutorSubjectDTO>> addSubjectsToTutor(
+            @Parameter(description = "Tutor profile ID") @PathVariable Long tutorProfileId,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "List of subjects", required = true)
+            @RequestBody List<String> subjects) {
+        try {
+            // First check if the profile exists
+            tutorProfileService.getTutorProfileById(tutorProfileId);
+            
+            List<TutorSubjectDTO> addedSubjects = tutorSubjectService.addSubjectsForTutor(tutorProfileId, subjects);
+            return new ResponseEntity<>(addedSubjects, HttpStatus.CREATED);
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @Operation(summary = "Delete all subjects for a tutor profile", description = "Deletes all subjects associated with a specific tutor profile")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "204", description = "Subjects successfully deleted"),
+        @ApiResponse(responseCode = "404", description = "Tutor profile not found")
+    })
+    @DeleteMapping("/{tutorProfileId}/subjects")
+    public ResponseEntity<Void> deleteAllSubjectsForTutor(
+            @Parameter(description = "Tutor profile ID") @PathVariable Long tutorProfileId) {
+        try {
+            // First check if the profile exists
+            tutorProfileService.getTutorProfileById(tutorProfileId);
+            
+            tutorSubjectService.deleteAllSubjectsForTutor(tutorProfileId);
+            return ResponseEntity.noContent().build();
         } catch (EntityNotFoundException e) {
             return ResponseEntity.notFound().build();
         }
