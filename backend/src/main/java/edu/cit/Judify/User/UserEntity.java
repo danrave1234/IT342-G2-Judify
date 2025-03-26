@@ -22,6 +22,9 @@ public class UserEntity {
     @Column(nullable = false)
     private String password;
 
+    @Column(name = "password_hash", nullable = false)
+    private String passwordHash;
+
     @Column(nullable = false)
     private String firstName;
 
@@ -29,6 +32,7 @@ public class UserEntity {
     private String lastName;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "roles", nullable = false)
     private UserRole role;
 
     private String profilePicture;
@@ -81,6 +85,15 @@ public class UserEntity {
 
     public void setPassword(String password) {
         this.password = password;
+        this.passwordHash = password;
+    }
+
+    public String getPasswordHash() {
+        return passwordHash;
+    }
+
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
     }
 
     public String getFirstName() {
