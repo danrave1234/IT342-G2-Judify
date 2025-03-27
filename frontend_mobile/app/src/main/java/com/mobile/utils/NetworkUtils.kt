@@ -22,19 +22,19 @@ import java.net.SocketTimeoutException
  * Each method includes detailed error logging
  */
 object NetworkUtils {
-    
+
     private const val TAG = "NetworkUtils"
-    
+
     // Debug mode flag - set to false for production use
     private const val DEBUG_MODE = true
-    
+
     // Server configuration
     // Use 10.0.2.2 for Android Emulator
     // Use your computer's IP address for physical device (e.g., "192.168.1.100")
     private const val SERVER_IP = "192.168.1.10" // Use 10.0.2.2 for emulator (points to host machine)
     private const val SERVER_PORT = "8080"
     private const val API_PATH = "api"
-    
+
     private val BASE_URL = "http://$SERVER_IP:$SERVER_PORT/$API_PATH"
 
     // Mock data for testing - kept for dev purposes
@@ -75,8 +75,105 @@ object NetworkUtils {
                 isRead = true
             )
         )
+
+        // Mock courses data
+        val mockCourses = listOf(
+            com.mobile.ui.courses.models.Course(
+                id = 1,
+                title = "Mathematics",
+                subtitle = "Algebra, Calculus, Geometry",
+                description = "Learn mathematics from experienced tutors. Our courses cover a wide range of topics from basic arithmetic to advanced calculus.",
+                tutorCount = 24,
+                averageRating = 4.8f,
+                averagePrice = 35.0f,
+                category = "Mathematics",
+                imageResId = com.mobile.R.drawable.ic_courses
+            ),
+            com.mobile.ui.courses.models.Course(
+                id = 2,
+                title = "Physics",
+                subtitle = "Mechanics, Thermodynamics, Electromagnetism",
+                description = "Explore the fundamental laws that govern the universe. Our physics courses cover classical mechanics, thermodynamics, electromagnetism, and modern physics.",
+                tutorCount = 18,
+                averageRating = 4.7f,
+                averagePrice = 40.0f,
+                category = "Science",
+                imageResId = com.mobile.R.drawable.ic_courses
+            ),
+            com.mobile.ui.courses.models.Course(
+                id = 3,
+                title = "Chemistry",
+                subtitle = "Organic, Inorganic, Physical Chemistry",
+                description = "Discover the fascinating world of chemistry. Our courses cover organic chemistry, inorganic chemistry, physical chemistry, and biochemistry.",
+                tutorCount = 15,
+                averageRating = 4.6f,
+                averagePrice = 38.0f,
+                category = "Science",
+                imageResId = com.mobile.R.drawable.ic_courses
+            ),
+            com.mobile.ui.courses.models.Course(
+                id = 4,
+                title = "English",
+                subtitle = "Grammar, Literature, Writing",
+                description = "Improve your English language skills with our comprehensive courses. We offer classes in grammar, literature, writing, and conversation.",
+                tutorCount = 30,
+                averageRating = 4.9f,
+                averagePrice = 32.0f,
+                category = "Languages",
+                imageResId = com.mobile.R.drawable.ic_courses
+            ),
+            com.mobile.ui.courses.models.Course(
+                id = 5,
+                title = "Spanish",
+                subtitle = "Beginner to Advanced",
+                description = "Learn Spanish from native speakers. Our courses are designed for all levels, from beginners to advanced learners.",
+                tutorCount = 12,
+                averageRating = 4.7f,
+                averagePrice = 30.0f,
+                category = "Languages",
+                imageResId = com.mobile.R.drawable.ic_courses
+            ),
+            com.mobile.ui.courses.models.Course(
+                id = 6,
+                title = "Programming",
+                subtitle = "Java, Python, JavaScript",
+                description = "Learn programming languages and software development. Our courses cover Java, Python, JavaScript, and web development.",
+                tutorCount = 20,
+                averageRating = 4.8f,
+                averagePrice = 45.0f,
+                category = "Programming",
+                imageResId = com.mobile.R.drawable.ic_courses
+            ),
+            com.mobile.ui.courses.models.Course(
+                id = 7,
+                title = "Data Science",
+                subtitle = "Statistics, Machine Learning, Big Data",
+                description = "Explore the world of data science. Our courses cover statistics, machine learning, big data, and data visualization.",
+                tutorCount = 16,
+                averageRating = 4.9f,
+                averagePrice = 50.0f,
+                category = "Programming",
+                imageResId = com.mobile.R.drawable.ic_courses
+            ),
+            com.mobile.ui.courses.models.Course(
+                id = 8,
+                title = "Biology",
+                subtitle = "Molecular, Cellular, Evolutionary",
+                description = "Discover the science of life. Our biology courses cover molecular biology, cellular biology, evolutionary biology, and ecology.",
+                tutorCount = 14,
+                averageRating = 4.6f,
+                averagePrice = 36.0f,
+                category = "Science",
+                imageResId = com.mobile.R.drawable.ic_courses
+            )
+        )
+
+        // Popular courses (subset of all courses with highest ratings)
+        val mockPopularCourses = mockCourses
+            .sortedByDescending { it.averageRating }
+            .take(4)
     }
-    
+
     /**
      * Authentication response data class
      */
@@ -89,7 +186,7 @@ object NetworkUtils {
         val lastName: String = "",
         val role: String = "LEARNER"
     )
-    
+
     /**
      * Data class for Tutor Profile
      */
@@ -114,7 +211,7 @@ object NetworkUtils {
         val comment: String,
         val dateCreated: String
     )
-    
+
     /**
      * Data class for Message
      */
@@ -177,7 +274,7 @@ object NetworkUtils {
         val sessionType: String,
         val notes: String?
     )
-    
+
     /**
      * Authenticate user with the API
      * @param email User's email
@@ -213,13 +310,37 @@ object NetworkUtils {
                 return@withContext handleResponse(connection) { response ->
                     Log.d(TAG, "Received auth response: $response")
                     val json = parseJsonResponse(response)
+
+                    // Check if authenticated
+                    val isAuthenticated = json.getBoolean("authenticated")
+
+                    // If not authenticated, return a response with default values
+                    if (!isAuthenticated) {
+                        return@handleResponse AuthResponse(
+                            isAuthenticated = false,
+                            userId = null,
+                            email = "",
+                            firstName = "",
+                            lastName = "",
+                            role = "LEARNER"
+                        )
+                    }
+
+                    // If authenticated, get all the user details
+                    // Map backend role to frontend role (STUDENT -> LEARNER)
+                    val backendRole = json.optString("role", "")
+                    val frontendRole = when (backendRole) {
+                        "STUDENT" -> "LEARNER"
+                        else -> backendRole
+                    }
+
                     AuthResponse(
-                        isAuthenticated = json.getBoolean("isAuthenticated"),
+                        isAuthenticated = true,
                         userId = json.optLong("userId"),
-                        email = json.getString("email"),
-                        firstName = json.getString("firstName"),
-                        lastName = json.getString("lastName"),
-                        role = json.getString("role")
+                        email = json.optString("email", ""),
+                        firstName = json.optString("firstName", ""),
+                        lastName = json.optString("lastName", ""),
+                        role = frontendRole
                     )
                 }
             } catch (e: Exception) {
@@ -228,7 +349,7 @@ object NetworkUtils {
             }
         }
     }
-    
+
     /**
      * Register a new user with the API
      * @param user User object containing registration details
@@ -250,30 +371,45 @@ object NetworkUtils {
                     )
                 }
 
-                val url = URL("$BASE_URL/users")
+                val url = URL("$BASE_URL/users/addUser")
                 val connection = createPostConnection(url)
 
+                // Map frontend role to backend role (LEARNER -> STUDENT)
+                val backendRole = when (user.roles) {
+                    "LEARNER" -> "STUDENT"
+                    else -> user.roles
+                }
+
                 val jsonObject = JSONObject().apply {
+                    put("username", user.email) // Using email as username
                     put("email", user.email)
-                    put("passwordHash", user.passwordHash)
+                    put("password", user.passwordHash) // Despite the name, this sends the plain password to the server
                     put("firstName", user.firstName)
                     put("lastName", user.lastName)
-                    put("roles", user.roles)
+                    put("role", backendRole) // Renamed from roles to role and mapped to backend role
                     user.profilePicture?.let { put("profilePicture", it) }
                     user.contactDetails?.let { put("contactDetails", it) }
                 }
 
                 return@withContext handleResponse(connection, jsonObject.toString()) { response ->
                     val json = parseJsonResponse(response)
+
+                    // Map backend role to frontend role (STUDENT -> LEARNER)
+                    val responseRole = json.optString("role", "")
+                    val frontendRole = when (responseRole) {
+                        "STUDENT" -> "LEARNER"
+                        else -> responseRole
+                    }
+
                     User(
                         userId = json.getLong("userId"),
                         email = json.getString("email"),
-                        passwordHash = json.getString("passwordHash"),
+                        passwordHash = json.optString("password", json.optString("passwordHash", "")),
                         firstName = json.getString("firstName"),
                         lastName = json.getString("lastName"),
                         profilePicture = json.optString("profilePicture"),
                         contactDetails = json.optString("contactDetails"),
-                        roles = json.getString("roles")
+                        roles = frontendRole
                     )
                 }
             } catch (e: Exception) {
@@ -354,7 +490,7 @@ object NetworkUtils {
                 return@withContext handleResponse(connection) { response ->
                     val jsonArray = parseJsonArrayResponse(response, "tutors")
                     val tutors = mutableListOf<TutorProfile>()
-                    
+
                     for (i in 0 until jsonArray.length()) {
                         val json = jsonArray.getJSONObject(i)
                         tutors.add(
@@ -406,7 +542,7 @@ object NetworkUtils {
                 return@withContext handleResponse(connection) { response ->
                     val jsonArray = parseJsonArrayResponse(response, "reviews")
                     val reviews = mutableListOf<Review>()
-                    
+
                     for (i in 0 until jsonArray.length()) {
                         val json = jsonArray.getJSONObject(i)
                         reviews.add(
@@ -569,7 +705,7 @@ object NetworkUtils {
                 return@withContext handleResponse(connection) { response ->
                     val jsonArray = parseJsonArrayResponse(response, "messages")
                     val messages = mutableListOf<Message>()
-                    
+
                     for (i in 0 until jsonArray.length()) {
                         val json = jsonArray.getJSONObject(i)
                         messages.add(
@@ -715,7 +851,7 @@ object NetworkUtils {
                 return@withContext handleResponse(connection) { response ->
                     val jsonArray = parseJsonArrayResponse(response, "notifications")
                     val notifications = mutableListOf<Notification>()
-                    
+
                     for (i in 0 until jsonArray.length()) {
                         val json = jsonArray.getJSONObject(i)
                         notifications.add(
@@ -820,7 +956,7 @@ object NetworkUtils {
                 return@withContext handleResponse(connection) { response ->
                     val jsonArray = parseJsonArrayResponse(response, "transactions")
                     val transactions = mutableListOf<PaymentTransaction>()
-                    
+
                     for (i in 0 until jsonArray.length()) {
                         val json = jsonArray.getJSONObject(i)
                         transactions.add(
@@ -1159,7 +1295,7 @@ object NetworkUtils {
                 return@withContext handleResponse(connection) { response ->
                     val jsonArray = parseJsonArrayResponse(response, "transactions")
                     val transactions = mutableListOf<PaymentTransaction>()
-                    
+
                     for (i in 0 until jsonArray.length()) {
                         val json = jsonArray.getJSONObject(i)
                         transactions.add(
@@ -1211,7 +1347,7 @@ object NetworkUtils {
                 return@withContext handleResponse(connection) { response ->
                     val jsonArray = parseJsonArrayResponse(response, "transactions")
                     val transactions = mutableListOf<PaymentTransaction>()
-                    
+
                     for (i in 0 until jsonArray.length()) {
                         val json = jsonArray.getJSONObject(i)
                         transactions.add(
@@ -1264,7 +1400,7 @@ object NetworkUtils {
                 return@withContext handleResponse(connection) { response ->
                     val jsonArray = parseJsonArrayResponse(response, "transactions")
                     val transactions = mutableListOf<PaymentTransaction>()
-                    
+
                     for (i in 0 until jsonArray.length()) {
                         val json = jsonArray.getJSONObject(i)
                         transactions.add(
@@ -1353,7 +1489,7 @@ object NetworkUtils {
                 return@withContext handleResponse(connection) { response ->
                     val jsonArray = parseJsonArrayResponse(response, "sessions")
                     val sessions = mutableListOf<TutoringSession>()
-                    
+
                     for (i in 0 until jsonArray.length()) {
                         val json = jsonArray.getJSONObject(i)
                         sessions.add(
@@ -1431,7 +1567,7 @@ object NetworkUtils {
                 return@withContext handleResponse(connection) { response ->
                     val jsonArray = parseJsonArrayResponse(response, "sessions")
                     val sessions = mutableListOf<TutoringSession>()
-                    
+
                     for (i in 0 until jsonArray.length()) {
                         val json = jsonArray.getJSONObject(i)
                         sessions.add(
@@ -1506,7 +1642,7 @@ object NetworkUtils {
                 return@withContext handleResponse(connection) { response ->
                     val jsonArray = parseJsonArrayResponse(response, "sessions")
                     val sessions = mutableListOf<TutoringSession>()
-                    
+
                     for (i in 0 until jsonArray.length()) {
                         val json = jsonArray.getJSONObject(i)
                         sessions.add(
@@ -1673,7 +1809,7 @@ object NetworkUtils {
 
             val responseCode = connection.responseCode
             Log.d(TAG, "Received response code: $responseCode")
-            
+
             val response = if (responseCode == HttpURLConnection.HTTP_OK) {
                 BufferedReader(InputStreamReader(connection.inputStream)).use { reader ->
                     reader.readText()
@@ -1688,7 +1824,7 @@ object NetworkUtils {
                     connection.responseMessage ?: "Unknown error"
                 }
             }
-            
+
             Log.d(TAG, "Response body: $response")
 
             when (responseCode) {
@@ -1832,7 +1968,7 @@ object NetworkUtils {
         val createdAt: String,
         val lastMessageTime: String? = null
     )
-    
+
     /**
      * User-related API endpoints
      * Base URL: /api/users
@@ -1921,7 +2057,7 @@ object NetworkUtils {
                 return@withContext handleResponse(connection) { response ->
                     val jsonArray = parseJsonArrayResponse(response, "users")
                     val users = mutableListOf<User>()
-                    
+
                     for (i in 0 until jsonArray.length()) {
                         val json = jsonArray.getJSONObject(i)
                         users.add(
@@ -2066,7 +2202,7 @@ object NetworkUtils {
                 return@withContext handleResponse(connection) { response ->
                     val jsonArray = parseJsonArrayResponse(response, "reviews")
                     val reviews = mutableListOf<Review>()
-                    
+
                     for (i in 0 until jsonArray.length()) {
                         val json = jsonArray.getJSONObject(i)
                         reviews.add(
@@ -2117,7 +2253,7 @@ object NetworkUtils {
                 return@withContext handleResponse(connection) { response ->
                     val jsonArray = parseJsonArrayResponse(response, "reviews")
                     val reviews = mutableListOf<Review>()
-                    
+
                     for (i in 0 until jsonArray.length()) {
                         val json = jsonArray.getJSONObject(i)
                         reviews.add(
@@ -2183,11 +2319,11 @@ object NetworkUtils {
                     val json = parseJsonResponse(response)
                     val participantsArray = json.getJSONArray("participants")
                     val participants = mutableListOf<Long>()
-                    
+
                     for (i in 0 until participantsArray.length()) {
                         participants.add(participantsArray.getLong(i))
                     }
-                    
+
                     Conversation(
                         id = json.getLong("id"),
                         participants = participants,
@@ -2227,16 +2363,16 @@ object NetworkUtils {
                 return@withContext handleResponse(connection) { response ->
                     val jsonArray = parseJsonArrayResponse(response, "conversations")
                     val conversations = mutableListOf<Conversation>()
-                    
+
                     for (i in 0 until jsonArray.length()) {
                         val json = jsonArray.getJSONObject(i)
                         val participantsArray = json.getJSONArray("participants")
                         val participants = mutableListOf<Long>()
-                        
+
                         for (j in 0 until participantsArray.length()) {
                             participants.add(participantsArray.getLong(j))
                         }
-                        
+
                         conversations.add(
                             Conversation(
                                 id = json.getLong("id"),
@@ -2284,11 +2420,11 @@ object NetworkUtils {
                     val json = parseJsonResponse(response)
                     val participantsArray = json.getJSONArray("participants")
                     val participants = mutableListOf<Long>()
-                    
+
                     for (i in 0 until participantsArray.length()) {
                         participants.add(participantsArray.getLong(i))
                     }
-                    
+
                     Conversation(
                         id = json.getLong("id"),
                         participants = participants,
@@ -2298,6 +2434,302 @@ object NetworkUtils {
                 }
             } catch (e: Exception) {
                 handleNetworkError(e, "adding participant to conversation")
+            }
+        }
+    }
+
+    /**
+     * Course-related API endpoints
+     * Base URL: /api/courses
+     */
+
+    /**
+     * Get all courses
+     * 
+     * @return List of courses
+     */
+    suspend fun getAllCourses(): List<com.mobile.ui.courses.models.Course> {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (DEBUG_MODE) {
+                    Log.d(TAG, "Getting all courses (mock data)")
+                    return@withContext MockData.mockCourses
+                }
+
+                val url = URL("$BASE_URL/courses")
+                val connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.setRequestProperty("Content-Type", "application/json")
+                connection.connectTimeout = 15000
+                connection.readTimeout = 15000
+
+                val responseCode = connection.responseCode
+                if (responseCode == HttpURLConnection.HTTP_OK) {
+                    val reader = BufferedReader(InputStreamReader(connection.inputStream))
+                    val response = StringBuilder()
+                    var line: String?
+                    while (reader.readLine().also { line = it } != null) {
+                        response.append(line)
+                    }
+                    reader.close()
+
+                    // Parse JSON response
+                    val jsonArray = JSONArray(response.toString())
+                    val courses = mutableListOf<com.mobile.ui.courses.models.Course>()
+
+                    for (i in 0 until jsonArray.length()) {
+                        val jsonObject = jsonArray.getJSONObject(i)
+                        courses.add(
+                            com.mobile.ui.courses.models.Course(
+                                id = jsonObject.getLong("id"),
+                                title = jsonObject.getString("title"),
+                                subtitle = jsonObject.getString("subtitle"),
+                                description = jsonObject.getString("description"),
+                                tutorCount = jsonObject.getInt("tutorCount"),
+                                averageRating = jsonObject.getDouble("averageRating").toFloat(),
+                                averagePrice = jsonObject.getDouble("averagePrice").toFloat(),
+                                category = jsonObject.getString("category"),
+                                imageResId = com.mobile.R.drawable.ic_courses // Default image
+                            )
+                        )
+                    }
+
+                    return@withContext courses
+                } else {
+                    // For now, return mock data if API call fails
+                    Log.e(TAG, "Error getting courses: HTTP $responseCode")
+                    return@withContext MockData.mockCourses
+                }
+            } catch (e: Exception) {
+                // For now, return mock data if API call fails
+                Log.e(TAG, "Error getting courses: ${e.message}")
+                return@withContext MockData.mockCourses
+            }
+        }
+    }
+
+    /**
+     * Get popular courses
+     * 
+     * @return List of popular courses
+     */
+    suspend fun getPopularCourses(): List<com.mobile.ui.courses.models.Course> {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (DEBUG_MODE) {
+                    Log.d(TAG, "Getting popular courses (mock data)")
+                    return@withContext MockData.mockPopularCourses
+                }
+
+                val url = URL("$BASE_URL/courses/popular")
+                val connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.setRequestProperty("Content-Type", "application/json")
+                connection.connectTimeout = 15000
+                connection.readTimeout = 15000
+
+                val responseCode = connection.responseCode
+                if (responseCode == HttpURLConnection.HTTP_OK) {
+                    val reader = BufferedReader(InputStreamReader(connection.inputStream))
+                    val response = StringBuilder()
+                    var line: String?
+                    while (reader.readLine().also { line = it } != null) {
+                        response.append(line)
+                    }
+                    reader.close()
+
+                    // Parse JSON response
+                    val jsonArray = JSONArray(response.toString())
+                    val courses = mutableListOf<com.mobile.ui.courses.models.Course>()
+
+                    for (i in 0 until jsonArray.length()) {
+                        val jsonObject = jsonArray.getJSONObject(i)
+                        courses.add(
+                            com.mobile.ui.courses.models.Course(
+                                id = jsonObject.getLong("id"),
+                                title = jsonObject.getString("title"),
+                                subtitle = jsonObject.getString("subtitle"),
+                                description = jsonObject.getString("description"),
+                                tutorCount = jsonObject.getInt("tutorCount"),
+                                averageRating = jsonObject.getDouble("averageRating").toFloat(),
+                                averagePrice = jsonObject.getDouble("averagePrice").toFloat(),
+                                category = jsonObject.getString("category"),
+                                imageResId = com.mobile.R.drawable.ic_courses // Default image
+                            )
+                        )
+                    }
+
+                    return@withContext courses
+                } else {
+                    // For now, return mock data if API call fails
+                    Log.e(TAG, "Error getting popular courses: HTTP $responseCode")
+                    return@withContext MockData.mockPopularCourses
+                }
+            } catch (e: Exception) {
+                // For now, return mock data if API call fails
+                Log.e(TAG, "Error getting popular courses: ${e.message}")
+                return@withContext MockData.mockPopularCourses
+            }
+        }
+    }
+
+    /**
+     * Get courses by category
+     * 
+     * @param category Category to filter by (null for all categories)
+     * @return List of courses in the specified category
+     */
+    suspend fun getCoursesByCategory(category: String?): List<com.mobile.ui.courses.models.Course> {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (DEBUG_MODE) {
+                    Log.d(TAG, "Getting courses by category: $category (mock data)")
+                    return@withContext if (category == null) {
+                        MockData.mockCourses
+                    } else {
+                        MockData.mockCourses.filter { it.category == category }
+                    }
+                }
+
+                val url = if (category == null) {
+                    URL("$BASE_URL/courses")
+                } else {
+                    URL("$BASE_URL/courses/category/${URLEncoder.encode(category, "UTF-8")}")
+                }
+
+                val connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.setRequestProperty("Content-Type", "application/json")
+                connection.connectTimeout = 15000
+                connection.readTimeout = 15000
+
+                val responseCode = connection.responseCode
+                if (responseCode == HttpURLConnection.HTTP_OK) {
+                    val reader = BufferedReader(InputStreamReader(connection.inputStream))
+                    val response = StringBuilder()
+                    var line: String?
+                    while (reader.readLine().also { line = it } != null) {
+                        response.append(line)
+                    }
+                    reader.close()
+
+                    // Parse JSON response
+                    val jsonArray = JSONArray(response.toString())
+                    val courses = mutableListOf<com.mobile.ui.courses.models.Course>()
+
+                    for (i in 0 until jsonArray.length()) {
+                        val jsonObject = jsonArray.getJSONObject(i)
+                        courses.add(
+                            com.mobile.ui.courses.models.Course(
+                                id = jsonObject.getLong("id"),
+                                title = jsonObject.getString("title"),
+                                subtitle = jsonObject.getString("subtitle"),
+                                description = jsonObject.getString("description"),
+                                tutorCount = jsonObject.getInt("tutorCount"),
+                                averageRating = jsonObject.getDouble("averageRating").toFloat(),
+                                averagePrice = jsonObject.getDouble("averagePrice").toFloat(),
+                                category = jsonObject.getString("category"),
+                                imageResId = com.mobile.R.drawable.ic_courses // Default image
+                            )
+                        )
+                    }
+
+                    return@withContext courses
+                } else {
+                    // For now, return mock data if API call fails
+                    Log.e(TAG, "Error getting courses by category: HTTP $responseCode")
+                    return@withContext if (category == null) {
+                        MockData.mockCourses
+                    } else {
+                        MockData.mockCourses.filter { it.category == category }
+                    }
+                }
+            } catch (e: Exception) {
+                // For now, return mock data if API call fails
+                Log.e(TAG, "Error getting courses by category: ${e.message}")
+                return@withContext if (category == null) {
+                    MockData.mockCourses
+                } else {
+                    MockData.mockCourses.filter { it.category == category }
+                }
+            }
+        }
+    }
+
+    /**
+     * Search courses by query
+     * 
+     * @param query Search query
+     * @return List of courses matching the query
+     */
+    suspend fun searchCourses(query: String): List<com.mobile.ui.courses.models.Course> {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (DEBUG_MODE) {
+                    Log.d(TAG, "Searching courses: $query (mock data)")
+                    return@withContext MockData.mockCourses.filter {
+                        it.title.contains(query, ignoreCase = true) ||
+                        it.subtitle.contains(query, ignoreCase = true) ||
+                        it.description.contains(query, ignoreCase = true)
+                    }
+                }
+
+                val url = URL("$BASE_URL/courses/search?q=${URLEncoder.encode(query, "UTF-8")}")
+                val connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.setRequestProperty("Content-Type", "application/json")
+                connection.connectTimeout = 15000
+                connection.readTimeout = 15000
+
+                val responseCode = connection.responseCode
+                if (responseCode == HttpURLConnection.HTTP_OK) {
+                    val reader = BufferedReader(InputStreamReader(connection.inputStream))
+                    val response = StringBuilder()
+                    var line: String?
+                    while (reader.readLine().also { line = it } != null) {
+                        response.append(line)
+                    }
+                    reader.close()
+
+                    // Parse JSON response
+                    val jsonArray = JSONArray(response.toString())
+                    val courses = mutableListOf<com.mobile.ui.courses.models.Course>()
+
+                    for (i in 0 until jsonArray.length()) {
+                        val jsonObject = jsonArray.getJSONObject(i)
+                        courses.add(
+                            com.mobile.ui.courses.models.Course(
+                                id = jsonObject.getLong("id"),
+                                title = jsonObject.getString("title"),
+                                subtitle = jsonObject.getString("subtitle"),
+                                description = jsonObject.getString("description"),
+                                tutorCount = jsonObject.getInt("tutorCount"),
+                                averageRating = jsonObject.getDouble("averageRating").toFloat(),
+                                averagePrice = jsonObject.getDouble("averagePrice").toFloat(),
+                                category = jsonObject.getString("category"),
+                                imageResId = com.mobile.R.drawable.ic_courses // Default image
+                            )
+                        )
+                    }
+
+                    return@withContext courses
+                } else {
+                    // For now, return mock data if API call fails
+                    Log.e(TAG, "Error searching courses: HTTP $responseCode")
+                    return@withContext MockData.mockCourses.filter {
+                        it.title.contains(query, ignoreCase = true) ||
+                        it.subtitle.contains(query, ignoreCase = true) ||
+                        it.description.contains(query, ignoreCase = true)
+                    }
+                }
+            } catch (e: Exception) {
+                // For now, return mock data if API call fails
+                Log.e(TAG, "Error searching courses: ${e.message}")
+                return@withContext MockData.mockCourses.filter {
+                    it.title.contains(query, ignoreCase = true) ||
+                    it.subtitle.contains(query, ignoreCase = true) ||
+                    it.description.contains(query, ignoreCase = true)
+                }
             }
         }
     }
@@ -2349,7 +2781,7 @@ object NetworkUtils {
                 return@withContext handleResponse(connection) { response ->
                     val jsonArray = parseJsonArrayResponse(response, "tutors")
                     val tutors = mutableListOf<TutorProfile>()
-                    
+
                     for (i in 0 until jsonArray.length()) {
                         val json = jsonArray.getJSONObject(i)
                         tutors.add(
@@ -2525,7 +2957,7 @@ object NetworkUtils {
                 return@withContext handleResponse(connection) { response ->
                     val jsonArray = parseJsonArrayResponse(response, "sessions")
                     val sessions = mutableListOf<TutoringSession>()
-                    
+
                     for (i in 0 until jsonArray.length()) {
                         val json = jsonArray.getJSONObject(i)
                         sessions.add(
@@ -2638,7 +3070,7 @@ object NetworkUtils {
                 return@withContext handleResponse(connection) { response ->
                     val jsonArray = parseJsonArrayResponse(response, "users")
                     val users = mutableListOf<User>()
-                    
+
                     for (i in 0 until jsonArray.length()) {
                         val json = jsonArray.getJSONObject(i)
                         users.add(
@@ -2849,7 +3281,7 @@ object NetworkUtils {
                 return@withContext handleResponse(connection) { response ->
                     val jsonArray = parseJsonArrayResponse(response, "messages")
                     val messages = mutableListOf<Message>()
-                    
+
                     for (i in 0 until jsonArray.length()) {
                         val json = jsonArray.getJSONObject(i)
                         messages.add(
@@ -2923,11 +3355,11 @@ object NetworkUtils {
                     val json = parseJsonResponse(response)
                     val participantsArray = json.getJSONArray("participants")
                     val participants = mutableListOf<Long>()
-                    
+
                     for (i in 0 until participantsArray.length()) {
                         participants.add(participantsArray.getLong(i))
                     }
-                    
+
                     Conversation(
                         id = json.getLong("id"),
                         participants = participants,
@@ -2988,11 +3420,11 @@ object NetworkUtils {
                     val json = parseJsonResponse(response)
                     val participantsArray = json.getJSONArray("participants")
                     val participants = mutableListOf<Long>()
-                    
+
                     for (i in 0 until participantsArray.length()) {
                         participants.add(participantsArray.getLong(i))
                     }
-                    
+
                     Conversation(
                         id = json.getLong("id"),
                         participants = participants,
@@ -3044,7 +3476,7 @@ object NetworkUtils {
                 return@withContext handleResponse(connection) { response ->
                     val jsonArray = parseJsonArrayResponse(response, "tutors")
                     val tutors = mutableListOf<TutorProfile>()
-                    
+
                     for (i in 0 until jsonArray.length()) {
                         val json = jsonArray.getJSONObject(i)
                         tutors.add(
@@ -3143,7 +3575,7 @@ object NetworkUtils {
                 return@withContext handleResponse(connection) { response ->
                     val jsonArray = parseJsonArrayResponse(response, "notifications")
                     val notifications = mutableListOf<Notification>()
-                    
+
                     for (i in 0 until jsonArray.length()) {
                         val json = jsonArray.getJSONObject(i)
                         notifications.add(
@@ -3200,7 +3632,7 @@ object NetworkUtils {
                 return@withContext handleResponse(connection) { response ->
                     val jsonArray = parseJsonArrayResponse(response, "availability")
                     val availabilityList = mutableListOf<TutorAvailability>()
-                    
+
                     for (i in 0 until jsonArray.length()) {
                         val json = jsonArray.getJSONObject(i)
                         availabilityList.add(
@@ -3250,7 +3682,7 @@ object NetworkUtils {
                 return@withContext handleResponse(connection) { response ->
                     val jsonArray = parseJsonArrayResponse(response, "availability")
                     val availabilityList = mutableListOf<TutorAvailability>()
-                    
+
                     for (i in 0 until jsonArray.length()) {
                         val json = jsonArray.getJSONObject(i)
                         availabilityList.add(
@@ -3350,7 +3782,7 @@ object NetworkUtils {
                 return@withContext handleResponse(connection) { response ->
                     val jsonArray = parseJsonArrayResponse(response, "sessions")
                     val sessions = mutableListOf<TutoringSession>()
-                    
+
                     for (i in 0 until jsonArray.length()) {
                         val json = jsonArray.getJSONObject(i)
                         sessions.add(
@@ -3408,7 +3840,7 @@ object NetworkUtils {
                 return@withContext handleResponse(connection) { response ->
                     val jsonArray = parseJsonArrayResponse(response, "sessions")
                     val sessions = mutableListOf<TutoringSession>()
-                    
+
                     for (i in 0 until jsonArray.length()) {
                         val json = jsonArray.getJSONObject(i)
                         sessions.add(

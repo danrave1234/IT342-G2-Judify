@@ -15,6 +15,7 @@ import com.mobile.R
 import com.mobile.data.model.AuthResponse
 import com.mobile.ui.dashboard.LearnerDashboardActivity
 import com.mobile.ui.register.RegisterActivity
+import com.mobile.data.repository.AuthRepository
 import com.mobile.utils.NetworkUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -24,6 +25,7 @@ import kotlinx.coroutines.withContext
 class LoginActivity : AppCompatActivity() {
 
     private lateinit var viewModel: LoginViewModel
+    private lateinit var authRepository: AuthRepository
     private lateinit var usernameEditText: EditText
     private lateinit var passwordEditText: EditText
     private lateinit var loginButton: Button
@@ -38,6 +40,9 @@ class LoginActivity : AppCompatActivity() {
         // Initialize ViewModel using the factory
         viewModel = ViewModelProvider(this, LoginViewModelFactory(application))
             .get(LoginViewModel::class.java)
+
+        // Initialize AuthRepository
+        authRepository = AuthRepository()
 
         // Initialize UI components
         usernameEditText = findViewById(R.id.username)
@@ -79,63 +84,27 @@ class LoginActivity : AppCompatActivity() {
 
         // Attempt login
         CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val result = NetworkUtils.authenticateUser(email, password)
-                
-                withContext(Dispatchers.Main) {
-                    loadingProgressBar.visibility = View.GONE
-                    loginButton.isEnabled = true
+            // Use AuthRepository instead of directly using NetworkUtils
+            val authResponse = authRepository.login(email, password)
 
-                    result.fold(
-                        onSuccess = { response ->
-                            if (response.isAuthenticated) {
-                                // Convert NetworkUtils.AuthResponse to our model AuthResponse
-                                val authResponse = com.mobile.data.model.AuthResponse(
-                                    success = true,
-                                    isAuthenticated = response.isAuthenticated,
-                                    userId = response.userId,
-                                    email = response.email,
-                                    firstName = response.firstName,
-                                    lastName = response.lastName,
-                                    role = response.role
-                                )
-                                
-                                // Save user session with the converted response
-                                viewModel.saveUserSession(
-                                    authResponse,
-                                    rememberMeCheckbox.isChecked
-                                )
-                                
-                                // Navigate to dashboard
-                                onLoginSuccess()
-                            } else {
-                                // Show error message
-                                Toast.makeText(
-                                    this@LoginActivity,
-                                    getString(R.string.login_failed),
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            }
-                        },
-                        onFailure = { exception ->
-                            // Show error message
-                            Toast.makeText(
-                                this@LoginActivity,
-                                exception.message ?: getString(R.string.login_failed),
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
+            withContext(Dispatchers.Main) {
+                loadingProgressBar.visibility = View.GONE
+                loginButton.isEnabled = true
+
+                if (authResponse.isAuthenticated) {
+                    // Save user session
+                    viewModel.saveUserSession(
+                        authResponse,
+                        rememberMeCheckbox.isChecked
                     )
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    loadingProgressBar.visibility = View.GONE
-                    loginButton.isEnabled = true
-                    
+
+                    // Navigate to dashboard
+                    onLoginSuccess()
+                } else {
                     // Show error message
                     Toast.makeText(
                         this@LoginActivity,
-                        e.message ?: getString(R.string.login_failed),
+                        authResponse.message ?: getString(R.string.login_failed),
                         Toast.LENGTH_SHORT
                     ).show()
                 }
