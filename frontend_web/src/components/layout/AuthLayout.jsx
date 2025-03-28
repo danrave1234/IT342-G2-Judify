@@ -4,7 +4,7 @@ import DarkModeToggle from './DarkModeToggle';
 
 // Auth layout with a centered form design
 const AuthLayout = () => {
-  const { user, loading } = useUser();
+  const { user, loading, isTutor, isStudent } = useUser();
 
   // If still loading, show loading spinner
   if (loading) {
@@ -17,7 +17,7 @@ const AuthLayout = () => {
 
   // If user is logged in, redirect to dashboard
   if (user) {
-    if (user.roles.includes('TUTOR')) {
+    if (isTutor()) {
       return <Navigate to="/tutor" />;
     }
     return <Navigate to="/student" />;
