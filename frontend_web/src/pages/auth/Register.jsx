@@ -31,12 +31,16 @@ const Register = () => {
     
     setIsSubmitting(true);
     try {
+      // Create a username from email (before the @ symbol)
+      const username = data.email.split('@')[0];
+      
       const result = await registerUser({
         firstName: data.firstName,
         lastName: data.lastName,
         email: data.email,
+        username: username,
         password: data.password,
-        userType: data.userType || userType
+        role: data.userType === 'student' ? 'STUDENT' : 'TUTOR' // Map to enum value expected by backend
       });
       
       if (result.success) {

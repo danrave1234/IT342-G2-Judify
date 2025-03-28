@@ -1,115 +1,219 @@
-import { createContext, useState, useEffect, useContext } from 'react';
-import axios from 'axios';
+import { createContext, useContext, useState, useEffect } from 'react';
+import { authApi, userApi } from '../api/api';
+import { toast } from 'react-toastify';
+import { USER_ROLES } from '../types';
 
-const UserContext = createContext();
+const UserContext = createContext(null);
+
+export const useUser = () => useContext(UserContext);
 
 export const UserProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Initialize user from localStorage on mount
   useEffect(() => {
-    // Check if user is logged in on page load
-    const checkUserLoggedIn = async () => {
+    const loadUser = async () => {
       try {
-        const token = localStorage.getItem('judify_token');
-        if (!token) {
-          setLoading(false);
-          return;
+        const storedUser = localStorage.getItem('user');
+        const token = localStorage.getItem('token');
+
+        if (storedUser && token) {
+          // Parse the stored user
+          setUser(JSON.parse(storedUser));
+          
+          // Verify the token and refresh user data
+          await verifyAndRefreshUser();
         }
-
-        const config = {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        };
-
-        const res = await axios.get('/api/users/me', config);
-        setUser(res.data);
-        setLoading(false);
       } catch (err) {
-        localStorage.removeItem('judify_token');
-        setError(err.response?.data?.message || 'An error occurred');
+        console.error('Error loading user:', err);
+        logout();
+      } finally {
         setLoading(false);
       }
     };
 
-    checkUserLoggedIn();
+    loadUser();
   }, []);
 
-  // Login user
-  const login = async (email, password) => {
+  const verifyAndRefreshUser = async () => {
     try {
-      const res = await axios.post('/api/auth/login', { email, password });
-      localStorage.setItem('judify_token', res.data.token);
-      setUser(res.data.user);
-      return { success: true };
+      // Verify the token
+      await authApi.verify();
+      
+      // If valid, get fresh user data
+      const response = await userApi.getCurrentUser();
+      const userData = response.data;
+      
+      // Update user state and localStorage
+      setUser(userData);
+      localStorage.setItem('user', JSON.stringify(userData));
     } catch (err) {
-      setError(err.response?.data?.message || 'Invalid credentials');
-      return { 
-        success: false, 
-        message: err.response?.data?.message || 'Invalid credentials' 
-      };
+      // If token is invalid, logout
+      logout();
+      throw err;
     }
   };
 
-  // Register user
-  const register = async (userData) => {
+  const login = async (email, password) => {
+    setLoading(true);
+    setError(null);
+    
     try {
-      const res = await axios.post('/api/auth/register', userData);
-      localStorage.setItem('judify_token', res.data.token);
-      setUser(res.data.user);
+      // The backend endpoint uses query parameters, not JSON body
+      const response = await authApi.login(email, password);
+      
+      // Log response data for debugging
+      console.log("Login response:", response.data);
+      
+      const { token, ...userData } = response.data;
+      
+      // Save token and user data
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(userData));
+      
+      setUser(userData);
+      
       return { success: true };
     } catch (err) {
+      console.error("Login error:", err.response?.data || err.message);
+      setError(err.response?.data?.message || 'Login failed');
+      return { 
+        success: false, 
+        message: err.response?.data?.message || 'Login failed' 
+      };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const register = async (userData) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Convert userType to UserRole enum value expected by backend
+      const userDataToSend = {
+        ...userData,
+        // Make sure the username is set if not provided
+        username: userData.username || userData.email.split('@')[0]
+      };
+      
+      // Ensure role is correctly set as expected by backend
+      if (!userDataToSend.role && userDataToSend.userType) {
+        userDataToSend.role = userDataToSend.userType === 'student' ? 'STUDENT' : 'TUTOR';
+        delete userDataToSend.userType; // Remove userType as backend expects role
+      }
+      
+      const response = await authApi.register(userDataToSend);
+      return { success: true, message: response.data.message };
+    } catch (err) {
+      console.error("Registration error:", err.response?.data || err.message);
       setError(err.response?.data?.message || 'Registration failed');
       return { 
         success: false, 
         message: err.response?.data?.message || 'Registration failed' 
       };
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Logout user
   const logout = () => {
-    localStorage.removeItem('judify_token');
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
     setUser(null);
   };
 
-  // Update user profile
   const updateProfile = async (userData) => {
+    if (!user) return { success: false, message: 'No user logged in' };
+    
+    setLoading(true);
+    setError(null);
+    
     try {
-      const token = localStorage.getItem('judify_token');
-      const config = {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      };
-
-      const res = await axios.put('/api/users/profile', userData, config);
-      setUser(res.data);
+      const response = await userApi.updateUser(user.userId, userData);
+      const updatedUser = response.data;
+      
+      // Update user state and localStorage
+      setUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      
+      toast.success('Profile updated successfully');
       return { success: true };
     } catch (err) {
-      setError(err.response?.data?.message || 'Profile update failed');
-      return { 
-        success: false, 
-        message: err.response?.data?.message || 'Profile update failed' 
-      };
+      const message = err.response?.data?.message || 'Failed to update profile';
+      setError(message);
+      toast.error(message);
+      return { success: false, message };
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Check if user is a tutor
+  const uploadProfilePicture = async (file) => {
+    if (!user) return { success: false, message: 'No user logged in' };
+    if (!file) return { success: false, message: 'No file selected' };
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const formData = new FormData();
+      formData.append('profilePicture', file);
+      
+      const response = await userApi.uploadProfilePicture(user.userId, formData);
+      const updatedUser = response.data;
+      
+      // Update user state and localStorage
+      setUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      
+      toast.success('Profile picture updated successfully');
+      return { success: true };
+    } catch (err) {
+      const message = err.response?.data?.message || 'Failed to upload profile picture';
+      setError(message);
+      toast.error(message);
+      return { success: false, message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const requestPasswordReset = async (email) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await authApi.resetPassword(email);
+      return { success: true, message: response.data.message };
+    } catch (err) {
+      const message = err.response?.data?.message || 'Failed to request password reset';
+      setError(message);
+      return { success: false, message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Check if the user is a tutor
   const isTutor = () => {
-    return user && user.roles?.includes('TUTOR');
+    if (!user) return false;
+    return user.role === USER_ROLES.TUTOR || user.role === 'TUTOR';
   };
-
-  // Check if user is a student
+  
+  // Check if the user is a student
   const isStudent = () => {
-    return user && user.roles?.includes('STUDENT');
+    if (!user) return false;
+    return user.role === USER_ROLES.STUDENT || user.role === 'STUDENT';
   };
-
-  // Check if user is an admin
+  
+  // Check if the user is an admin
   const isAdmin = () => {
-    return user && user.roles?.includes('ADMIN');
+    if (!user) return false;
+    return user.role === USER_ROLES.ADMIN || user.role === 'ADMIN';
   };
 
   return (
@@ -122,16 +226,14 @@ export const UserProvider = ({ children }) => {
         register,
         logout,
         updateProfile,
+        uploadProfilePicture,
+        requestPasswordReset,
         isTutor,
         isStudent,
-        isAdmin,
+        isAdmin
       }}
     >
       {children}
     </UserContext.Provider>
   );
-};
-
-export const useUser = () => useContext(UserContext);
-
-export default UserContext; 
+}; 

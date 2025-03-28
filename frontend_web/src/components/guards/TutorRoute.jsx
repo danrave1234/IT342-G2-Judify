@@ -1,0 +1,26 @@
+import { Navigate } from 'react-router-dom';
+import { useUser } from '../../context/UserContext';
+
+/**
+ * A route guard component to protect routes that are accessible only to tutors
+ */
+const TutorRoute = ({ children }) => {
+  const { user, loading, isTutor } = useUser();
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-light-900 dark:bg-dark-900">
+        <div className="w-16 h-16 border-t-4 border-primary-600 border-solid rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  // Check if user is a tutor
+  if (!user || !isTutor()) {
+    return <Navigate to="/" />;
+  }
+
+  return children;
+};
+
+export default TutorRoute; 
