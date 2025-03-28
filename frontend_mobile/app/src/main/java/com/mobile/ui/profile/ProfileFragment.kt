@@ -14,9 +14,9 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatDelegate
-import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import com.mobile.R
+import com.mobile.ui.base.BaseFragment
 import com.mobile.ui.login.LoginActivity
 import com.mobile.utils.PreferenceUtils
 import de.hdodenhof.circleimageview.CircleImageView
@@ -24,7 +24,7 @@ import de.hdodenhof.circleimageview.CircleImageView
 /**
  * Fragment for displaying user profile
  */
-class ProfileFragment : Fragment() {
+class ProfileFragment : BaseFragment() {
 
     // UI components
     private lateinit var profileImage: CircleImageView
@@ -46,12 +46,12 @@ class ProfileFragment : Fragment() {
     // ViewModel
     private lateinit var viewModel: ProfileViewModel
 
-    override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View? {
-        val view = inflater.inflate(R.layout.fragment_profile, container, false)
+    override fun getLayoutResourceId(): Int {
+        return R.layout.fragment_profile
+    }
+
+    override fun onViewCreated(view: View) {
+        super.onViewCreated(view)
 
         // Initialize ViewModel
         viewModel = ViewModelProvider(this).get(ProfileViewModel::class.java)
@@ -70,8 +70,6 @@ class ProfileFragment : Fragment() {
 
         // Update theme mode text
         updateThemeModeText()
-
-        return view
     }
 
     private fun initializeViews(view: View) {

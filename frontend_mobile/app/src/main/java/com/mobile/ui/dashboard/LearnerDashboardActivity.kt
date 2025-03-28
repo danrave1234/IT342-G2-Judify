@@ -3,20 +3,28 @@ package com.mobile.ui.dashboard
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import android.view.MenuItem
 import android.view.View
 import android.widget.HorizontalScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.NestedScrollView
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.appbar.AppBarLayout
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.mobile.R
 import com.mobile.databinding.ActivityLearnerDashboardBinding
+import com.mobile.ui.chat.ChatFragment
 import com.mobile.ui.courses.CoursesFragment
+import com.mobile.ui.courses.adapters.CourseAdapter
+import com.mobile.ui.courses.models.Course
 import com.mobile.ui.map.MapFragment
 import com.mobile.ui.profile.ProfileFragment
+import com.mobile.utils.NetworkUtils
 import com.mobile.utils.PreferenceUtils
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -24,6 +32,9 @@ class LearnerDashboardActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityLearnerDashboardBinding
     private val TAG = "LearnerDashboard"
+
+    private lateinit var popularCoursesAdapter: CourseAdapter
+    private lateinit var allCoursesAdapter: CourseAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,9 +48,6 @@ class LearnerDashboardActivity : AppCompatActivity() {
         // Set up user name from preferences
         setupUserName()
 
-        // Set up bottom navigation
-        setupBottomNavigation()
-
         // Set up click listeners
         setupClickListeners()
 
@@ -48,6 +56,52 @@ class LearnerDashboardActivity : AppCompatActivity() {
 
         // Set up category selection
         setupCategorySelection()
+
+        // Set up courses
+        setupCourses()
+
+        // Set up bottom navigation
+        setupBottomNavigation()
+    }
+
+    private fun setupBottomNavigation() {
+        binding.bottomNavigation.setOnItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.navigation_home -> {
+                    // Show the main dashboard content
+                    showMainContent(true)
+                    return@setOnItemSelectedListener true
+                }
+                R.id.navigation_courses -> {
+                    // Show the courses fragment
+                    showMainContent(false)
+                    loadFragment(CoursesFragment())
+                    return@setOnItemSelectedListener true
+                }
+                R.id.navigation_map -> {
+                    // Show the map fragment
+                    showMainContent(false)
+                    loadFragment(MapFragment())
+                    return@setOnItemSelectedListener true
+                }
+                R.id.navigation_chat -> {
+                    // Show the chat fragment
+                    showMainContent(false)
+                    loadFragment(ChatFragment())
+                    return@setOnItemSelectedListener true
+                }
+                R.id.navigation_profile -> {
+                    // Show the profile fragment
+                    showMainContent(false)
+                    loadFragment(ProfileFragment())
+                    return@setOnItemSelectedListener true
+                }
+                else -> return@setOnItemSelectedListener false
+            }
+        }
+
+        // Set the home item as selected by default
+        binding.bottomNavigation.selectedItemId = R.id.navigation_home
     }
 
     private fun setupGreeting() {
@@ -79,46 +133,6 @@ class LearnerDashboardActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupBottomNavigation() {
-        binding.bottomNavigation.setOnItemSelectedListener { item ->
-            when (item.itemId) {
-                R.id.navigation_home -> {
-                    // Already on home, do nothing
-                    showMainContent(true)
-                    true
-                }
-                R.id.navigation_courses -> {
-                    // Navigate to courses screen
-                    showMainContent(false)
-                    loadFragment(CoursesFragment.newInstance())
-                    true
-                }
-                R.id.navigation_map -> {
-                    // Show the map fragment and hide the main content
-                    showMainContent(false)
-                    loadFragment(MapFragment())
-                    Log.d(TAG, "Map tab selected")
-                    true
-                }
-                R.id.navigation_chat -> {
-                    // Navigate to chat screen
-                    showMainContent(false)
-                    loadFragment(com.mobile.ui.chat.ChatFragment.newInstance())
-                    true
-                }
-                R.id.navigation_profile -> {
-                    // Show the profile fragment and hide the main content
-                    showMainContent(false)
-                    loadFragment(ProfileFragment())
-                    true
-                }
-                else -> false
-            }
-        }
-
-        // Set home as selected
-        binding.bottomNavigation.selectedItemId = R.id.navigation_home
-    }
 
     private fun loadFragment(fragment: Fragment) {
         Log.d(TAG, "Loading fragment: ${fragment.javaClass.simpleName}")
@@ -132,11 +146,13 @@ class LearnerDashboardActivity : AppCompatActivity() {
         if (show) {
             binding.appBarLayout.visibility = View.VISIBLE
             binding.dashboardShadowDivider.visibility = View.VISIBLE
+            binding.dashboardScrollView.visibility = View.VISIBLE
             binding.fragmentContainer.visibility = View.GONE
             // Don't change the bottom navigation background - let the XML handle it
         } else {
             binding.appBarLayout.visibility = View.GONE
             binding.dashboardShadowDivider.visibility = View.GONE
+            binding.dashboardScrollView.visibility = View.GONE
             binding.fragmentContainer.visibility = View.VISIBLE
             // Don't change the bottom navigation background - let the XML handle it
         }
@@ -185,7 +201,6 @@ class LearnerDashboardActivity : AppCompatActivity() {
             // Show the profile fragment and hide the main content
             showMainContent(false)
             loadFragment(ProfileFragment())
-            binding.bottomNavigation.selectedItemId = R.id.navigation_profile
         }
     }
 
@@ -230,7 +245,71 @@ class LearnerDashboardActivity : AppCompatActivity() {
                 categoryView.setBackgroundResource(R.drawable.category_selected_background)
                 categoryView.setTextColor(resources.getColor(android.R.color.white, theme))
 
-                // TODO: Filter courses based on selected category
+                // Filter courses based on selected category
+                val category = categoryView.text.toString()
+                filterCoursesByCategory(if (category == "All") null else category)
+            }
+        }
+    }
+
+    private fun setupCourses() {
+        // Initialize RecyclerViews
+        binding.popularCoursesRecyclerView.layoutManager = LinearLayoutManager(this)
+        binding.allCoursesRecyclerView.layoutManager = LinearLayoutManager(this)
+
+        // Initialize adapters
+        popularCoursesAdapter = CourseAdapter(
+            onCourseClick = { course ->
+                // Handle course click
+                Log.d(TAG, "Popular course clicked: ${course.title}")
+                // TODO: Navigate to course details
+            }
+        )
+
+        allCoursesAdapter = CourseAdapter(
+            onCourseClick = { course ->
+                // Handle course click
+                Log.d(TAG, "Course clicked: ${course.title}")
+                // TODO: Navigate to course details
+            }
+        )
+
+        // Set adapters to RecyclerViews
+        binding.popularCoursesRecyclerView.adapter = popularCoursesAdapter
+        binding.allCoursesRecyclerView.adapter = allCoursesAdapter
+
+        // Load courses
+        loadCourses()
+    }
+
+    private fun loadCourses() {
+        lifecycleScope.launch {
+            try {
+                // Load popular courses
+                val popularCourses = NetworkUtils.getPopularCourses()
+                popularCoursesAdapter.submitList(popularCourses)
+
+                // Load all courses
+                val allCourses = NetworkUtils.getAllCourses()
+                allCoursesAdapter.submitList(allCourses)
+
+                Log.d(TAG, "Loaded ${popularCourses.size} popular courses and ${allCourses.size} all courses")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error loading courses: ${e.message}", e)
+                // TODO: Show error message
+            }
+        }
+    }
+
+    private fun filterCoursesByCategory(category: String?) {
+        lifecycleScope.launch {
+            try {
+                val filteredCourses = NetworkUtils.getCoursesByCategory(category)
+                allCoursesAdapter.submitList(filteredCourses)
+                Log.d(TAG, "Filtered courses by category: $category, found ${filteredCourses.size} courses")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error filtering courses: ${e.message}", e)
+                // TODO: Show error message
             }
         }
     }

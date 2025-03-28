@@ -151,25 +151,77 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
 
     /**
      * Update user profile
+     * @param name Full name of the user (first and last name)
+     * @param email Email address of the user
+     * @param contactDetails Optional contact details (phone number)
      */
-    fun updateUserProfile(name: String, email: String) {
+    fun updateUserProfile(name: String, email: String, contactDetails: String? = null) {
         _profileState.value = _profileState.value?.copy(isLoading = true, error = null)
 
         viewModelScope.launch {
             try {
-                // In a real app, send update to API
-                // For now, just update local state
+                // Parse name into first and last name
+                val nameParts = name.split(" ", limit = 2)
+                val firstName = nameParts[0]
+                val lastName = if (nameParts.size > 1) nameParts[1] else ""
+
+                // Get current user from state
                 val currentUser = _profileState.value?.user
                 if (currentUser != null) {
-                    val updatedUser = currentUser.copy(
-                        name = name,
-                        email = email
+                    // Use the user ID from the current user object
+                    val context = getApplication<Application>()
+                    val userId = currentUser.id
+
+                    // Create User object for the API
+                    val apiUser = com.mobile.data.model.User(
+                        userId = userId,
+                        email = email,
+                        passwordHash = "", // Not updating password
+                        firstName = firstName,
+                        lastName = lastName,
+                        profilePicture = currentUser.profileImageUrl,
+                        contactDetails = contactDetails,
+                        roles = com.mobile.utils.PreferenceUtils.getUserRole(context) ?: "LEARNER"
                     )
 
+                    // Send update to API
+                    val result = com.mobile.utils.NetworkUtils.updateUser(apiUser)
+
+                    result.fold(
+                        onSuccess = { updatedUser ->
+                            // Update local state with the response from the API
+                            val profileUser = User(
+                                id = updatedUser.userId ?: 0,
+                                name = "${updatedUser.firstName} ${updatedUser.lastName}",
+                                email = updatedUser.email,
+                                profileImageUrl = updatedUser.profilePicture
+                            )
+
+                            _profileState.value = _profileState.value?.copy(
+                                isLoading = false,
+                                user = profileUser,
+                                error = null
+                            )
+
+                            // Update preferences
+                            com.mobile.utils.PreferenceUtils.saveUserDetails(
+                                context,
+                                updatedUser.firstName,
+                                updatedUser.lastName,
+                                updatedUser.roles
+                            )
+                        },
+                        onFailure = { exception ->
+                            _profileState.value = _profileState.value?.copy(
+                                isLoading = false,
+                                error = exception.message ?: "Failed to update profile"
+                            )
+                        }
+                    )
+                } else {
                     _profileState.value = _profileState.value?.copy(
                         isLoading = false,
-                        user = updatedUser,
-                        error = null
+                        error = "User data not available"
                     )
                 }
             } catch (e: Exception) {

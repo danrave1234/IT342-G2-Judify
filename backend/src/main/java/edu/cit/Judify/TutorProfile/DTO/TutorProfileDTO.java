@@ -13,6 +13,8 @@ public class TutorProfileDTO {
     private Set<String> subjects;
     private Double rating;
     private Integer totalReviews;
+    private Double latitude;
+    private Double longitude;
     private Date createdAt;
 
     // Default constructor
@@ -101,4 +103,20 @@ public class TutorProfileDTO {
     public void setCreatedAt(Date createdAt) {
         this.createdAt = createdAt;
     }
-} 
+
+    public Double getLatitude() {
+        return latitude;
+    }
+
+    public void setLatitude(Double latitude) {
+        this.latitude = latitude;
+    }
+
+    public Double getLongitude() {
+        return longitude;
+    }
+
+    public void setLongitude(Double longitude) {
+        this.longitude = longitude;
+    }
+}

@@ -22,6 +22,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="?attr/actionBarSize"
                 app:title="Courses"
+                android:elevation="0dp"
+                app:titleTextColor="@color/primary_blue"
                 app:titleTextAppearance="@style/TextAppearance.MaterialComponents.Headline6" />
 
             <!-- Search Bar -->
@@ -31,8 +33,10 @@
                 android:layout_marginStart="16dp"
                 android:layout_marginEnd="16dp"
                 android:layout_marginBottom="16dp"
-                app:cardCornerRadius="8dp"
-                app:cardElevation="2dp">
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="#E0E6F5">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -46,6 +50,7 @@
                         android:layout_height="24dp"
                         android:layout_marginStart="8dp"
                         android:src="@drawable/ic_search"
+                        android:tint="@color/primary_blue"
                         android:contentDescription="Search" />
 
                     <EditText
@@ -56,6 +61,7 @@
                         android:background="@null"
                         android:hint="Search courses"
                         android:padding="8dp"
+                        android:textColorHint="#9AA3B2"
                         android:inputType="text"
                         android:imeOptions="actionSearch" />
 
@@ -67,15 +73,21 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:scrollbars="none"
-                android:layout_marginBottom="16dp">
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="8dp"
+                android:layout_marginBottom="16dp"
+                android:fadeScrollbars="true"
+                android:requiresFadingEdge="horizontal"
+                android:fadingEdgeLength="24dp">
 
                 <com.google.android.material.chip.ChipGroup
                     android:id="@+id/categoryChipGroup"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="16dp"
-                    android:layout_marginEnd="16dp"
+                    android:layout_marginStart="8dp"
+                    android:layout_marginEnd="8dp"
                     app:singleSelection="true"
+                    app:chipSpacingHorizontal="8dp"
                     app:selectionRequired="false">
 
                     <com.google.android.material.chip.Chip
@@ -84,6 +96,9 @@
                         android:layout_height="wrap_content"
                         android:text="All"
                         android:checked="true"
+                        app:chipBackgroundColor="@color/selector_chip_background"
+                        app:chipStrokeWidth="1dp"
+                        app:chipStrokeColor="#E0E6F5"
                         style="@style/Widget.MaterialComponents.Chip.Choice" />
 
                     <com.google.android.material.chip.Chip
@@ -91,6 +106,9 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Mathematics"
+                        app:chipBackgroundColor="@color/selector_chip_background"
+                        app:chipStrokeWidth="1dp"
+                        app:chipStrokeColor="#E0E6F5"
                         style="@style/Widget.MaterialComponents.Chip.Choice" />
 
                     <com.google.android.material.chip.Chip
@@ -98,6 +116,9 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Science"
+                        app:chipBackgroundColor="@color/selector_chip_background"
+                        app:chipStrokeWidth="1dp"
+                        app:chipStrokeColor="#E0E6F5"
                         style="@style/Widget.MaterialComponents.Chip.Choice" />
 
                     <com.google.android.material.chip.Chip
@@ -105,6 +126,9 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Languages"
+                        app:chipBackgroundColor="@color/selector_chip_background"
+                        app:chipStrokeWidth="1dp"
+                        app:chipStrokeColor="#E0E6F5"
                         style="@style/Widget.MaterialComponents.Chip.Choice" />
 
                     <com.google.android.material.chip.Chip
@@ -112,6 +136,9 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Programming"
+                        app:chipBackgroundColor="@color/selector_chip_background"
+                        app:chipStrokeWidth="1dp"
+                        app:chipStrokeColor="#E0E6F5"
                         style="@style/Widget.MaterialComponents.Chip.Choice" />
 
                 </com.google.android.material.chip.ChipGroup>
@@ -123,20 +150,28 @@
         <androidx.core.widget.NestedScrollView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:paddingBottom="64dp"
+            android:scrollbars="none"
             app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:paddingLeft="16dp"
+                android:paddingTop="16dp"
+                android:paddingRight="16dp"
+                android:paddingBottom="16dp">
 
                 <!-- Popular Courses Section -->
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="Popular Courses"
-                    android:textAppearance="@style/TextAppearance.MaterialComponents.Headline6"
+                    android:textSize="20sp"
+                    android:textColor="@color/primary_blue"
+                    android:textStyle="bold"
                     android:layout_marginBottom="16dp" />
 
                 <androidx.recyclerview.widget.RecyclerView
@@ -144,6 +179,9 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="24dp"
+                    android:clipToPadding="false"
+                    android:paddingStart="4dp"
+                    android:paddingEnd="4dp"
                     android:nestedScrollingEnabled="false" />
 
                 <!-- All Courses Section -->
@@ -151,13 +189,18 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="All Courses"
-                    android:textAppearance="@style/TextAppearance.MaterialComponents.Headline6"
+                    android:textSize="20sp"
+                    android:textColor="@color/primary_blue"
+                    android:textStyle="bold"
                     android:layout_marginBottom="16dp" />
 
                 <androidx.recyclerview.widget.RecyclerView
                     android:id="@+id/allCoursesRecyclerView"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:clipToPadding="false"
+                    android:paddingStart="4dp"
+                    android:paddingEnd="4dp"
                     android:nestedScrollingEnabled="false" />
 
                 <!-- Empty State -->
@@ -171,24 +214,27 @@
                     android:layout_marginTop="32dp">
 
                     <ImageView
-                        android:layout_width="120dp"
-                        android:layout_height="120dp"
+                        android:layout_width="140dp"
+                        android:layout_height="140dp"
                         android:src="@drawable/ic_courses"
-                        android:alpha="0.5"
+                        android:alpha="0.7"
+                        android:tint="@color/primary_blue"
                         android:contentDescription="No courses found" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="No courses found"
-                        android:textAppearance="@style/TextAppearance.MaterialComponents.Headline6"
-                        android:layout_marginTop="16dp" />
+                        android:textSize="20sp"
+                        android:textColor="@color/primary_blue"
+                        android:textStyle="bold"
+                        android:layout_marginTop="24dp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Try adjusting your search or filters"
-                        android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
+                        android:textSize="16sp"
                         android:textColor="?android:textColorSecondary"
                         android:layout_marginTop="8dp" />
 
@@ -201,10 +247,25 @@
                     android:layout_height="wrap_content"
                     android:layout_gravity="center"
                     android:visibility="gone"
+                    android:indeterminateTint="@color/primary_blue"
                     android:layout_marginTop="32dp" />
 
             </LinearLayout>
         </androidx.core.widget.NestedScrollView>
 
+        <!-- Floating Action Button for creating courses (visible only for tutors) -->
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/createCourseButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_margin="16dp"
+            android:contentDescription="Create Course"
+            android:src="@android:drawable/ic_input_add"
+            android:visibility="gone"
+            app:backgroundTint="@color/primary_blue"
+            app:tint="@color/white"
+            app:borderWidth="0dp"
+            app:elevation="6dp" />
     </androidx.coordinatorlayout.widget.CoordinatorLayout>
 </FrameLayout>

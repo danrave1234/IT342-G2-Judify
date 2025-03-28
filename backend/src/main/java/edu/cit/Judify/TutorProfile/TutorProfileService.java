@@ -68,17 +68,17 @@ public class TutorProfileService {
 
         TutorProfileEntity entity = dtoMapper.toEntity(dto);
         entity.setUser(user);
-        
+
         // First save the profile without subjects to get an ID
         TutorProfileEntity savedEntity = tutorProfileRepository.save(entity);
-        
+
         // Then add subjects if any are provided (they will be added using the helper method)
         if (dto.getSubjects() != null && !dto.getSubjects().isEmpty()) {
             // The setSubjects helper method will handle creating the subject entities
             savedEntity.setSubjects(dto.getSubjects());
             savedEntity = tutorProfileRepository.save(savedEntity);
         }
-        
+
         return dtoMapper.toDTO(savedEntity);
     }
 
@@ -93,7 +93,7 @@ public class TutorProfileService {
         existingProfile.setHourlyRate(dto.getHourlyRate());
         existingProfile.setRating(dto.getRating());
         existingProfile.setTotalReviews(dto.getTotalReviews());
-        
+
         // Update subjects if provided
         if (dto.getSubjects() != null) {
             existingProfile.setSubjects(dto.getSubjects());
@@ -131,45 +131,66 @@ public class TutorProfileService {
     }
 
     // New method for paginated and filtered tutor profiles
+    /**
+     * Update a tutor's location
+     * 
+     * @param id Tutor profile ID
+     * @param latitude Latitude coordinate
+     * @param longitude Longitude coordinate
+     * @return Updated tutor profile DTO
+     * @throws EntityNotFoundException if tutor profile not found
+     */
+    @Transactional
+    public TutorProfileDTO updateTutorLocation(Long id, Double latitude, Double longitude) {
+        TutorProfileEntity profile = tutorProfileRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("TutorProfile not found with id: " + id));
+
+        profile.setLatitude(latitude);
+        profile.setLongitude(longitude);
+
+        TutorProfileEntity updatedEntity = tutorProfileRepository.save(profile);
+        return dtoMapper.toDTO(updatedEntity);
+    }
+
     public Page<TutorProfileDTO> getAllTutorProfilesPaginated(int page, int size, 
                                                            String expertise, 
                                                            Double minRate, 
                                                            Double maxRate, 
                                                            Double minRating) {
         Pageable pageable = PageRequest.of(page, size);
-        
+
         // Build dynamic query based on provided filters
         Page<TutorProfileEntity> profiles;
-        
+
         if (expertise != null || minRate != null || maxRate != null || minRating != null) {
             // Create specifications based on filters
             Specification<TutorProfileEntity> spec = Specification.where(null);
-            
+
             if (expertise != null && !expertise.isEmpty()) {
                 spec = spec.and((root, query, cb) -> 
                     cb.like(cb.lower(root.get("expertise")), "%" + expertise.toLowerCase() + "%"));
             }
-            
+
             if (minRate != null) {
                 spec = spec.and((root, query, cb) -> 
                     cb.greaterThanOrEqualTo(root.get("hourlyRate"), minRate));
             }
-            
+
             if (maxRate != null) {
                 spec = spec.and((root, query, cb) -> 
                     cb.lessThanOrEqualTo(root.get("hourlyRate"), maxRate));
             }
-            
+
             if (minRating != null) {
                 spec = spec.and((root, query, cb) -> 
                     cb.greaterThanOrEqualTo(root.get("rating"), minRating));
             }
-            
+
             profiles = tutorProfileRepository.findAll(spec, pageable);
         } else {
             profiles = tutorProfileRepository.findAll(pageable);
         }
-        
+
         return profiles.map(dtoMapper::toDTO);
     }
 } 

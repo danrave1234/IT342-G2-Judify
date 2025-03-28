@@ -385,290 +385,9 @@
                 </LinearLayout>
             </HorizontalScrollView>
         </LinearLayout>
-
-            <!-- Special Offer Card -->
-            <androidx.cardview.widget.CardView
-                    android:id="@+id/specialOfferCard"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="16dp"
-                    android:layout_marginEnd="16dp"
-                    android:layout_marginTop="16dp"
-                    app:cardCornerRadius="12dp"
-                    app:cardElevation="4dp">
-
-                <androidx.constraintlayout.widget.ConstraintLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:background="@color/primary_blue"
-                        android:padding="16dp">
-
-                    <TextView
-                            android:id="@+id/offerLabel"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="40% OFF"
-                            android:textColor="#FFFFFF"
-                            android:textSize="14sp"
-                            app:layout_constraintStart_toStartOf="parent"
-                            app:layout_constraintTop_toTopOf="parent" />
-
-                    <TextView
-                            android:id="@+id/offerTitle"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:text="Today's Special"
-                            android:textColor="#FFFFFF"
-                            android:textSize="20sp"
-                            android:textStyle="bold"
-                            app:layout_constraintStart_toStartOf="parent"
-                            app:layout_constraintTop_toBottomOf="@id/offerLabel"
-                            app:layout_constraintEnd_toStartOf="@id/offerPercentage" />
-
-                    <TextView
-                            android:id="@+id/offerDescription"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:text="Get a discount for every course order! Only valid for today!"
-                            android:textColor="#FFFFFF"
-                            android:textSize="14sp"
-                            app:layout_constraintStart_toStartOf="parent"
-                            app:layout_constraintTop_toBottomOf="@id/offerTitle"
-                            app:layout_constraintEnd_toStartOf="@id/offerPercentage"
-                            android:layout_marginEnd="16dp" />
-
-                    <TextView
-                            android:id="@+id/offerPercentage"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="40%"
-                            android:textColor="#FFFFFF"
-                            android:textSize="32sp"
-                            android:textStyle="bold"
-                            app:layout_constraintEnd_toEndOf="parent"
-                            app:layout_constraintTop_toTopOf="parent"
-                            app:layout_constraintBottom_toBottomOf="parent" />
-                </androidx.constraintlayout.widget.ConstraintLayout>
-            </androidx.cardview.widget.CardView>
-
-            <!-- Course List -->
-            <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
-
-                <!-- Course 1 -->
-                <androidx.cardview.widget.CardView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="16dp"
-                        app:cardCornerRadius="12dp"
-                        app:cardElevation="2dp">
-
-                    <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="vertical">
-
-                        <ImageView
-                                android:layout_width="match_parent"
-                                android:layout_height="140dp"
-                                android:scaleType="centerCrop"
-                                android:src="@drawable/course_3d_design" />
-
-                        <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:orientation="vertical"
-                                android:padding="12dp">
-
-                            <TextView
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:text="3D Design Illustration"
-                                    android:textSize="16sp"
-                                    android:textStyle="bold"
-                                    android:textColor="?android:textColorPrimary" />
-
-                            <LinearLayout
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:orientation="horizontal"
-                                    android:layout_marginTop="8dp">
-
-                                <TextView
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:text="$48"
-                                        android:textSize="16sp"
-                                        android:textStyle="bold"
-                                        android:textColor="?android:textColorPrimary" />
-
-                                <TextView
-                                        android:layout_width="0dp"
-                                        android:layout_height="wrap_content"
-                                        android:layout_weight="1"
-                                        android:text="4.8"
-                                        android:textSize="14sp"
-                                        android:drawableStart="@drawable/ic_star"
-                                        android:drawablePadding="4dp"
-                                        android:gravity="end" />
-
-                                <TextView
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:text="(1,289 students)"
-                                        android:textSize="12sp"
-                                        android:textColor="#888888"
-                                        android:layout_marginStart="4dp" />
-                            </LinearLayout>
-                        </LinearLayout>
-                    </LinearLayout>
-                </androidx.cardview.widget.CardView>
-
-                <!-- Course 2 -->
-                <androidx.cardview.widget.CardView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="16dp"
-                        app:cardCornerRadius="12dp"
-                        app:cardElevation="2dp">
-
-                    <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="vertical">
-
-                        <ImageView
-                                android:layout_width="match_parent"
-                                android:layout_height="140dp"
-                                android:scaleType="centerCrop"
-                                android:src="@drawable/course_entrepreneurship" />
-
-                        <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:orientation="vertical"
-                                android:padding="12dp">
-
-                            <TextView
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:text="Digital Entrepreneurship"
-                                    android:textSize="16sp"
-                                    android:textStyle="bold"
-                                    android:textColor="?android:textColorPrimary" />
-
-                            <LinearLayout
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:orientation="horizontal"
-                                    android:layout_marginTop="8dp">
-
-                                <TextView
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:text="$39"
-                                        android:textSize="16sp"
-                                        android:textStyle="bold"
-                                        android:textColor="?android:textColorPrimary" />
-
-                                <TextView
-                                        android:layout_width="0dp"
-                                        android:layout_height="wrap_content"
-                                        android:layout_weight="1"
-                                        android:text="4.5"
-                                        android:textSize="14sp"
-                                        android:drawableStart="@drawable/ic_star"
-                                        android:drawablePadding="4dp"
-                                        android:gravity="end" />
-
-                                <TextView
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:text="(1,482 students)"
-                                        android:textSize="12sp"
-                                        android:textColor="#888888"
-                                        android:layout_marginStart="4dp" />
-                            </LinearLayout>
-                        </LinearLayout>
-                    </LinearLayout>
-                </androidx.cardview.widget.CardView>
-
-                <!-- Course 3 -->
-                <androidx.cardview.widget.CardView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        app:cardCornerRadius="12dp"
-                        app:cardElevation="2dp">
-
-                    <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="vertical">
-
-                        <ImageView
-                                android:layout_width="match_parent"
-                                android:layout_height="140dp"
-                                android:scaleType="centerCrop"
-                                android:src="@drawable/course_ux_persona" />
-
-                        <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:orientation="vertical"
-                                android:padding="12dp">
-
-                            <TextView
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:text="Learn UX User Persona"
-                                    android:textSize="16sp"
-                                    android:textStyle="bold"
-                                    android:textColor="?android:textColorPrimary" />
-
-                            <LinearLayout
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:orientation="horizontal"
-                                    android:layout_marginTop="8dp">
-
-                                <TextView
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:text="$42"
-                                        android:textSize="16sp"
-                                        android:textStyle="bold"
-                                        android:textColor="?android:textColorPrimary" />
-
-                                <TextView
-                                        android:layout_width="0dp"
-                                        android:layout_height="wrap_content"
-                                        android:layout_weight="1"
-                                        android:text="4.7"
-                                        android:textSize="14sp"
-                                        android:drawableStart="@drawable/ic_star"
-                                        android:drawablePadding="4dp"
-                                        android:gravity="end" />
-
-                                <TextView
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:text="(7,938 students)"
-                                        android:textSize="12sp"
-                                        android:textColor="#888888"
-                                        android:layout_marginStart="4dp" />
-                            </LinearLayout>
-                        </LinearLayout>
-                    </LinearLayout>
-                </androidx.cardview.widget.CardView>
-            </LinearLayout>
-
     </com.google.android.material.appbar.AppBarLayout>
 
-    <!-- Main Content -->
-    <!-- Shadow for the sticky header - moved outside AppBarLayout to be specific to dashboard -->
+    <!-- Shadow for the sticky header -->
     <View
         android:id="@+id/dashboardShadowDivider"
         android:layout_width="match_parent"
@@ -676,7 +395,133 @@
         android:background="@drawable/shadow_gradient"
         app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
+    <!-- Scrollable Content -->
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/dashboardScrollView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipToPadding="false"
+        android:paddingBottom="56dp"
+        android:fillViewport="true"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- Special Offer Card -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/specialOfferCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:layout_marginEnd="16dp"
+                android:layout_marginTop="16dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="4dp">
+
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@color/primary_blue"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:id="@+id/offerLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="40% OFF"
+                        android:textColor="#FFFFFF"
+                        android:textSize="14sp"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                    <TextView
+                        android:id="@+id/offerTitle"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:text="Today's Special"
+                        android:textColor="#FFFFFF"
+                        android:textSize="20sp"
+                        android:textStyle="bold"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/offerLabel"
+                        app:layout_constraintEnd_toStartOf="@id/offerPercentage" />
+
+                    <TextView
+                        android:id="@+id/offerDescription"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:text="Get a discount for every course order! Only valid for today!"
+                        android:textColor="#FFFFFF"
+                        android:textSize="14sp"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/offerTitle"
+                        app:layout_constraintEnd_toStartOf="@id/offerPercentage"
+                        android:layout_marginEnd="16dp" />
+
+                    <TextView
+                        android:id="@+id/offerPercentage"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="40%"
+                        android:textColor="#FFFFFF"
+                        android:textSize="32sp"
+                        android:textStyle="bold"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent" />
+                </androidx.constraintlayout.widget.ConstraintLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- Course List -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingLeft="16dp"
+                android:paddingTop="16dp"
+                android:paddingRight="16dp"
+                android:paddingBottom="32dp">
+
+                <!-- Popular Courses RecyclerView -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Popular Courses"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="?android:textColorPrimary"
+                    android:layout_marginBottom="8dp" />
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/popularCoursesRecyclerView"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp"
+                    android:clipToPadding="false"
+                    android:nestedScrollingEnabled="false" />
+
+                <!-- All Courses RecyclerView -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="All Courses"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="?android:textColorPrimary"
+                    android:layout_marginBottom="8dp" />
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/allCoursesRecyclerView"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:clipToPadding="false"
+                    android:nestedScrollingEnabled="false" />
+            </LinearLayout>
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
 
     <!-- Fragment Container for Map and other features -->
     <FrameLayout
@@ -684,6 +529,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:visibility="gone"
+        android:paddingBottom="56dp"
         android:background="?android:colorBackground" />
 
     <!-- Bottom Navigation -->
@@ -692,11 +538,13 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
-        android:background="?attr/colorSurface"
-        app:menu="@menu/bottom_nav_menu"
+        android:background="?android:attr/windowBackground"
+        app:elevation="8dp"
         app:labelVisibilityMode="labeled"
-        app:itemIconTint="@color/bottom_nav_color"
-        app:itemTextColor="@color/bottom_nav_color"
-        app:elevation="8dp" />
+        app:itemTextAppearanceActive="@style/BottomNavigationView.ActiveItemText"
+        app:itemTextAppearanceInactive="@style/BottomNavigationView.InactiveItemText"
+        app:itemIconTint="@color/bottom_nav_item_color"
+        app:itemTextColor="@color/bottom_nav_item_color"
+        app:menu="@menu/bottom_nav_menu" />
 
-</androidx.coordinatorlayout.widget.CoordinatorLayout> 
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

@@ -7,14 +7,14 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
-import androidx.constraintlayout.widget.ConstraintLayout
-import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.mobile.R
+import com.mobile.ui.base.BaseFragment
 import com.mobile.ui.chat.adapters.ConversationAdapter
 import com.mobile.utils.NetworkUtils
 import com.mobile.utils.PreferenceUtils
@@ -22,14 +22,14 @@ import com.mobile.utils.PreferenceUtils
 /**
  * Fragment for displaying user conversations
  */
-class ChatFragment : Fragment() {
+class ChatFragment : BaseFragment() {
     private val TAG = "ChatFragment"
 
     // UI components
     private lateinit var conversationsRecyclerView: RecyclerView
     private lateinit var progressBar: ProgressBar
-    private lateinit var emptyStateLayout: ConstraintLayout
-    private lateinit var errorStateLayout: ConstraintLayout
+    private lateinit var emptyStateLayout: LinearLayout
+    private lateinit var errorStateLayout: LinearLayout
     private lateinit var errorText: TextView
     private lateinit var retryButton: Button
     private lateinit var startChatButton: Button
@@ -37,12 +37,12 @@ class ChatFragment : Fragment() {
     private lateinit var viewModel: ChatViewModel
     private lateinit var conversationAdapter: ConversationAdapter
 
-    override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View {
-        val view = inflater.inflate(R.layout.fragment_chat, container, false)
+    override fun getLayoutResourceId(): Int {
+        return R.layout.fragment_chat
+    }
+
+    override fun onViewCreated(view: View) {
+        super.onViewCreated(view)
 
         // Initialize UI components
         conversationsRecyclerView = view.findViewById(R.id.conversationsRecyclerView)
@@ -52,12 +52,6 @@ class ChatFragment : Fragment() {
         errorText = view.findViewById(R.id.errorText)
         retryButton = view.findViewById(R.id.retryButton)
         startChatButton = view.findViewById(R.id.startChatButton)
-
-        return view
-    }
-
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
 
         // Initialize ViewModel
         viewModel = ViewModelProvider(this)[ChatViewModel::class.java]

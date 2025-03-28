@@ -8,81 +8,122 @@
 
     <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"
+        android:clipToPadding="false"
+        android:paddingBottom="64dp"
+        android:scrollbars="none">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:paddingLeft="16dp"
+            android:paddingTop="16dp"
+            android:paddingRight="16dp"
+            android:paddingBottom="16dp">
 
-            <!-- Profile Header Section -->
-            <RelativeLayout
-                android:id="@+id/profileHeader"
+            <!-- Profile Header Section with gradient background -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/profileHeaderCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="24dp">
+                android:layout_marginBottom="28dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="4dp">
 
-                <de.hdodenhof.circleimageview.CircleImageView
-                    android:id="@+id/profileImage"
-                    android:layout_width="100dp"
-                    android:layout_height="100dp"
-                    android:layout_centerHorizontal="true"
-                    android:src="@drawable/ic_person"/>
-
-                <TextView
-                    android:id="@+id/userNameText"
-                    android:layout_width="wrap_content"
+                <RelativeLayout
+                    android:id="@+id/profileHeader"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_below="@id/profileImage"
-                    android:layout_centerHorizontal="true"
-                    android:layout_marginTop="8dp"
-                    android:text="John Doe"
-                    android:textAppearance="@style/TextAppearance.MaterialComponents.Headline5"/>
+                    android:background="@drawable/profile_header_background"
+                    android:padding="24dp">
 
-                <TextView
-                    android:id="@+id/userEmailText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_below="@id/userNameText"
-                    android:layout_centerHorizontal="true"
-                    android:text="john.doe@example.com"
-                    android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
-                    android:textColor="?android:textColorSecondary"/>
+                    <de.hdodenhof.circleimageview.CircleImageView
+                        android:id="@+id/profileImage"
+                        android:layout_width="110dp"
+                        android:layout_height="110dp"
+                        android:layout_centerHorizontal="true"
+                        android:src="@drawable/ic_person"
+                        android:elevation="4dp"
+                        app:civ_border_width="4dp"
+                        app:civ_border_color="@color/white"/>
 
-                <Button
-                    android:id="@+id/editProfileButton"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_below="@id/userEmailText"
-                    android:layout_centerHorizontal="true"
-                    android:layout_marginTop="8dp"
-                    android:text="Edit Profile"/>
+                    <TextView
+                        android:id="@+id/userNameText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_below="@id/profileImage"
+                        android:layout_centerHorizontal="true"
+                        android:layout_marginTop="18dp"
+                        android:text="John Doe"
+                        android:textColor="@color/white"
+                        android:textSize="26sp"
+                        android:fontFamily="sans-serif-medium"
+                        android:letterSpacing="0.02"
+                        android:textStyle="bold"/>
 
-            </RelativeLayout>
+                    <TextView
+                        android:id="@+id/userEmailText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_below="@id/userNameText"
+                        android:layout_centerHorizontal="true"
+                        android:layout_marginTop="4dp"
+                        android:text="john.doe@example.com"
+                        android:textColor="@color/white"
+                        android:alpha="0.95"
+                        android:fontFamily="sans-serif"
+                        android:textSize="16sp"/>
+
+                    <Button
+                        android:id="@+id/editProfileButton"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_below="@id/userEmailText"
+                        android:layout_centerHorizontal="true"
+                        android:layout_marginTop="20dp"
+                        android:paddingStart="24dp"
+                        android:paddingEnd="24dp"
+                        android:paddingTop="8dp"
+                        android:paddingBottom="8dp"
+                        android:text="Edit Profile"
+                        android:textAllCaps="false"
+                        android:textSize="16sp"
+                        android:fontFamily="sans-serif-medium"
+                        android:textColor="@color/white"
+                        app:strokeColor="@color/white"
+                        app:strokeWidth="1.5dp"
+                        app:cornerRadius="24dp"/>
+
+                </RelativeLayout>
+            </androidx.cardview.widget.CardView>
 
             <!-- User Stats Section -->
             <androidx.cardview.widget.CardView
                 android:id="@+id/userStatsCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                app:cardCornerRadius="8dp"
+                android:layout_marginBottom="28dp"
+                app:cardCornerRadius="12dp"
                 app:cardElevation="2dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="16dp">
+                    android:padding="20dp">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Account Summary"
                         android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
-                        android:textStyle="bold"/>
+                        android:textStyle="bold"
+                        android:textSize="18sp"
+                        android:fontFamily="sans-serif-medium"
+                        android:letterSpacing="0.01"
+                        android:textColor="@color/primary_blue"/>
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -95,21 +136,29 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:gravity="center"
-                            android:orientation="vertical">
+                            android:orientation="vertical"
+                            android:background="@drawable/stats_item_background"
+                            android:padding="12dp"
+                            android:layout_margin="4dp">
 
                             <TextView
                                 android:id="@+id/sessionsCountText"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="0"
-                                android:textAppearance="@style/TextAppearance.MaterialComponents.Headline5"
+                                android:textColor="@color/primary_blue"
+                                android:textSize="32sp"
+                                android:fontFamily="sans-serif-medium"
                                 android:textStyle="bold"/>
 
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Sessions"
-                                android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"/>
+                                android:layout_marginTop="4dp"
+                                android:textColor="@color/text_secondary"
+                                android:fontFamily="sans-serif"
+                                android:textSize="14sp"/>
                         </LinearLayout>
 
                         <LinearLayout
@@ -117,21 +166,29 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:gravity="center"
-                            android:orientation="vertical">
+                            android:orientation="vertical"
+                            android:background="@drawable/stats_item_background"
+                            android:padding="12dp"
+                            android:layout_margin="4dp">
 
                             <TextView
                                 android:id="@+id/reviewsCountText"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="0"
-                                android:textAppearance="@style/TextAppearance.MaterialComponents.Headline5"
+                                android:textColor="@color/primary_blue"
+                                android:textSize="32sp"
+                                android:fontFamily="sans-serif-medium"
                                 android:textStyle="bold"/>
 
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Reviews"
-                                android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"/>
+                                android:layout_marginTop="4dp"
+                                android:textColor="@color/text_secondary"
+                                android:fontFamily="sans-serif"
+                                android:textSize="14sp"/>
                         </LinearLayout>
 
                         <LinearLayout
@@ -139,21 +196,29 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:gravity="center"
-                            android:orientation="vertical">
+                            android:orientation="vertical"
+                            android:background="@drawable/stats_item_background"
+                            android:padding="12dp"
+                            android:layout_margin="4dp">
 
                             <TextView
                                 android:id="@+id/messagesCountText"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="0"
-                                android:textAppearance="@style/TextAppearance.MaterialComponents.Headline5"
+                                android:textColor="@color/primary_blue"
+                                android:textSize="32sp"
+                                android:fontFamily="sans-serif-medium"
                                 android:textStyle="bold"/>
 
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Messages"
-                                android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"/>
+                                android:layout_marginTop="4dp"
+                                android:textColor="@color/text_secondary"
+                                android:fontFamily="sans-serif"
+                                android:textSize="14sp"/>
                         </LinearLayout>
                     </LinearLayout>
                 </LinearLayout>
@@ -163,7 +228,7 @@
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:cardCornerRadius="8dp"
+                app:cardCornerRadius="12dp"
                 app:cardElevation="2dp">
 
                 <LinearLayout
@@ -174,10 +239,14 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_margin="16dp"
+                        android:layout_margin="20dp"
                         android:text="Account Settings"
+                        android:textColor="@color/primary_blue"
                         android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
-                        android:textStyle="bold"/>
+                        android:textStyle="bold"
+                        android:textSize="18sp"
+                        android:fontFamily="sans-serif-medium"
+                        android:letterSpacing="0.01"/>
 
                     <com.google.android.material.divider.MaterialDivider
                         android:layout_width="match_parent"
@@ -195,11 +264,12 @@
                         android:padding="16dp">
 
                         <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
                             android:layout_gravity="center_vertical"
                             android:src="@drawable/ic_payment"
-                            android:tint="?attr/colorPrimary"/>
+                            android:tint="@color/primary_blue"
+                            android:padding="4dp"/>
 
                         <TextView
                             android:layout_width="0dp"
@@ -208,7 +278,9 @@
                             android:layout_marginStart="16dp"
                             android:layout_weight="1"
                             android:text="Payment Methods"
-                            android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"/>
+                            android:textSize="16sp"
+                            android:fontFamily="sans-serif"
+                            android:textColor="@color/text_primary"/>
 
                         <ImageView
                             android:layout_width="24dp"
@@ -233,11 +305,12 @@
                         android:padding="16dp">
 
                         <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
                             android:layout_gravity="center_vertical"
                             android:src="@drawable/ic_notifications"
-                            android:tint="?attr/colorPrimary"/>
+                            android:tint="@color/primary_blue"
+                            android:padding="4dp"/>
 
                         <TextView
                             android:layout_width="0dp"
@@ -246,7 +319,9 @@
                             android:layout_marginStart="16dp"
                             android:layout_weight="1"
                             android:text="Notifications"
-                            android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"/>
+                            android:textSize="16sp"
+                            android:fontFamily="sans-serif"
+                            android:textColor="@color/text_primary"/>
 
                         <ImageView
                             android:layout_width="24dp"
@@ -271,11 +346,12 @@
                         android:padding="16dp">
 
                         <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
                             android:layout_gravity="center_vertical"
                             android:src="@drawable/ic_theme"
-                            android:tint="?attr/colorPrimary"/>
+                            android:tint="@color/primary_blue"
+                            android:padding="4dp"/>
 
                         <TextView
                             android:layout_width="0dp"
@@ -284,7 +360,9 @@
                             android:layout_marginStart="16dp"
                             android:layout_weight="1"
                             android:text="Theme Mode"
-                            android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"/>
+                            android:textSize="16sp"
+                            android:fontFamily="sans-serif"
+                            android:textColor="@color/text_primary"/>
 
                         <TextView
                             android:id="@+id/themeModeText"
@@ -319,11 +397,12 @@
                         android:padding="16dp">
 
                         <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
                             android:layout_gravity="center_vertical"
                             android:src="@drawable/ic_security"
-                            android:tint="?attr/colorPrimary"/>
+                            android:tint="@color/primary_blue"
+                            android:padding="4dp"/>
 
                         <TextView
                             android:layout_width="0dp"
@@ -332,7 +411,9 @@
                             android:layout_marginStart="16dp"
                             android:layout_weight="1"
                             android:text="Privacy Settings"
-                            android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"/>
+                            android:textSize="16sp"
+                            android:fontFamily="sans-serif"
+                            android:textColor="@color/text_primary"/>
 
                         <ImageView
                             android:layout_width="24dp"
@@ -357,11 +438,12 @@
                         android:padding="16dp">
 
                         <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
                             android:layout_gravity="center_vertical"
                             android:src="@drawable/ic_logout"
-                            android:tint="@android:color/holo_red_dark"/>
+                            android:tint="@android:color/holo_red_dark"
+                            android:padding="4dp"/>
 
                         <TextView
                             android:layout_width="0dp"
@@ -370,8 +452,9 @@
                             android:layout_marginStart="16dp"
                             android:layout_weight="1"
                             android:text="Logout"
-                            android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
-                            android:textColor="@android:color/holo_red_dark"/>
+                            android:textSize="16sp"
+                            android:fontFamily="sans-serif"
+                            android:textColor="@color/error"/>
                     </LinearLayout>
                 </LinearLayout>
             </androidx.cardview.widget.CardView>

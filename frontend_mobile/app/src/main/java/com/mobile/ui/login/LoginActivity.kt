@@ -14,6 +14,7 @@ import androidx.lifecycle.ViewModelProvider
 import com.mobile.R
 import com.mobile.data.model.AuthResponse
 import com.mobile.ui.dashboard.LearnerDashboardActivity
+import com.mobile.ui.dashboard.TutorDashboardActivity
 import com.mobile.ui.register.RegisterActivity
 import com.mobile.data.repository.AuthRepository
 import com.mobile.utils.NetworkUtils
@@ -113,8 +114,15 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun onLoginSuccess() {
-        // Navigate to dashboard
-        val intent = Intent(this, LearnerDashboardActivity::class.java)
+        // Get user role from preferences
+        val userRole = viewModel.getUserRole()
+
+        // Navigate to appropriate dashboard based on role
+        val intent = if (userRole == "TUTOR") {
+            Intent(this, TutorDashboardActivity::class.java)
+        } else {
+            Intent(this, LearnerDashboardActivity::class.java)
+        }
         startActivity(intent)
         finish()
     }

@@ -79,6 +79,10 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
         return sharedPreferences.getBoolean("is_logged_in", false)
     }
 
+    fun getUserRole(): String {
+        return sharedPreferences.getString("user_role", "LEARNER") ?: "LEARNER"
+    }
+
     fun saveUserSession(response: AuthResponse, rememberMe: Boolean) {
         // Use PreferenceUtils to save user data consistently
         val context = getApplication<Application>()

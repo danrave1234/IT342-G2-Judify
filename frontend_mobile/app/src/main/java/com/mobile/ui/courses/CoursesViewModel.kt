@@ -47,6 +47,33 @@ class CoursesViewModel(application: Application) : AndroidViewModel(application)
     }
 
     /**
+     * Load courses for a specific tutor
+     * @param tutorId ID of the tutor
+     */
+    fun loadTutorCourses(tutorId: Long) {
+        _coursesState.value = _coursesState.value?.copy(isLoading = true, error = null)
+
+        viewModelScope.launch {
+            try {
+                // Fetch courses from API for the specific tutor
+                val tutorCourses = com.mobile.utils.NetworkUtils.getCoursesByTutor(tutorId)
+
+                _coursesState.value = _coursesState.value?.copy(
+                    isLoading = false,
+                    popularCourses = emptyList(), // Tutors don't need to see popular courses
+                    allCourses = tutorCourses,
+                    error = if (tutorCourses.isEmpty()) "You haven't created any courses yet" else null
+                )
+            } catch (e: Exception) {
+                _coursesState.value = _coursesState.value?.copy(
+                    isLoading = false,
+                    error = e.message ?: "Failed to load your courses"
+                )
+            }
+        }
+    }
+
+    /**
      * Search courses by query
      */
     fun searchCourses(query: String) {

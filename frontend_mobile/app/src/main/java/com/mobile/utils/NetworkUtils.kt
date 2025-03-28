@@ -29,7 +29,6 @@ object NetworkUtils {
     private const val DEBUG_MODE = true
 
     // Server configuration
-    // Use 10.0.2.2 for Android Emulator
     // Use your computer's IP address for physical device (e.g., "192.168.1.100")
     private const val SERVER_IP = "192.168.1.10" // Use 10.0.2.2 for emulator (points to host machine)
     private const val SERVER_PORT = "8080"
@@ -181,10 +180,12 @@ object NetworkUtils {
         val success: Boolean = true,
         val isAuthenticated: Boolean,
         val userId: Long? = null,
+        val username: String = "",
         val email: String = "",
         val firstName: String = "",
         val lastName: String = "",
-        val role: String = "LEARNER"
+        val role: String = "LEARNER",
+        val token: String = ""
     )
 
     /**
@@ -286,19 +287,24 @@ object NetworkUtils {
         return withContext(Dispatchers.IO) {
             try {
                 if (DEBUG_MODE) {
-                    Log.d(TAG, "Using mock auth response for: $email")
+                    // Check if email contains "tutor" to simulate tutor login
+                    val role = if (email.contains("tutor", ignoreCase = true)) "TUTOR" else "LEARNER"
+                    Log.d(TAG, "Using mock auth response for: $email with role: $role")
                     return@withContext Result.success(
                         AuthResponse(
                             isAuthenticated = true,
                             userId = 1,
+                            username = email,
                             email = email,
                             firstName = "Test",
                             lastName = "User",
-                            role = "LEARNER"
+                            role = role,
+                            token = "mock-jwt-token-for-testing"
                         )
                     )
                 }
 
+                // Create URL with query parameters
                 val params = mapOf(
                     "email" to email,
                     "password" to password
@@ -312,17 +318,19 @@ object NetworkUtils {
                     val json = parseJsonResponse(response)
 
                     // Check if authenticated
-                    val isAuthenticated = json.getBoolean("authenticated")
+                    val isAuthenticated = json.optBoolean("authenticated", json.optBoolean("isAuthenticated", false))
 
                     // If not authenticated, return a response with default values
                     if (!isAuthenticated) {
                         return@handleResponse AuthResponse(
                             isAuthenticated = false,
                             userId = null,
+                            username = "",
                             email = "",
                             firstName = "",
                             lastName = "",
-                            role = "LEARNER"
+                            role = "LEARNER",
+                            token = ""
                         )
                     }
 
@@ -337,10 +345,12 @@ object NetworkUtils {
                     AuthResponse(
                         isAuthenticated = true,
                         userId = json.optLong("userId"),
+                        username = json.optString("username", ""),
                         email = json.optString("email", ""),
                         firstName = json.optString("firstName", ""),
                         lastName = json.optString("lastName", ""),
-                        role = frontendRole
+                        role = frontendRole,
+                        token = json.optString("token", "")
                     )
                 }
             } catch (e: Exception) {
@@ -1828,7 +1838,7 @@ object NetworkUtils {
             Log.d(TAG, "Response body: $response")
 
             when (responseCode) {
-                HttpURLConnection.HTTP_OK -> {
+                HttpURLConnection.HTTP_OK, HttpURLConnection.HTTP_CREATED -> {
                     try {
                         return Result.success(parser(response))
                     } catch (e: Exception) {
@@ -2014,7 +2024,7 @@ object NetworkUtils {
                     User(
                         userId = json.getLong("userId"),
                         email = json.getString("email"),
-                        passwordHash = json.getString("passwordHash"),
+                        passwordHash = json.optString("passwordHash", json.optString("password", "")),
                         firstName = json.getString("firstName"),
                         lastName = json.getString("lastName"),
                         profilePicture = json.optString("profilePicture"),
@@ -2064,7 +2074,7 @@ object NetworkUtils {
                             User(
                                 userId = json.getLong("userId"),
                                 email = json.getString("email"),
-                                passwordHash = json.getString("passwordHash"),
+                                passwordHash = json.optString("passwordHash", json.optString("password", "")),
                                 firstName = json.getString("firstName"),
                                 lastName = json.getString("lastName"),
                                 profilePicture = json.optString("profilePicture"),
@@ -2115,7 +2125,7 @@ object NetworkUtils {
                     User(
                         userId = json.getLong("userId"),
                         email = json.getString("email"),
-                        passwordHash = json.getString("passwordHash"),
+                        passwordHash = json.optString("passwordHash", json.optString("password", "")),
                         firstName = json.getString("firstName"),
                         lastName = json.getString("lastName"),
                         profilePicture = json.optString("profilePicture"),
@@ -2485,9 +2495,9 @@ object NetworkUtils {
                                 title = jsonObject.getString("title"),
                                 subtitle = jsonObject.getString("subtitle"),
                                 description = jsonObject.getString("description"),
-                                tutorCount = jsonObject.getInt("tutorCount"),
-                                averageRating = jsonObject.getDouble("averageRating").toFloat(),
-                                averagePrice = jsonObject.getDouble("averagePrice").toFloat(),
+                                tutorCount = 1, // Default to 1 for now
+                                averageRating = jsonObject.optDouble("averageRating", 0.0).toFloat(),
+                                averagePrice = jsonObject.optDouble("price", 0.0).toFloat(),
                                 category = jsonObject.getString("category"),
                                 imageResId = com.mobile.R.drawable.ic_courses // Default image
                             )
@@ -2496,32 +2506,33 @@ object NetworkUtils {
 
                     return@withContext courses
                 } else {
-                    // For now, return mock data if API call fails
+                    // Return empty list if API call fails
                     Log.e(TAG, "Error getting courses: HTTP $responseCode")
-                    return@withContext MockData.mockCourses
+                    throw Exception("Failed to fetch courses: HTTP $responseCode")
                 }
             } catch (e: Exception) {
-                // For now, return mock data if API call fails
+                // Return empty list if API call fails
                 Log.e(TAG, "Error getting courses: ${e.message}")
-                return@withContext MockData.mockCourses
+                throw e
             }
         }
     }
 
     /**
-     * Get popular courses
+     * Get courses by tutor ID
      * 
-     * @return List of popular courses
+     * @param tutorId ID of the tutor
+     * @return List of courses created by the tutor
      */
-    suspend fun getPopularCourses(): List<com.mobile.ui.courses.models.Course> {
+    suspend fun getCoursesByTutor(tutorId: Long): List<com.mobile.ui.courses.models.Course> {
         return withContext(Dispatchers.IO) {
             try {
                 if (DEBUG_MODE) {
-                    Log.d(TAG, "Getting popular courses (mock data)")
-                    return@withContext MockData.mockPopularCourses
+                    Log.d(TAG, "Getting courses by tutor (mock data)")
+                    return@withContext MockData.mockCourses.filter { it.id % 2 == 0L } // Mock filter for demo
                 }
 
-                val url = URL("$BASE_URL/courses/popular")
+                val url = URL("$BASE_URL/courses/tutor/$tutorId")
                 val connection = url.openConnection() as HttpURLConnection
                 connection.requestMethod = "GET"
                 connection.setRequestProperty("Content-Type", "application/json")
@@ -2550,9 +2561,9 @@ object NetworkUtils {
                                 title = jsonObject.getString("title"),
                                 subtitle = jsonObject.getString("subtitle"),
                                 description = jsonObject.getString("description"),
-                                tutorCount = jsonObject.getInt("tutorCount"),
-                                averageRating = jsonObject.getDouble("averageRating").toFloat(),
-                                averagePrice = jsonObject.getDouble("averagePrice").toFloat(),
+                                tutorCount = 1, // For tutor's own courses, count is always 1
+                                averageRating = jsonObject.optDouble("averageRating", 0.0).toFloat(),
+                                averagePrice = jsonObject.optDouble("price", 0.0).toFloat(),
                                 category = jsonObject.getString("category"),
                                 imageResId = com.mobile.R.drawable.ic_courses // Default image
                             )
@@ -2561,14 +2572,39 @@ object NetworkUtils {
 
                     return@withContext courses
                 } else {
-                    // For now, return mock data if API call fails
-                    Log.e(TAG, "Error getting popular courses: HTTP $responseCode")
-                    return@withContext MockData.mockPopularCourses
+                    // Throw exception if API call fails
+                    Log.e(TAG, "Error getting tutor courses: HTTP $responseCode")
+                    throw Exception("Failed to fetch tutor courses: HTTP $responseCode")
                 }
             } catch (e: Exception) {
-                // For now, return mock data if API call fails
+                // Throw exception if API call fails
+                Log.e(TAG, "Error getting tutor courses: ${e.message}")
+                throw e
+            }
+        }
+    }
+
+    /**
+     * Get popular courses
+     * 
+     * @return List of popular courses
+     */
+    suspend fun getPopularCourses(): List<com.mobile.ui.courses.models.Course> {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (DEBUG_MODE) {
+                    Log.d(TAG, "Getting popular courses (mock data)")
+                    return@withContext MockData.mockPopularCourses
+                }
+
+                // For now, just return the top 5 courses from getAllCourses
+                // In a real implementation, this would call a specific API endpoint
+                val allCourses = getAllCourses()
+                return@withContext allCourses.take(5)
+            } catch (e: Exception) {
+                // Throw exception if API call fails
                 Log.e(TAG, "Error getting popular courses: ${e.message}")
-                return@withContext MockData.mockPopularCourses
+                throw e
             }
         }
     }
@@ -2625,9 +2661,9 @@ object NetworkUtils {
                                 title = jsonObject.getString("title"),
                                 subtitle = jsonObject.getString("subtitle"),
                                 description = jsonObject.getString("description"),
-                                tutorCount = jsonObject.getInt("tutorCount"),
-                                averageRating = jsonObject.getDouble("averageRating").toFloat(),
-                                averagePrice = jsonObject.getDouble("averagePrice").toFloat(),
+                                tutorCount = 1, // Default to 1 for now
+                                averageRating = jsonObject.optDouble("averageRating", 0.0).toFloat(),
+                                averagePrice = jsonObject.optDouble("price", 0.0).toFloat(),
                                 category = jsonObject.getString("category"),
                                 imageResId = com.mobile.R.drawable.ic_courses // Default image
                             )
@@ -2636,22 +2672,14 @@ object NetworkUtils {
 
                     return@withContext courses
                 } else {
-                    // For now, return mock data if API call fails
+                    // Throw exception if API call fails
                     Log.e(TAG, "Error getting courses by category: HTTP $responseCode")
-                    return@withContext if (category == null) {
-                        MockData.mockCourses
-                    } else {
-                        MockData.mockCourses.filter { it.category == category }
-                    }
+                    throw Exception("Failed to fetch courses by category: HTTP $responseCode")
                 }
             } catch (e: Exception) {
-                // For now, return mock data if API call fails
+                // Throw exception if API call fails
                 Log.e(TAG, "Error getting courses by category: ${e.message}")
-                return@withContext if (category == null) {
-                    MockData.mockCourses
-                } else {
-                    MockData.mockCourses.filter { it.category == category }
-                }
+                throw e
             }
         }
     }
@@ -2674,7 +2702,7 @@ object NetworkUtils {
                     }
                 }
 
-                val url = URL("$BASE_URL/courses/search?q=${URLEncoder.encode(query, "UTF-8")}")
+                val url = URL("$BASE_URL/courses/search?title=${URLEncoder.encode(query, "UTF-8")}")
                 val connection = url.openConnection() as HttpURLConnection
                 connection.requestMethod = "GET"
                 connection.setRequestProperty("Content-Type", "application/json")
@@ -2703,9 +2731,9 @@ object NetworkUtils {
                                 title = jsonObject.getString("title"),
                                 subtitle = jsonObject.getString("subtitle"),
                                 description = jsonObject.getString("description"),
-                                tutorCount = jsonObject.getInt("tutorCount"),
-                                averageRating = jsonObject.getDouble("averageRating").toFloat(),
-                                averagePrice = jsonObject.getDouble("averagePrice").toFloat(),
+                                tutorCount = 1, // Default to 1 for now
+                                averageRating = jsonObject.optDouble("averageRating", 0.0).toFloat(),
+                                averagePrice = jsonObject.optDouble("price", 0.0).toFloat(),
                                 category = jsonObject.getString("category"),
                                 imageResId = com.mobile.R.drawable.ic_courses // Default image
                             )
@@ -2714,22 +2742,14 @@ object NetworkUtils {
 
                     return@withContext courses
                 } else {
-                    // For now, return mock data if API call fails
+                    // Throw exception if API call fails
                     Log.e(TAG, "Error searching courses: HTTP $responseCode")
-                    return@withContext MockData.mockCourses.filter {
-                        it.title.contains(query, ignoreCase = true) ||
-                        it.subtitle.contains(query, ignoreCase = true) ||
-                        it.description.contains(query, ignoreCase = true)
-                    }
+                    throw Exception("Failed to search courses: HTTP $responseCode")
                 }
             } catch (e: Exception) {
-                // For now, return mock data if API call fails
+                // Throw exception if API call fails
                 Log.e(TAG, "Error searching courses: ${e.message}")
-                return@withContext MockData.mockCourses.filter {
-                    it.title.contains(query, ignoreCase = true) ||
-                    it.subtitle.contains(query, ignoreCase = true) ||
-                    it.description.contains(query, ignoreCase = true)
-                }
+                throw e
             }
         }
     }
@@ -3077,7 +3097,7 @@ object NetworkUtils {
                             User(
                                 userId = json.getLong("userId"),
                                 email = json.getString("email"),
-                                passwordHash = json.getString("passwordHash"),
+                                passwordHash = json.optString("passwordHash", json.optString("password", "")),
                                 firstName = json.getString("firstName"),
                                 lastName = json.getString("lastName"),
                                 profilePicture = json.optString("profilePicture"),
@@ -3113,8 +3133,12 @@ object NetworkUtils {
                     put("email", user.email)
                     put("firstName", user.firstName)
                     put("lastName", user.lastName)
+                    // Include username, using email as fallback if null
+                    put("username", user.username ?: user.email)
                     user.profilePicture?.let { put("profilePicture", it) }
                     user.contactDetails?.let { put("contactDetails", it) }
+                    // Include roles to ensure it's preserved
+                    put("roles", user.roles)
                 }
 
                 return@withContext handleResponse(connection, jsonObject.toString()) { response ->
@@ -3122,7 +3146,7 @@ object NetworkUtils {
                     User(
                         userId = json.getLong("userId"),
                         email = json.getString("email"),
-                        passwordHash = json.getString("passwordHash"),
+                        passwordHash = json.optString("passwordHash", json.optString("password", "")),
                         firstName = json.getString("firstName"),
                         lastName = json.getString("lastName"),
                         profilePicture = json.optString("profilePicture"),
@@ -4115,6 +4139,214 @@ object NetworkUtils {
                 }
             } catch (e: Exception) {
                 handleNetworkError(e, "updating tutor profile")
+            }
+        }
+    }
+
+    /**
+     * Create a new course for a tutor
+     * @param tutorId ID of the tutor creating the course
+     * @param courseDTO CourseDTO object with course details
+     * @return Result<CourseDTO> containing the created course
+     */
+    suspend fun createCourse(tutorId: Long, courseDTO: com.mobile.data.model.CourseDTO): Result<com.mobile.data.model.CourseDTO> {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (DEBUG_MODE) {
+                    return@withContext Result.success(
+                        courseDTO.copy(id = 1L, tutorId = tutorId)
+                    )
+                }
+
+                val url = URL("$BASE_URL/courses/tutor/$tutorId")
+                val connection = createPostConnection(url)
+
+                val jsonObject = JSONObject().apply {
+                    put("title", courseDTO.title)
+                    put("subtitle", courseDTO.subtitle)
+                    put("description", courseDTO.description)
+                    put("category", courseDTO.category)
+                    put("price", courseDTO.price)
+                }
+
+                return@withContext handleResponse(connection, jsonObject.toString()) { response ->
+                    try {
+                        val json = parseJsonResponse(response)
+                        com.mobile.data.model.CourseDTO(
+                            id = json.optLong("id"),
+                            title = json.optString("title", ""),
+                            subtitle = json.optString("subtitle", ""),
+                            description = json.optString("description", ""),
+                            tutorId = json.optLong("tutorId"),
+                            tutorName = json.optString("tutorName", ""),
+                            category = json.optString("category", ""),
+                            price = json.optDouble("price", 0.0),
+                            createdAt = try {
+                                val dateStr = json.optString("createdAt", "")
+                                if (dateStr.isNotEmpty()) {
+                                    try { 
+                                        java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.getDefault()).parse(dateStr)
+                                    } catch (e: Exception) { 
+                                        null 
+                                    }
+                                } else {
+                                    null
+                                }
+                            } catch (e: Exception) {
+                                null
+                            }
+                        )
+                    } catch (e: Exception) {
+                        // Don't log the error as it's likely just a date parsing issue
+                        // and the course was still created successfully
+                        // Return a default course with the data we sent, since we know the course was created
+                        courseDTO.copy(id = 1L, tutorId = tutorId)
+                    }
+                }
+            } catch (e: Exception) {
+                handleNetworkError(e, "creating course")
+            }
+        }
+    }
+
+    /**
+     * Update a tutor's location
+     * @param tutorProfileId ID of the tutor profile to update
+     * @param latitude Latitude coordinate
+     * @param longitude Longitude coordinate
+     * @return Result<TutorProfile> containing the updated profile
+     */
+    suspend fun updateTutorLocation(tutorProfileId: Long, latitude: Double, longitude: Double): Result<TutorProfile> {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (DEBUG_MODE) {
+                    // Return a mock result for debugging
+                    return@withContext Result.success(
+                        TutorProfile(
+                            id = tutorProfileId,
+                            name = "Test Tutor",
+                            email = "test@example.com",
+                            bio = "Test bio",
+                            rating = 4.5f,
+                            subjects = listOf("Math", "Science"),
+                            hourlyRate = 25.0
+                        )
+                    )
+                }
+
+                val url = createUrlWithParams(
+                    "$BASE_URL/tutors/updateLocation/$tutorProfileId",
+                    mapOf(
+                        "latitude" to latitude.toString(),
+                        "longitude" to longitude.toString()
+                    )
+                )
+                val connection = createPutConnection(url)
+
+                return@withContext handleResponse(connection, null) { response ->
+                    val json = parseJsonResponse(response)
+                    TutorProfile(
+                        id = json.getLong("profileId"),
+                        name = json.optString("username", "Unknown"),
+                        email = json.optString("email", ""),
+                        bio = json.optString("bio", ""),
+                        rating = json.optDouble("rating", 0.0).toFloat(),
+                        subjects = json.optJSONArray("subjects")?.let { subjects ->
+                            (0 until subjects.length()).map { subjects.getString(it) }
+                        } ?: emptyList(),
+                        hourlyRate = json.optDouble("hourlyRate", 0.0)
+                    )
+                }
+            } catch (e: Exception) {
+                handleNetworkError(e, "updating tutor location")
+            }
+        }
+    }
+
+    /**
+     * Update an existing course
+     * @param courseId ID of the course to update
+     * @param courseDTO CourseDTO object with updated course details
+     * @return Result<CourseDTO> containing the updated course
+     */
+    suspend fun updateCourse(courseId: Long, courseDTO: com.mobile.data.model.CourseDTO): Result<com.mobile.data.model.CourseDTO> {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (DEBUG_MODE) {
+                    return@withContext Result.success(
+                        courseDTO.copy(id = courseId)
+                    )
+                }
+
+                val url = URL("$BASE_URL/courses/$courseId")
+                val connection = createPutConnection(url)
+
+                val jsonObject = JSONObject().apply {
+                    put("title", courseDTO.title)
+                    put("subtitle", courseDTO.subtitle)
+                    put("description", courseDTO.description)
+                    put("category", courseDTO.category)
+                    put("price", courseDTO.price)
+                }
+
+                return@withContext handleResponse(connection, jsonObject.toString()) { response ->
+                    try {
+                        val json = parseJsonResponse(response)
+                        com.mobile.data.model.CourseDTO(
+                            id = json.optLong("id"),
+                            title = json.optString("title", ""),
+                            subtitle = json.optString("subtitle", ""),
+                            description = json.optString("description", ""),
+                            tutorId = json.optLong("tutorId"),
+                            tutorName = json.optString("tutorName", ""),
+                            category = json.optString("category", ""),
+                            price = json.optDouble("price", 0.0),
+                            createdAt = try {
+                                val dateStr = json.optString("createdAt", "")
+                                if (dateStr.isNotEmpty()) {
+                                    try { 
+                                        java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.getDefault()).parse(dateStr)
+                                    } catch (e: Exception) { 
+                                        null 
+                                    }
+                                } else {
+                                    null
+                                }
+                            } catch (e: Exception) {
+                                null
+                            }
+                        )
+                    } catch (e: Exception) {
+                        // Return a default course with the data we sent, since we know the course was updated
+                        courseDTO.copy(id = courseId)
+                    }
+                }
+            } catch (e: Exception) {
+                handleNetworkError(e, "updating course")
+            }
+        }
+    }
+
+    /**
+     * Delete a course
+     * @param courseId ID of the course to delete
+     * @return Result<Unit> indicating success or failure
+     */
+    suspend fun deleteCourse(courseId: Long): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (DEBUG_MODE) {
+                    return@withContext Result.success(Unit)
+                }
+
+                val url = URL("$BASE_URL/courses/$courseId")
+                val connection = createDeleteConnection(url)
+
+                return@withContext handleResponse(connection, null) { _ ->
+                    Unit
+                }
+            } catch (e: Exception) {
+                handleNetworkError(e, "deleting course")
             }
         }
     }

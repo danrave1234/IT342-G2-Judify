@@ -58,7 +58,7 @@ public class TutorProfileController {
             @Parameter(description = "Filter by minimum hourly rate (optional)") @RequestParam(required = false) Double minRate,
             @Parameter(description = "Filter by maximum hourly rate (optional)") @RequestParam(required = false) Double maxRate,
             @Parameter(description = "Filter by minimum rating (optional)") @RequestParam(required = false) Double minRating) {
-        
+
         Page<TutorProfileDTO> tutors = tutorProfileService.getAllTutorProfilesPaginated(
                 page, size, expertise, minRate, maxRate, minRating);
         return ResponseEntity.ok(tutors);
@@ -109,7 +109,7 @@ public class TutorProfileController {
         try {
             // Set the userId in the DTO
             tutorProfileDTO.setUserId(userId);
-            
+
             TutorProfileDTO createdProfile = tutorProfileService.createTutorProfile(tutorProfileDTO);
             return new ResponseEntity<>(createdProfile, HttpStatus.CREATED);
         } catch (EntityNotFoundException e) {
@@ -179,6 +179,24 @@ public class TutorProfileController {
         }
     }
 
+    @Operation(summary = "Update tutor location", description = "Updates the location (latitude and longitude) of a tutor profile")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Tutor location successfully updated"),
+        @ApiResponse(responseCode = "404", description = "Tutor profile not found")
+    })
+    @PutMapping("/updateLocation/{id}")
+    public ResponseEntity<TutorProfileDTO> updateTutorLocation(
+            @Parameter(description = "Tutor profile ID") @PathVariable Long id,
+            @Parameter(description = "Latitude coordinate") @RequestParam Double latitude,
+            @Parameter(description = "Longitude coordinate") @RequestParam Double longitude) {
+        try {
+            TutorProfileDTO updatedProfile = tutorProfileService.updateTutorLocation(id, latitude, longitude);
+            return ResponseEntity.ok(updatedProfile);
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
     @Operation(summary = "Get subjects for a tutor profile", description = "Returns all subjects associated with a specific tutor profile")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Successfully retrieved subjects"),
@@ -190,7 +208,7 @@ public class TutorProfileController {
         try {
             // First check if the profile exists
             tutorProfileService.getTutorProfileById(tutorProfileId);
-            
+
             List<TutorSubjectDTO> subjects = tutorSubjectService.getSubjectsByTutorProfileId(tutorProfileId);
             return ResponseEntity.ok(subjects);
         } catch (EntityNotFoundException e) {
@@ -211,7 +229,7 @@ public class TutorProfileController {
         try {
             // First check if the profile exists
             tutorProfileService.getTutorProfileById(tutorProfileId);
-            
+
             List<TutorSubjectDTO> addedSubjects = tutorSubjectService.addSubjectsForTutor(tutorProfileId, subjects);
             return new ResponseEntity<>(addedSubjects, HttpStatus.CREATED);
         } catch (EntityNotFoundException e) {
@@ -230,7 +248,7 @@ public class TutorProfileController {
         try {
             // First check if the profile exists
             tutorProfileService.getTutorProfileById(tutorProfileId);
-            
+
             tutorSubjectService.deleteAllSubjectsForTutor(tutorProfileId);
             return ResponseEntity.noContent().build();
         } catch (EntityNotFoundException e) {
