@@ -158,4 +158,44 @@ public class UserEntity {
     protected void onUpdate() {
         updatedAt = new Date();
     }
+
+    /**
+     * Validates that this entity has all required fields set
+     * @return true if all required fields are set, false otherwise
+     */
+    public boolean validate() {
+        boolean isValid = true;
+        
+        if (username == null || username.trim().isEmpty()) {
+            System.err.println("UserEntity validation: username is null or empty");
+            isValid = false;
+        }
+        
+        if (email == null || email.trim().isEmpty()) {
+            System.err.println("UserEntity validation: email is null or empty");
+            isValid = false;
+        }
+        
+        if (password == null || password.trim().isEmpty()) {
+            System.err.println("UserEntity validation: password is null or empty");
+            isValid = false;
+        }
+        
+        if (firstName == null || firstName.trim().isEmpty()) {
+            System.err.println("UserEntity validation: firstName is null or empty");
+            isValid = false;
+        }
+        
+        if (lastName == null || lastName.trim().isEmpty()) {
+            System.err.println("UserEntity validation: lastName is null or empty");
+            isValid = false;
+        }
+        
+        if (role == null) {
+            System.err.println("UserEntity validation: role is null");
+            isValid = false;
+        }
+        
+        return isValid;
+    }
 }

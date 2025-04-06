@@ -1,11 +1,8 @@
 import { Navigate, useLocation } from 'react-router-dom';
-import { useUser } from '../../context/UserContext';
-import LoadingSpinner from '../common/LoadingSpinner';
+import { useUser } from '../context/UserContext';
+import { Spinner } from 'flowbite-react';
 
-/**
- * A route guard component to protect routes that require authentication
- */
-const PrivateRoute = ({ children }) => {
+const PrivateRoute = ({ children, requiredRole }) => {
   const { user, loading } = useUser();
   const location = useLocation();
 
@@ -23,7 +20,14 @@ const PrivateRoute = ({ children }) => {
       try {
         const userData = JSON.parse(storedUser);
         console.log("PrivateRoute: Found user in localStorage:", userData);
-        return !!(userData && userData.userId);
+        
+        // If requiredRole is specified, check if user has that role
+        if (requiredRole) {
+          const userRole = userData.role?.toUpperCase() || '';
+          return userRole.includes(requiredRole.toUpperCase());
+        }
+        
+        return true;
       } catch (parseErr) {
         console.error("PrivateRoute: Error parsing user data:", parseErr);
         return false;
@@ -38,7 +42,7 @@ const PrivateRoute = ({ children }) => {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <LoadingSpinner size="xl" />
+        <Spinner size="xl" />
       </div>
     );
   }
@@ -50,6 +54,25 @@ const PrivateRoute = ({ children }) => {
   if (!isAuthenticated) {
     console.log("PrivateRoute: Not authenticated, redirecting to /auth/login");
     return <Navigate to="/auth/login" state={{ from: location }} replace />;
+  }
+
+  // If role check is required
+  if (requiredRole) {
+    // Check context first
+    if (user) {
+      const userRole = user.role?.toUpperCase() || '';
+      if (!userRole.includes(requiredRole.toUpperCase())) {
+        console.log(`PrivateRoute: User role ${userRole} does not match required role ${requiredRole}`);
+        return <Navigate to="/" replace />;
+      }
+    } else {
+      // Fallback to localStorage check
+      const hasRole = checkLocalStorage();
+      if (!hasRole) {
+        console.log(`PrivateRoute: User does not have required role ${requiredRole} based on localStorage`);
+        return <Navigate to="/" replace />;
+      }
+    }
   }
 
   return children;

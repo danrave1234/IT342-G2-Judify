@@ -1,74 +1,80 @@
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'react-toastify';
-import { FaMapMarkerAlt, FaSave } from 'react-icons/fa';
+import { FaMapMarkerAlt, FaSave, FaSync } from 'react-icons/fa';
 import { useUser } from '../../context/UserContext';
-import axios from 'axios';
+import { useStudentProfile } from '../../context/StudentProfileContext';
 
 const Profile = () => {
   const { user } = useUser();
+  const { profile, loading, error, profileExists, updateProfile, refreshProfile } = useStudentProfile();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [interests, setInterests] = useState([]);
   const [newInterest, setNewInterest] = useState('');
-  const { register, handleSubmit, setValue, formState: { errors } } = useForm();
+  const { register, handleSubmit, setValue, formState: { errors }, reset } = useForm();
 
+  // Set form values when profile data loads
   useEffect(() => {
-    const fetchStudentProfile = async () => {
-      try {
-        const token = localStorage.getItem('judify_token');
-        const config = {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        };
-
-        const res = await axios.get(`/api/students/profile/${user.id}`, config);
-        
-        // Set form values
-        setValue('bio', res.data.bio);
-        setValue('gradeLevel', res.data.gradeLevel);
-        setValue('school', res.data.school);
-        setValue('location.city', res.data.location?.city);
-        setValue('location.state', res.data.location?.state);
-        setValue('location.country', res.data.location?.country);
-        setValue('location.latitude', res.data.location?.latitude);
-        setValue('location.longitude', res.data.location?.longitude);
-        
-        // Set interests
-        if (res.data.interests) {
-          setInterests(res.data.interests);
+    if (profile) {
+      // Reset form with profile data
+      reset({
+        bio: profile.bio || '',
+        gradeLevel: profile.gradeLevel || '',
+        school: profile.school || '',
+        location: {
+          city: profile.location?.city || '',
+          state: profile.location?.state || '',
+          country: profile.location?.country || '',
+          latitude: profile.location?.latitude || '',
+          longitude: profile.location?.longitude || ''
         }
-      } catch (error) {
-        toast.error('Failed to load profile data');
+      });
+      
+      // Set interests
+      if (profile.interests && Array.isArray(profile.interests)) {
+        setInterests(profile.interests);
       }
-    };
-
-    if (user) {
-      fetchStudentProfile();
     }
-  }, [user, setValue]);
+  }, [profile, reset]);
 
   const onSubmit = async (data) => {
+    if (!user || !user.userId) {
+      toast.error('Unable to update profile - user information missing');
+      return;
+    }
+    
     setIsSubmitting(true);
+    
     try {
       const profileData = {
         ...data,
         interests,
+        userId: user.userId
       };
 
-      const token = localStorage.getItem('judify_token');
-      const config = {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      };
-
-      await axios.put(`/api/students/profile/${user.id}`, profileData, config);
-      toast.success('Profile updated successfully');
+      console.log('Submitting profile data:', profileData);
+      
+      const result = await updateProfile(profileData);
+      
+      if (result.success) {
+        toast.success('Profile updated successfully');
+      } else {
+        toast.error(result.message || 'Failed to update profile');
+      }
     } catch (error) {
+      console.error('Error updating profile:', error);
       toast.error('Failed to update profile');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    try {
+      await refreshProfile();
+      toast.success('Profile refreshed');
+    } catch (error) {
+      toast.error('Failed to refresh profile');
     }
   };
 
@@ -105,203 +111,205 @@ const Profile = () => {
     }
   };
 
+  if (!user) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="bg-white shadow rounded-lg p-6 mb-6">
+          <h1 className="text-2xl font-bold text-gray-800 mb-6">Student Profile</h1>
+          <p className="text-gray-700">Please log in to view and update your profile.</p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="bg-white shadow rounded-lg p-6 mb-6">
+          <h1 className="text-2xl font-bold text-gray-800 mb-6">Student Profile</h1>
+          <div className="flex justify-center items-center h-40">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <p className="ml-2">Loading profile...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto">
       <div className="bg-white shadow rounded-lg p-6 mb-6">
-        <h1 className="text-2xl font-bold text-gray-800 mb-6">Student Profile</h1>
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold text-gray-800">Student Profile</h1>
+          <button 
+            type="button" 
+            onClick={handleRefresh}
+            className="flex items-center px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+          >
+            <FaSync className="mr-2" /> Refresh
+          </button>
+        </div>
+        
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-lg">
+            <p className="font-medium">Error loading profile</p>
+            <p className="text-sm">{error}</p>
+            <p className="text-sm mt-2">
+              User ID: {user?.userId || 'Missing'}
+            </p>
+          </div>
+        )}
         
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          {/* Basic Information */}
+          {/* Bio section */}
           <div>
-            <h2 className="text-lg font-semibold text-gray-700 mb-4">Basic Information</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label htmlFor="gradeLevel" className="block text-sm font-medium text-gray-700">Grade Level</label>
-                <input
-                  id="gradeLevel"
-                  type="text"
-                  placeholder="e.g. 10th Grade, Freshman, etc."
-                  className={`mt-1 block w-full px-3 py-2 border ${
-                    errors.gradeLevel ? 'border-red-500' : 'border-gray-300'
-                  } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
-                  {...register('gradeLevel', { required: 'Grade level is required' })}
-                />
-                {errors.gradeLevel && (
-                  <p className="mt-1 text-sm text-red-600">{errors.gradeLevel.message}</p>
-                )}
-              </div>
-              <div>
-                <label htmlFor="school" className="block text-sm font-medium text-gray-700">School</label>
-                <input
-                  id="school"
-                  type="text"
-                  placeholder="e.g. Washington High School"
-                  className={`mt-1 block w-full px-3 py-2 border ${
-                    errors.school ? 'border-red-500' : 'border-gray-300'
-                  } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
-                  {...register('school', { required: 'School is required' })}
-                />
-                {errors.school && (
-                  <p className="mt-1 text-sm text-red-600">{errors.school.message}</p>
-                )}
-              </div>
-            </div>
-          </div>
-          
-          {/* Bio */}
-          <div>
-            <label htmlFor="bio" className="block text-sm font-medium text-gray-700">About Me</label>
+            <label htmlFor="bio" className="block text-sm font-medium text-gray-700 mb-1">Bio</label>
             <textarea
               id="bio"
               rows="4"
-              placeholder="Tell tutors about yourself, your learning style, and what you're looking for in a tutor."
-              className={`mt-1 block w-full px-3 py-2 border ${
-                errors.bio ? 'border-red-500' : 'border-gray-300'
-              } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
               {...register('bio')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Tell us about yourself..."
             ></textarea>
           </div>
-          
-          {/* Interests */}
-          <div>
-            <h2 className="text-lg font-semibold text-gray-700 mb-4">Academic Interests</h2>
-            
-            <div className="mb-4">
-              <div className="flex flex-wrap gap-2 mb-3">
-                {interests.map((interest, index) => (
-                  <div 
-                    key={index} 
-                    className="flex items-center bg-blue-100 text-blue-800 px-3 py-1 rounded-full"
-                  >
-                    <span>{interest}</span>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveInterest(index)}
-                      className="ml-2 text-blue-600 hover:text-blue-800"
-                    >
-                      &times;
-                    </button>
-                  </div>
-                ))}
-              </div>
-              
-              <div className="flex gap-3">
-                <input
-                  type="text"
-                  placeholder="Add an interest (e.g. Mathematics, History)"
-                  value={newInterest}
-                  onChange={(e) => setNewInterest(e.target.value)}
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                />
-                <button
-                  type="button"
-                  onClick={handleAddInterest}
-                  className="px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 whitespace-nowrap"
-                >
-                  Add
-                </button>
-              </div>
+
+          {/* Education section */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label htmlFor="gradeLevel" className="block text-sm font-medium text-gray-700 mb-1">Grade Level</label>
+              <input
+                type="text"
+                id="gradeLevel"
+                {...register('gradeLevel')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="e.g., Freshman, Sophomore, etc."
+              />
+            </div>
+            <div>
+              <label htmlFor="school" className="block text-sm font-medium text-gray-700 mb-1">School</label>
+              <input
+                type="text"
+                id="school"
+                {...register('school')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Your school or university name"
+              />
             </div>
           </div>
-          
-          {/* Location */}
+
+          {/* Location section */}
           <div>
-            <h2 className="text-lg font-semibold text-gray-700 mb-4">Location</h2>
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-lg font-medium text-gray-800">Location</h3>
+              <button
+                type="button"
+                onClick={handleGetCurrentLocation}
+                className="flex items-center text-sm text-blue-600 hover:text-blue-800"
+              >
+                <FaMapMarkerAlt className="mr-1" /> Use current location
+              </button>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               <div>
-                <label htmlFor="location.city" className="block text-sm font-medium text-gray-700">City</label>
+                <label htmlFor="location.city" className="block text-sm font-medium text-gray-700 mb-1">City</label>
                 <input
+                  type="text"
                   id="location.city"
-                  type="text"
-                  placeholder="e.g. New York"
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  {...register('location.city', { required: 'City is required' })}
+                  {...register('location.city')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 />
-                {errors.location?.city && (
-                  <p className="mt-1 text-sm text-red-600">{errors.location.city.message}</p>
-                )}
               </div>
               <div>
-                <label htmlFor="location.state" className="block text-sm font-medium text-gray-700">State/Province</label>
+                <label htmlFor="location.state" className="block text-sm font-medium text-gray-700 mb-1">State/Province</label>
                 <input
+                  type="text"
                   id="location.state"
-                  type="text"
-                  placeholder="e.g. NY"
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  {...register('location.state', { required: 'State is required' })}
+                  {...register('location.state')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 />
-                {errors.location?.state && (
-                  <p className="mt-1 text-sm text-red-600">{errors.location.state.message}</p>
-                )}
               </div>
               <div>
-                <label htmlFor="location.country" className="block text-sm font-medium text-gray-700">Country</label>
+                <label htmlFor="location.country" className="block text-sm font-medium text-gray-700 mb-1">Country</label>
                 <input
+                  type="text"
                   id="location.country"
+                  {...register('location.country')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="location.latitude" className="block text-sm font-medium text-gray-700 mb-1">Latitude</label>
+                <input
                   type="text"
-                  placeholder="e.g. USA"
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  {...register('location.country', { required: 'Country is required' })}
-                />
-                {errors.location?.country && (
-                  <p className="mt-1 text-sm text-red-600">{errors.location.country.message}</p>
-                )}
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
-              <div>
-                <label htmlFor="location.latitude" className="block text-sm font-medium text-gray-700">Latitude</label>
-                <input
                   id="location.latitude"
-                  type="number"
-                  step="any"
-                  placeholder="e.g. 40.7128"
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  {...register('location.latitude', { required: 'Latitude is required' })}
+                  {...register('location.latitude')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  readOnly
                 />
-                {errors.location?.latitude && (
-                  <p className="mt-1 text-sm text-red-600">{errors.location.latitude.message}</p>
-                )}
               </div>
               <div>
-                <label htmlFor="location.longitude" className="block text-sm font-medium text-gray-700">Longitude</label>
+                <label htmlFor="location.longitude" className="block text-sm font-medium text-gray-700 mb-1">Longitude</label>
                 <input
+                  type="text"
                   id="location.longitude"
-                  type="number"
-                  step="any"
-                  placeholder="e.g. -74.0060"
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  {...register('location.longitude', { required: 'Longitude is required' })}
+                  {...register('location.longitude')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  readOnly
                 />
-                {errors.location?.longitude && (
-                  <p className="mt-1 text-sm text-red-600">{errors.location.longitude.message}</p>
-                )}
               </div>
             </div>
-            
-            <button
-              type="button"
-              onClick={handleGetCurrentLocation}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              <FaMapMarkerAlt className="mr-2 text-blue-600" /> Get Current Location
-            </button>
           </div>
-          
-          {/* Submit Button */}
-          <div className="pt-4 border-t">
+
+          {/* Interests section */}
+          <div>
+            <h3 className="text-lg font-medium text-gray-800 mb-2">Interests</h3>
+            <div className="flex mb-2">
+              <input
+                type="text"
+                value={newInterest}
+                onChange={(e) => setNewInterest(e.target.value)}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-l-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Add an interest (e.g., Programming, Music, etc.)"
+              />
+              <button
+                type="button"
+                onClick={handleAddInterest}
+                className="px-4 py-2 bg-blue-600 text-white rounded-r-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Add
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {interests.map((interest, index) => (
+                <div key={index} className="flex items-center bg-blue-100 text-blue-800 rounded-full px-3 py-1">
+                  <span>{interest}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveInterest(index)}
+                    className="ml-2 text-blue-600 hover:text-blue-800 focus:outline-none"
+                  >
+                    &times;
+                  </button>
+                </div>
+              ))}
+              {interests.length === 0 && (
+                <p className="text-gray-500 text-sm">No interests added yet.</p>
+              )}
+            </div>
+          </div>
+
+          {/* Submit button */}
+          <div className="flex justify-end">
             <button
               type="submit"
               disabled={isSubmitting}
-              className="inline-flex items-center justify-center w-full sm:w-auto px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
             >
               {isSubmitting ? (
                 <>
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
+                  <div className="animate-spin h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full"></div>
                   Saving...
                 </>
               ) : (

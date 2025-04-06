@@ -29,8 +29,34 @@ public class UserService {
 
     @Transactional
     public UserEntity createUser(UserEntity user) {
-        // Just save the user with the plain text password
-        return userRepository.save(user);
+        // Add logging to debug the user entity being received
+        System.out.println("Creating user with data: " + user.getEmail() + ", " + user.getUsername() + ", role: " + user.getRole());
+        System.out.println("Password field present: " + (user.getPassword() != null ? "Yes" : "No"));
+        
+        // Use the validation method to check all required fields
+        if (!user.validate()) {
+            throw new IllegalArgumentException("User validation failed - check server logs for details");
+        }
+        
+        // Ensure dates are set
+        if (user.getCreatedAt() == null) {
+            user.setCreatedAt(new Date());
+        }
+        
+        if (user.getUpdatedAt() == null) {
+            user.setUpdatedAt(new Date());
+        }
+        
+        try {
+            // Save the user and log the result
+            UserEntity savedUser = userRepository.save(user);
+            System.out.println("User created successfully with ID: " + savedUser.getUserId());
+            return savedUser;
+        } catch (Exception e) {
+            System.err.println("Error saving user to database: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
     }
 
     public Optional<UserEntity> getUserById(Long id) {
