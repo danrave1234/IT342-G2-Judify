@@ -1,6 +1,7 @@
 package edu.cit.Judify.User;
 
 import edu.cit.Judify.User.DTO.AuthenticatedUserDTO;
+import edu.cit.Judify.User.DTO.CreateUserDTO;
 import edu.cit.Judify.User.DTO.UserDTO;
 import edu.cit.Judify.User.DTO.UserDTOMapper;
 import io.swagger.v3.oas.annotations.Operation;
@@ -40,8 +41,10 @@ public class UserController {
     })
     @PostMapping("/addUser")
     public ResponseEntity<UserDTO> createUser(
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "User data to create", required = true)
-            @RequestBody UserEntity user) {
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "User data to create", required = true,
+                content = @Content(schema = @Schema(implementation = CreateUserDTO.class)))
+            @RequestBody CreateUserDTO createUserDTO) {
+        UserEntity user = userDTOMapper.toEntity(createUserDTO);
         return ResponseEntity.ok(userDTOMapper.toDTO(userService.createUser(user)));
     }
 
@@ -106,9 +109,15 @@ public class UserController {
     @PutMapping("/updateUser/{id}")
     public ResponseEntity<UserDTO> updateUser(
             @Parameter(description = "User ID") @PathVariable Long id,
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Updated user details", required = true)
-            @RequestBody UserEntity userDetails) {
-        return ResponseEntity.ok(userDTOMapper.toDTO(userService.updateUser(id, userDetails)));
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Updated user details", required = true,
+                    content = @Content(schema = @Schema(implementation = UserDTO.class)))
+            @RequestBody UserDTO userDTO) {
+        try {
+            UserEntity updatedUser = userService.updateUser(id, userDTO);
+            return ResponseEntity.ok(userDTOMapper.toDTO(updatedUser));
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     @Operation(summary = "Delete user", description = "Deletes a user by their ID")
@@ -126,14 +135,25 @@ public class UserController {
     @Operation(summary = "Update user role", description = "Updates the role of an existing user")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "User role successfully updated"),
+        @ApiResponse(responseCode = "400", description = "Invalid role value"),
         @ApiResponse(responseCode = "404", description = "User not found")
     })
     @PutMapping("/updateRole/{id}")
-    public ResponseEntity<UserDTO> updateUserRole(
+    public ResponseEntity<?> updateUserRole(
             @Parameter(description = "User ID") @PathVariable Long id,
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "New user role", required = true)
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "New user role (STUDENT, TUTOR, or ADMIN)", required = true,
+                    content = @Content(schema = @Schema(type = "string", example = "TUTOR")))
             @RequestBody String role) {
-        return ResponseEntity.ok(userDTOMapper.toDTO(userService.updateUserRole(id, role)));
+        try {
+            // Trim any whitespace or quotes that might be in the request
+            String cleanRole = role.trim().replace("\"", "");
+            UserEntity updatedUser = userService.updateUserRole(id, cleanRole);
+            return ResponseEntity.ok(userDTOMapper.toDTO(updatedUser));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     @Operation(summary = "Authenticate user", description = "Authenticates a user using email and password")

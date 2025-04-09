@@ -5,6 +5,7 @@ import edu.cit.Judify.User.DTO.UserDTO;
 import edu.cit.Judify.User.DTO.UserDTOMapper;
 import io.jsonwebtoken.Jwts;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,17 +20,23 @@ public class UserService {
     private final UserRepository userRepository;
     private final UserDTOMapper userDTOMapper;
     private final Key jwtSecretKey;
+    private final PasswordEncoder passwordEncoder;
 
     @Autowired
-    public UserService(UserRepository userRepository, UserDTOMapper userDTOMapper, Key jwtSecretKey) {
+    public UserService(UserRepository userRepository, UserDTOMapper userDTOMapper, 
+                       Key jwtSecretKey, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.userDTOMapper = userDTOMapper;
         this.jwtSecretKey = jwtSecretKey;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Transactional
     public UserEntity createUser(UserEntity user) {
-        // Just save the user with the plain text password
+        // Hash the password before saving
+        String plainPassword = user.getPassword();
+        String hashedPassword = passwordEncoder.encode(plainPassword);
+        user.setPassword(hashedPassword);
         return userRepository.save(user);
     }
 
@@ -50,16 +57,17 @@ public class UserService {
     }
 
     @Transactional
-    public UserEntity updateUser(Long id, UserEntity userDetails) {
+    public UserEntity updateUser(Long id, UserDTO userDTO) {
         UserEntity user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        user.setUsername(userDetails.getUsername());
-        user.setEmail(userDetails.getEmail());
-        user.setFirstName(userDetails.getFirstName());
-        user.setLastName(userDetails.getLastName());
-        user.setProfilePicture(userDetails.getProfilePicture());
-        user.setContactDetails(userDetails.getContactDetails());
+        // Update basic user information
+        if (userDTO.getUsername() != null) user.setUsername(userDTO.getUsername());
+        if (userDTO.getEmail() != null) user.setEmail(userDTO.getEmail());
+        if (userDTO.getFirstName() != null) user.setFirstName(userDTO.getFirstName());
+        if (userDTO.getLastName() != null) user.setLastName(userDTO.getLastName());
+        if (userDTO.getProfilePicture() != null) user.setProfilePicture(userDTO.getProfilePicture());
+        if (userDTO.getContactDetails() != null) user.setContactDetails(userDTO.getContactDetails());
         user.setUpdatedAt(new Date());
 
         return userRepository.save(user);
@@ -75,10 +83,16 @@ public class UserService {
         UserEntity user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        user.setRole(UserRole.valueOf(role));
-        user.setUpdatedAt(new Date());
-
-        return userRepository.save(user);
+        try {
+            // Convert the role string to uppercase and trim any whitespace
+            UserRole userRole = UserRole.valueOf(role.trim().toUpperCase());
+            user.setRole(userRole);
+            user.setUpdatedAt(new Date());
+            return userRepository.save(user);
+        } catch (IllegalArgumentException e) {
+            // Throw a more informative exception if the role is invalid
+            throw new IllegalArgumentException("Invalid role: " + role + ". Valid roles are: STUDENT, TUTOR, ADMIN");
+        }
     }
 
     public AuthenticatedUserDTO authenticateUser(String email, String password) {
@@ -91,8 +105,8 @@ public class UserService {
         if (userOpt.isPresent()) {
             UserEntity user = userOpt.get();
 
-            // Simple password check (since we've removed hashing)
-            if (password != null && password.equals(user.getPassword())) {
+            // Use the password encoder to match the passwords
+            if (password != null && passwordEncoder.matches(password, user.getPassword())) {
                 // Authentication successful
                 authDTO.setAuthenticated(true);
                 authDTO.setUserId(user.getUserId());

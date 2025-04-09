@@ -1,7 +1,10 @@
 package edu.cit.Judify.User.DTO;
 
 import edu.cit.Judify.User.UserEntity;
+import edu.cit.Judify.User.UserRole;
 import org.springframework.stereotype.Component;
+
+import java.util.Date;
 
 @Component
 public class UserDTOMapper {
@@ -38,6 +41,26 @@ public class UserDTOMapper {
         // Note: Password and other sensitive fields should be handled separately
         entity.setCreatedAt(dto.getCreatedAt());
         entity.setUpdatedAt(dto.getUpdatedAt());
+        return entity;
+    }
+    
+    public UserEntity toEntity(CreateUserDTO dto) {
+        if (dto == null) {
+            return null;
+        }
+
+        UserEntity entity = new UserEntity();
+        entity.setUsername(dto.getUsername());
+        entity.setEmail(dto.getEmail());
+        entity.setPassword(dto.getPassword()); // Will be hashed by the service
+        entity.setFirstName(dto.getFirstName());
+        entity.setLastName(dto.getLastName());
+        entity.setContactDetails(dto.getContactDetails());
+        entity.setRole(dto.getRole() != null ? dto.getRole() : UserRole.STUDENT); // Default to STUDENT if not provided
+        
+        // The entity constructor already sets createdAt
+        entity.setUpdatedAt(new Date());
+        
         return entity;
     }
 } 
