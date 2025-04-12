@@ -1,6 +1,8 @@
 package edu.cit.Judify.Course;
 
 import edu.cit.Judify.Course.DTO.CourseDTO;
+import edu.cit.Judify.TutorProfile.DTO.TutorProfileDTO;
+import edu.cit.Judify.TutorProfile.TutorProfileService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -22,10 +24,12 @@ import java.util.List;
 public class CourseController {
 
     private final CourseService courseService;
+    private final TutorProfileService tutorProfileService;
 
     @Autowired
-    public CourseController(CourseService courseService) {
+    public CourseController(CourseService courseService, TutorProfileService tutorProfileService) {
         this.courseService = courseService;
+        this.tutorProfileService = tutorProfileService;
     }
 
     @GetMapping
@@ -144,6 +148,28 @@ public class CourseController {
         try {
             courseService.deleteCourse(id);
             return ResponseEntity.noContent().build();
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @GetMapping("/{id}/tutor")
+    @Operation(summary = "Get tutor profile by course ID", description = "Retrieve the tutor profile associated with a specific course")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Tutor profile retrieved successfully",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = TutorProfileDTO.class))),
+            @ApiResponse(responseCode = "404", description = "Course or tutor not found")
+    })
+    public ResponseEntity<TutorProfileDTO> getTutorProfileByCourseId(
+            @Parameter(description = "Course ID", required = true) @PathVariable Long id) {
+        try {
+            // Get the course by ID
+            CourseDTO course = courseService.getCourseById(id);
+
+            // Get the tutor profile by tutor ID
+            TutorProfileDTO tutorProfile = tutorProfileService.getTutorProfileById(course.getTutorId());
+
+            return ResponseEntity.ok(tutorProfile);
         } catch (EntityNotFoundException e) {
             return ResponseEntity.notFound().build();
         }

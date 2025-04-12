@@ -19,10 +19,11 @@ import com.mobile.ui.base.BaseFragment
 import com.mobile.ui.courses.adapters.CourseAdapter
 import com.mobile.ui.courses.models.Course
 import com.mobile.ui.dashboard.TutorDashboardActivity
-import com.mobile.ui.search.TutorSearchActivity
+import com.mobile.ui.booking.BookingActivity
 import android.content.Intent
 import android.widget.Toast
 import androidx.lifecycle.lifecycleScope
+import com.mobile.utils.NetworkUtils
 import com.mobile.utils.PreferenceUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -36,7 +37,6 @@ class CoursesFragment : BaseFragment() {
     // UI Components
     private lateinit var searchEditText: EditText
     private lateinit var categoryChipGroup: ChipGroup
-    private lateinit var popularCoursesRecyclerView: RecyclerView
     private lateinit var allCoursesRecyclerView: RecyclerView
     private lateinit var emptyStateLayout: LinearLayout
     private lateinit var loadingProgressBar: ProgressBar
@@ -46,7 +46,6 @@ class CoursesFragment : BaseFragment() {
     private var isTutor = false
 
     // Adapters
-    private lateinit var popularCoursesAdapter: CourseAdapter
     private lateinit var allCoursesAdapter: CourseAdapter
 
     // ViewModel
@@ -89,7 +88,6 @@ class CoursesFragment : BaseFragment() {
     private fun initializeViews(view: View) {
         searchEditText = view.findViewById(R.id.searchEditText)
         categoryChipGroup = view.findViewById(R.id.categoryChipGroup)
-        popularCoursesRecyclerView = view.findViewById(R.id.popularCoursesRecyclerView)
         allCoursesRecyclerView = view.findViewById(R.id.allCoursesRecyclerView)
         emptyStateLayout = view.findViewById(R.id.emptyStateLayout)
         loadingProgressBar = view.findViewById(R.id.loadingProgressBar)
@@ -97,22 +95,11 @@ class CoursesFragment : BaseFragment() {
     }
 
     private fun setupRecyclerViews() {
-        // Popular Courses RecyclerView
-        popularCoursesAdapter = CourseAdapter(
-            onCourseClick = { course ->
-                // Handle course click - navigate to tutors for this course
-                navigateToTutorSearch(course.title)
-            },
-            isTutor = isTutor
-        )
-        popularCoursesRecyclerView.layoutManager = LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false)
-        popularCoursesRecyclerView.adapter = popularCoursesAdapter
-
         // All Courses RecyclerView
         allCoursesAdapter = CourseAdapter(
             onCourseClick = { course ->
-                // Handle course click - navigate to tutors for this course
-                navigateToTutorSearch(course.title)
+                // Handle course click - navigate to book a session with the tutor
+                navigateToBookSession(course)
             },
             isTutor = isTutor,
             onEditCourse = { course ->
@@ -475,7 +462,6 @@ class CoursesFragment : BaseFragment() {
             }
 
             // Update adapters with new data
-            popularCoursesAdapter.submitList(state.popularCourses)
             allCoursesAdapter.submitList(state.allCourses)
         }
     }
@@ -561,11 +547,74 @@ class CoursesFragment : BaseFragment() {
         }
     }
 
-    private fun navigateToTutorSearch(subject: String) {
-        val intent = Intent(requireContext(), TutorSearchActivity::class.java).apply {
-            putExtra("SEARCH_QUERY", subject)
+    private fun navigateToBookSession(course: Course) {
+        // Check if course ID is available
+        if (course.id <= 0) {
+            Toast.makeText(requireContext(), "Course information not available", Toast.LENGTH_SHORT).show()
+            return
         }
-        startActivity(intent)
+
+        // Show loading indicator
+        loadingProgressBar.visibility = View.VISIBLE
+
+        // Fetch tutor profile by course ID
+        lifecycleScope.launch {
+            try {
+                val result = NetworkUtils.getTutorProfileByCourseId(course.id)
+
+                withContext(Dispatchers.Main) {
+                    loadingProgressBar.visibility = View.GONE
+
+                    result.fold(
+                        onSuccess = { tutorProfile: NetworkUtils.TutorProfile ->
+                            // Create intent to BookingActivity with tutor ID and course info
+                            val intent = Intent(requireContext(), BookingActivity::class.java).apply {
+                                putExtra(BookingActivity.EXTRA_TUTOR_ID, tutorProfile.id)
+                                putExtra(BookingActivity.EXTRA_COURSE_ID, course.id)
+                                putExtra(BookingActivity.EXTRA_COURSE_TITLE, course.title)
+                            }
+                            startActivity(intent)
+                        },
+                        onFailure = { error: Throwable ->
+                            // If fetching by course ID fails, fall back to using the tutorId from the course
+                            if (course.tutorId != null) {
+                                val intent = Intent(requireContext(), BookingActivity::class.java).apply {
+                                    putExtra(BookingActivity.EXTRA_TUTOR_ID, course.tutorId)
+                                    putExtra(BookingActivity.EXTRA_COURSE_ID, course.id)
+                                    putExtra(BookingActivity.EXTRA_COURSE_TITLE, course.title)
+                                }
+                                startActivity(intent)
+                            } else {
+                                Toast.makeText(
+                                    requireContext(),
+                                    "Failed to load tutor profile: ${error.message}",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
+                    )
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    loadingProgressBar.visibility = View.GONE
+                    Toast.makeText(
+                        requireContext(),
+                        "Error: ${e.message}",
+                        Toast.LENGTH_SHORT
+                    ).show()
+
+                    // Fall back to using the tutorId from the course
+                    if (course.tutorId != null) {
+                        val intent = Intent(requireContext(), BookingActivity::class.java).apply {
+                            putExtra(BookingActivity.EXTRA_TUTOR_ID, course.tutorId)
+                            putExtra(BookingActivity.EXTRA_COURSE_ID, course.id)
+                            putExtra(BookingActivity.EXTRA_COURSE_TITLE, course.title)
+                        }
+                        startActivity(intent)
+                    }
+                }
+            }
+        }
     }
 
     companion object {

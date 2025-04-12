@@ -76,14 +76,14 @@
             android:orientation="horizontal">
 
             <TextView
-                android:id="@+id/tutorCount"
+                android:id="@+id/tutorName"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:drawableStart="@drawable/ic_person"
                 android:drawablePadding="4dp"
                 android:gravity="center_vertical"
                 android:textSize="12sp"
-                tools:text="12 Tutors" />
+                tools:text="By John Doe" />
 
             <View
                 android:layout_width="0dp"
@@ -113,13 +113,13 @@
 
         </LinearLayout>
 
-        <!-- View Tutors Button -->
+        <!-- Book a Session Button (formerly View Tutors Button) -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/viewTutorsButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="View Tutors"
+            android:text="Book a Session"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 
     </LinearLayout>

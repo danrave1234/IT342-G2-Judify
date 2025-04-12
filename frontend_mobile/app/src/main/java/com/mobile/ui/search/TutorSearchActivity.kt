@@ -63,8 +63,8 @@ class TutorSearchActivity : AppCompatActivity() {
         setupRecyclerView()
         setupObservers()
 
-        // Initial search
-        viewModel.searchTutors("")
+        // Load random tutors initially
+        viewModel.loadRandomTutors()
     }
 
     private fun initializeViews() {

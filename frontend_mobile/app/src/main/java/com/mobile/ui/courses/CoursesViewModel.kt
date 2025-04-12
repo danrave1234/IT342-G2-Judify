@@ -29,11 +29,9 @@ class CoursesViewModel(application: Application) : AndroidViewModel(application)
             try {
                 // Fetch courses from API
                 val allCourses = com.mobile.utils.NetworkUtils.getAllCourses()
-                val popularCourses = com.mobile.utils.NetworkUtils.getPopularCourses()
 
                 _coursesState.value = _coursesState.value?.copy(
                     isLoading = false,
-                    popularCourses = popularCourses,
                     allCourses = allCourses,
                     error = null
                 )
@@ -60,7 +58,6 @@ class CoursesViewModel(application: Application) : AndroidViewModel(application)
 
                 _coursesState.value = _coursesState.value?.copy(
                     isLoading = false,
-                    popularCourses = emptyList(), // Tutors don't need to see popular courses
                     allCourses = tutorCourses,
                     error = if (tutorCourses.isEmpty()) "You haven't created any courses yet" else null
                 )

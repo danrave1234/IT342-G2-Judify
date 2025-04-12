@@ -27,13 +27,22 @@ import com.mobile.utils.PreferenceUtils
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+import android.widget.Toast
+import com.mobile.ui.booking.BookingActivity
+import android.view.LayoutInflater
+import android.widget.LinearLayout
+import android.widget.RatingBar
+import com.mobile.ui.search.TutorSearchActivity
+import com.mobile.utils.NetworkUtils.TutorProfile
+import de.hdodenhof.circleimageview.CircleImageView
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class LearnerDashboardActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityLearnerDashboardBinding
     private val TAG = "LearnerDashboard"
 
-    private lateinit var popularCoursesAdapter: CourseAdapter
     private lateinit var allCoursesAdapter: CourseAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -54,14 +63,124 @@ class LearnerDashboardActivity : AppCompatActivity() {
         // Set up app bar behavior
         setupAppBarBehavior()
 
-        // Set up category selection
-        setupCategorySelection()
+        // Load top tutors
+        loadTopTutors()
 
         // Set up courses
         setupCourses()
 
         // Set up bottom navigation
         setupBottomNavigation()
+    }
+
+    // Load tutors from the network
+    private fun loadTopTutors() {
+        Log.d(TAG, "Starting to load tutors")
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                // Fetch random tutors
+                Log.d(TAG, "About to call getRandomTutors")
+                val result = NetworkUtils.getRandomTutors()
+
+                withContext(Dispatchers.Main) {
+                    if (result.isSuccess) {
+                        val tutors = result.getOrNull() ?: emptyList()
+                        Log.d(TAG, "Successfully fetched ${tutors.size} tutors")
+
+                        if (tutors.isNotEmpty()) {
+                            // If we have tutors, display them
+                            displayTopTutors(tutors)
+                        } else {
+                            Log.w(TAG, "No tutors returned from API, showing placeholders")
+                            // If no tutors found, show placeholders
+                            displayPlaceholderTutors()
+                        }
+                    } else {
+                        val error = result.exceptionOrNull()
+                        Log.e(TAG, "Failed to fetch tutors: ${error?.message}", error)
+                        // Handle failed result
+                        displayPlaceholderTutors()
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error loading tutors: ${e.message}", e)
+
+                // Get the full stack trace
+                val stackTrace = e.stackTraceToString()
+                Log.e(TAG, "Stack trace: $stackTrace")
+
+                // Show placeholders in case of error
+                withContext(Dispatchers.Main) {
+                    displayPlaceholderTutors()
+                }
+            }
+        }
+    }
+
+    // Display tutors in the UI
+    private fun displayTopTutors(tutors: List<TutorProfile>) {
+        val container = binding.topTutorsContainer
+        container.removeAllViews()
+
+        // Take up to 5 tutors to display
+        val tutorsToShow = tutors.take(5)
+
+        Log.d(TAG, "Displaying ${tutorsToShow.size} tutors in UI: ${tutorsToShow.map { it.name }}")
+
+        // Add tutors to container
+        tutorsToShow.forEach { tutor ->
+            val tutorView = LayoutInflater.from(this).inflate(R.layout.item_top_tutor, container, false)
+
+            // Set tutor data
+            val tutorImageView = tutorView.findViewById<CircleImageView>(R.id.tutorImageView)
+            val tutorNameTextView = tutorView.findViewById<TextView>(R.id.tutorNameTextView)
+            val tutorRatingBar = tutorView.findViewById<RatingBar>(R.id.tutorRatingBar)
+
+            // Set tutor name - use a default if empty
+            val displayName = if (tutor.name.isBlank()) "Tutor #${tutor.id}" else tutor.name
+            tutorNameTextView.text = displayName
+
+            // Set rating - default to 4.0 if 0
+            val rating = if (tutor.rating <= 0f) 4.0f else tutor.rating
+            tutorRatingBar.rating = rating
+
+            // Set click listener to view tutor profile
+            tutorView.setOnClickListener {
+                val intent = Intent(this, BookingActivity::class.java).apply {
+                    putExtra(BookingActivity.EXTRA_TUTOR_ID, tutor.id)
+                }
+                startActivity(intent)
+            }
+
+            container.addView(tutorView)
+        }
+    }
+
+    // Display message when no tutors are available
+    private fun displayPlaceholderTutors() {
+        val container = binding.topTutorsContainer
+        container.removeAllViews()
+
+        // Create a message view
+        val messageView = LayoutInflater.from(this).inflate(R.layout.item_top_tutor, container, false)
+
+        // Set message data
+        val tutorNameTextView = messageView.findViewById<TextView>(R.id.tutorNameTextView)
+        val tutorRatingBar = messageView.findViewById<RatingBar>(R.id.tutorRatingBar)
+
+        tutorNameTextView.text = "No tutors available"
+        tutorRatingBar.visibility = View.GONE
+
+        // Add a toast message when clicked
+        messageView.setOnClickListener {
+            Toast.makeText(this, "Please try again later", Toast.LENGTH_SHORT).show()
+        }
+
+        container.addView(messageView)
+
+        // Show a toast message
+        Toast.makeText(this, "Unable to load tutors. Please check your connection.", Toast.LENGTH_LONG).show()
     }
 
     private fun setupBottomNavigation() {
@@ -162,7 +281,7 @@ class LearnerDashboardActivity : AppCompatActivity() {
         // Set up search functionality
         binding.searchEditText.setOnClickListener {
             // Launch TutorSearchActivity for finding tutors
-            startActivity(Intent(this, com.mobile.ui.search.TutorSearchActivity::class.java))
+            startActivity(Intent(this, TutorSearchActivity::class.java))
         }
 
         // Set up filter functionality
@@ -170,15 +289,10 @@ class LearnerDashboardActivity : AppCompatActivity() {
             // TODO: Implement filter functionality
         }
 
-        // Set up see all mentors
-        binding.seeAllMentors.setOnClickListener {
+        // Set up see all tutors
+        binding.seeAllTutors.setOnClickListener {
             // Launch TutorSearchActivity for finding tutors
-            startActivity(Intent(this, com.mobile.ui.search.TutorSearchActivity::class.java))
-        }
-
-        // Set up see all categories
-        binding.seeAllCategories.setOnClickListener {
-            // TODO: Navigate to all categories screen
+            startActivity(Intent(this, TutorSearchActivity::class.java))
         }
 
         // Set up notification icon click
@@ -225,78 +339,40 @@ class LearnerDashboardActivity : AppCompatActivity() {
         })
     }
 
-    private fun setupCategorySelection() {
-        // Find all category views in the horizontal scroll view
-        val categoriesContainer = binding.categoriesSection.getChildAt(1) as HorizontalScrollView
-        val categoriesLayout = categoriesContainer.getChildAt(0) as android.view.ViewGroup
-
-        // Set up click listeners for each category
-        for (i in 0 until categoriesLayout.childCount) {
-            val categoryView = categoriesLayout.getChildAt(i) as TextView
-            categoryView.setOnClickListener {
-                // Reset all categories to unselected state
-                for (j in 0 until categoriesLayout.childCount) {
-                    val otherCategory = categoriesLayout.getChildAt(j) as TextView
-                    otherCategory.setBackgroundResource(R.drawable.category_background)
-                    otherCategory.setTextColor(resources.getColor(android.R.color.black, theme))
-                }
-
-                // Set clicked category to selected state
-                categoryView.setBackgroundResource(R.drawable.category_selected_background)
-                categoryView.setTextColor(resources.getColor(android.R.color.white, theme))
-
-                // Filter courses based on selected category
-                val category = categoryView.text.toString()
-                filterCoursesByCategory(if (category == "All") null else category)
-            }
-        }
-    }
-
     private fun setupCourses() {
-        // Initialize RecyclerViews
-        binding.popularCoursesRecyclerView.layoutManager = LinearLayoutManager(this)
-        binding.allCoursesRecyclerView.layoutManager = LinearLayoutManager(this)
-
-        // Initialize adapters
-        popularCoursesAdapter = CourseAdapter(
-            onCourseClick = { course ->
-                // Handle course click
-                Log.d(TAG, "Popular course clicked: ${course.title}")
-                // TODO: Navigate to course details
-            }
-        )
-
-        allCoursesAdapter = CourseAdapter(
-            onCourseClick = { course ->
-                // Handle course click
-                Log.d(TAG, "Course clicked: ${course.title}")
-                // TODO: Navigate to course details
-            }
-        )
-
-        // Set adapters to RecyclerViews
-        binding.popularCoursesRecyclerView.adapter = popularCoursesAdapter
-        binding.allCoursesRecyclerView.adapter = allCoursesAdapter
-
-        // Load courses
-        loadCourses()
-    }
-
-    private fun loadCourses() {
+        // Load courses asynchronously
         lifecycleScope.launch {
             try {
-                // Load popular courses
-                val popularCourses = NetworkUtils.getPopularCourses()
-                popularCoursesAdapter.submitList(popularCourses)
+                // All Courses RecyclerView
+                binding.allCoursesRecyclerView.layoutManager = LinearLayoutManager(this@LearnerDashboardActivity)
 
-                // Load all courses
+                allCoursesAdapter = CourseAdapter(
+                    onCourseClick = { course ->
+                        // Handle course click - navigate to book a session with the tutor
+                        if (course.tutorId == null) {
+                            Toast.makeText(this@LearnerDashboardActivity, "Tutor information not available", Toast.LENGTH_SHORT).show()
+                            return@CourseAdapter
+                        }
+
+                        // Create intent with proper extras
+                        val intent = Intent(this@LearnerDashboardActivity, BookingActivity::class.java).apply {
+                            putExtra(BookingActivity.EXTRA_TUTOR_ID, course.tutorId)
+                            putExtra(BookingActivity.EXTRA_COURSE_ID, course.id)
+                            putExtra(BookingActivity.EXTRA_COURSE_TITLE, course.title)
+                        }
+                        startActivity(intent)
+                    }
+                )
+                binding.allCoursesRecyclerView.adapter = allCoursesAdapter
+
+                // Load course data
                 val allCourses = NetworkUtils.getAllCourses()
                 allCoursesAdapter.submitList(allCourses)
 
-                Log.d(TAG, "Loaded ${popularCourses.size} popular courses and ${allCourses.size} all courses")
+                Log.d(TAG, "Loaded ${allCourses.size} all courses")
+
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading courses: ${e.message}", e)
-                // TODO: Show error message
             }
         }
     }

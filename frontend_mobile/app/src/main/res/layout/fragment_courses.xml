@@ -164,26 +164,6 @@
                 android:paddingRight="16dp"
                 android:paddingBottom="16dp">
 
-                <!-- Popular Courses Section -->
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Popular Courses"
-                    android:textSize="20sp"
-                    android:textColor="@color/primary_blue"
-                    android:textStyle="bold"
-                    android:layout_marginBottom="16dp" />
-
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/popularCoursesRecyclerView"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="24dp"
-                    android:clipToPadding="false"
-                    android:paddingStart="4dp"
-                    android:paddingEnd="4dp"
-                    android:nestedScrollingEnabled="false" />
-
                 <!-- All Courses Section -->
                 <TextView
                     android:layout_width="match_parent"

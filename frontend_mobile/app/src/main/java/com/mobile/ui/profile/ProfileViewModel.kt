@@ -118,6 +118,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                             context,
                             userEntity.firstName,
                             userEntity.lastName,
+                            userEntity.email,
                             userEntity.roles
                         )
                     },
@@ -171,6 +172,14 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                     // Use the user ID from the current user object
                     val context = getApplication<Application>()
                     val userId = currentUser.id
+                    
+                    // Log the update attempt
+                    android.util.Log.d("ProfileViewModel", "Updating user profile: userId=$userId, name=$name, email=$email")
+
+                    // Save contact details to preferences right away, regardless of API success
+                    if (!contactDetails.isNullOrEmpty()) {
+                        com.mobile.utils.PreferenceUtils.saveUserContactDetails(context, contactDetails)
+                    }
 
                     // Create User object for the API
                     val apiUser = com.mobile.data.model.User(
@@ -180,51 +189,80 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                         firstName = firstName,
                         lastName = lastName,
                         profilePicture = currentUser.profileImageUrl,
-                        contactDetails = contactDetails,
+                        contactDetails = contactDetails ?: "",
                         roles = com.mobile.utils.PreferenceUtils.getUserRole(context) ?: "LEARNER"
                     )
 
-                    // Send update to API
-                    val result = com.mobile.utils.NetworkUtils.updateUser(apiUser)
-
-                    result.fold(
-                        onSuccess = { updatedUser ->
-                            // Update local state with the response from the API
-                            val profileUser = User(
-                                id = updatedUser.userId ?: 0,
-                                name = "${updatedUser.firstName} ${updatedUser.lastName}",
-                                email = updatedUser.email,
-                                profileImageUrl = updatedUser.profilePicture
-                            )
-
+                    // Send update to API with timeout handling
+                    var apiCallCompleted = false
+                    val timeoutJob = viewModelScope.launch {
+                        // Set a timeout of 10 seconds
+                        kotlinx.coroutines.delay(10000)
+                        if (!apiCallCompleted) {
                             _profileState.value = _profileState.value?.copy(
                                 isLoading = false,
-                                user = profileUser,
-                                error = null
-                            )
-
-                            // Update preferences
-                            com.mobile.utils.PreferenceUtils.saveUserDetails(
-                                context,
-                                updatedUser.firstName,
-                                updatedUser.lastName,
-                                updatedUser.roles
-                            )
-                        },
-                        onFailure = { exception ->
-                            _profileState.value = _profileState.value?.copy(
-                                isLoading = false,
-                                error = exception.message ?: "Failed to update profile"
+                                error = "Request timed out. Changes may not have been saved."
                             )
                         }
-                    )
+                    }
+
+                    try {
+                        // Send the update request
+                        val result = com.mobile.utils.NetworkUtils.updateUser(apiUser)
+                        apiCallCompleted = true
+                        
+                        // Cancel the timeout job since the API call completed
+                        timeoutJob.cancel()
+
+                        result.fold(
+                            onSuccess = { updatedUser ->
+                                // Update local state with the response from the API
+                                val profileUser = User(
+                                    id = updatedUser.userId ?: 0,
+                                    name = "${updatedUser.firstName} ${updatedUser.lastName}",
+                                    email = updatedUser.email,
+                                    profileImageUrl = updatedUser.profilePicture
+                                )
+
+                                _profileState.value = _profileState.value?.copy(
+                                    isLoading = false,
+                                    user = profileUser,
+                                    error = null
+                                )
+
+                                // Update preferences
+                                com.mobile.utils.PreferenceUtils.saveUserDetails(
+                                    context,
+                                    updatedUser.firstName,
+                                    updatedUser.lastName,
+                                    updatedUser.email,
+                                    updatedUser.roles
+                                )
+                                
+                                android.util.Log.d("ProfileViewModel", "Profile updated successfully")
+                            },
+                            onFailure = { exception ->
+                                android.util.Log.e("ProfileViewModel", "Failed to update profile: ${exception.message}", exception)
+                                _profileState.value = _profileState.value?.copy(
+                                    isLoading = false,
+                                    error = exception.message ?: "Failed to update profile"
+                                )
+                            }
+                        )
+                    } catch (e: Exception) {
+                        apiCallCompleted = true
+                        timeoutJob.cancel()
+                        throw e
+                    }
                 } else {
+                    android.util.Log.e("ProfileViewModel", "User data not available")
                     _profileState.value = _profileState.value?.copy(
                         isLoading = false,
                         error = "User data not available"
                     )
                 }
             } catch (e: Exception) {
+                android.util.Log.e("ProfileViewModel", "Exception updating profile: ${e.message}", e)
                 _profileState.value = _profileState.value?.copy(
                     isLoading = false,
                     error = e.message ?: "Failed to update profile"

@@ -24,11 +24,14 @@ class EditProfileFragment : Fragment() {
     private lateinit var profileImage: CircleImageView
     private lateinit var firstNameEditText: EditText
     private lateinit var lastNameEditText: EditText
+    private lateinit var usernameEditText: EditText
     private lateinit var emailEditText: EditText
     private lateinit var contactDetailsEditText: EditText
+    private lateinit var bioEditText: EditText
     private lateinit var saveButton: Button
     private lateinit var cancelButton: Button
     private lateinit var progressBar: ProgressBar
+    private lateinit var progressOverlay: View
     private lateinit var errorText: TextView
 
     // ViewModel
@@ -63,11 +66,14 @@ class EditProfileFragment : Fragment() {
         profileImage = view.findViewById(R.id.profileImageView)
         firstNameEditText = view.findViewById(R.id.firstNameEditText)
         lastNameEditText = view.findViewById(R.id.lastNameEditText)
+        usernameEditText = view.findViewById(R.id.usernameEditText)
         emailEditText = view.findViewById(R.id.emailEditText)
         contactDetailsEditText = view.findViewById(R.id.contactDetailsEditText)
+        bioEditText = view.findViewById(R.id.bioEditText)
         saveButton = view.findViewById(R.id.saveButton)
         cancelButton = view.findViewById(R.id.cancelButton)
         progressBar = view.findViewById(R.id.progressBar)
+        progressOverlay = view.findViewById(R.id.progressOverlay)
         errorText = view.findViewById(R.id.errorTextView)
     }
 
@@ -92,23 +98,30 @@ class EditProfileFragment : Fragment() {
         var isUpdatingProfile = false
 
         viewModel.profileState.observe(viewLifecycleOwner) { state ->
+            android.util.Log.d("EditProfileFragment", "ProfileState updated: loading=${state.isLoading}, error=${state.error}, user=${state.user != null}")
+
             when {
                 state.isLoading -> {
-                    progressBar.visibility = View.VISIBLE
+                    progressOverlay.visibility = View.VISIBLE
                     errorText.visibility = View.GONE
+                    saveButton.isEnabled = false  // Disable button while loading
                     // Mark that we're updating the profile
                     isUpdatingProfile = true
                 }
                 state.error != null -> {
-                    progressBar.visibility = View.GONE
+                    progressOverlay.visibility = View.GONE
                     errorText.visibility = View.VISIBLE
                     errorText.text = state.error
+                    saveButton.isEnabled = true  // Re-enable button so user can try again
+                    // Show error toast
+                    Toast.makeText(requireContext(), "Error: ${state.error}", Toast.LENGTH_LONG).show()
                     // Reset the updating flag
                     isUpdatingProfile = false
                 }
                 state.user != null -> {
-                    progressBar.visibility = View.GONE
+                    progressOverlay.visibility = View.GONE
                     errorText.visibility = View.GONE
+                    saveButton.isEnabled = true  // Re-enable button
 
                     // Update profile image
                     if (state.user.profileImageUrl != null && state.user.profileImageUrl.isNotEmpty()) {
@@ -132,12 +145,25 @@ class EditProfileFragment : Fragment() {
                         isUpdatingProfile = false
                     }
                 }
+                else -> {
+                    // If we reach here, there's no loading, no error, but also no user
+                    // This can happen if the ViewModel is in an inconsistent state
+                    progressOverlay.visibility = View.GONE
+                    errorText.visibility = View.GONE
+                    saveButton.isEnabled = true
+                    isUpdatingProfile = false
+                }
             }
         }
     }
 
     private fun loadCurrentUserData() {
         val state = viewModel.profileState.value
+
+        // Make sure UI is in a non-loading state initially
+        progressOverlay.visibility = View.GONE
+        saveButton.isEnabled = true
+
         if (state?.user != null) {
             // Parse the name into first and last name
             val nameParts = state.user.name.split(" ", limit = 2)
@@ -174,23 +200,84 @@ class EditProfileFragment : Fragment() {
                 emailEditText.setText(email)
             }
         }
+
+        // Ensure contact details field is loaded if available
+        val contactDetails = PreferenceUtils.getUserContactDetails(requireContext())
+        if (!contactDetails.isNullOrEmpty()) {
+            contactDetailsEditText.setText(contactDetails)
+        }
+
+        // Load username if available
+        val username = PreferenceUtils.getUserUsername(requireContext())
+        if (!username.isNullOrEmpty()) {
+            usernameEditText.setText(username)
+        } else {
+            // Default to email as username if not set
+            val email = PreferenceUtils.getUserEmail(requireContext())
+            if (!email.isNullOrEmpty()) {
+                usernameEditText.setText(email)
+            }
+        }
+
+        // Load bio if available
+        val bio = PreferenceUtils.getUserBio(requireContext())
+        if (!bio.isNullOrEmpty()) {
+            bioEditText.setText(bio)
+        }
     }
 
     private fun saveProfile() {
         val firstName = firstNameEditText.text.toString().trim()
         val lastName = lastNameEditText.text.toString().trim()
+        val username = usernameEditText.text.toString().trim()
         val email = emailEditText.text.toString().trim()
         val contactDetails = contactDetailsEditText.text.toString().trim()
+        val bio = bioEditText.text.toString().trim()
 
         // Validate inputs
-        if (firstName.isEmpty() || lastName.isEmpty() || email.isEmpty()) {
-            Toast.makeText(requireContext(), "Please fill in all required fields", Toast.LENGTH_SHORT).show()
+        if (firstName.isEmpty()) {
+            Toast.makeText(requireContext(), "First name cannot be empty", Toast.LENGTH_SHORT).show()
+            firstNameEditText.requestFocus()
             return
         }
 
+        if (lastName.isEmpty()) {
+            Toast.makeText(requireContext(), "Last name cannot be empty", Toast.LENGTH_SHORT).show()
+            lastNameEditText.requestFocus()
+            return
+        }
+
+        if (username.isEmpty()) {
+            Toast.makeText(requireContext(), "Username cannot be empty", Toast.LENGTH_SHORT).show()
+            usernameEditText.requestFocus()
+            return
+        }
+
+        if (email.isEmpty()) {
+            Toast.makeText(requireContext(), "Email cannot be empty", Toast.LENGTH_SHORT).show()
+            emailEditText.requestFocus()
+            return
+        }
+
+        // Simple email validation
+        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+            Toast.makeText(requireContext(), "Please enter a valid email address", Toast.LENGTH_SHORT).show()
+            emailEditText.requestFocus()
+            return
+        }
+
+        // Log the data being saved
+        android.util.Log.d("EditProfileFragment", "Saving profile: firstName=$firstName, lastName=$lastName, username=$username, email=$email, contactDetails=$contactDetails, bio=$bio")
+
+        // Save additional fields to preferences immediately (as a backup)
+        PreferenceUtils.saveUserContactDetails(requireContext(), contactDetails)
+        PreferenceUtils.saveUserUsername(requireContext(), username)
+        PreferenceUtils.saveUserBio(requireContext(), bio)
+
         // Show loading state
-        progressBar.visibility = View.VISIBLE
+        progressOverlay.visibility = View.VISIBLE
         errorText.visibility = View.GONE
+        saveButton.isEnabled = false
 
         // Update user profile with contact details
         viewModel.updateUserProfile("$firstName $lastName", email, contactDetails)

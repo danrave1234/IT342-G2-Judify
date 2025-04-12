@@ -12,7 +12,9 @@ data class Course(
     val averageRating: Float,
     val averagePrice: Float,
     val category: String,
-    val imageResId: Int? = null
+    val imageResId: Int? = null,
+    val tutorId: Long? = null,
+    val tutorName: String? = null
 )
 
 /**
@@ -20,7 +22,6 @@ data class Course(
  */
 data class CoursesState(
     val isLoading: Boolean = false,
-    val popularCourses: List<Course> = emptyList(),
     val allCourses: List<Course> = emptyList(),
     val error: String? = null
 )

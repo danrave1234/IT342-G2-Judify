@@ -4,169 +4,170 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="?attr/colorSurface"
     tools:context=".ui.booking.BookingActivity">
 
-    <com.google.android.material.appbar.AppBarLayout
-        android:id="@+id/appBarLayout"
+    <!-- Simplified Toolbar without AppBarLayout -->
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbar"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="?android:colorBackground"
-        app:elevation="0dp">
-
-        <androidx.appcompat.widget.Toolbar
-            android:id="@+id/toolbar"
-            android:layout_width="match_parent"
-            android:layout_height="?attr/actionBarSize"
-            app:navigationIcon="@drawable/ic_arrow_back"
-            app:title="Book a Session"
-            android:elevation="0dp"
-            app:titleTextColor="@color/primary_blue"
-            app:titleTextAppearance="@style/TextAppearance.MaterialComponents.Headline6" />
-    </com.google.android.material.appbar.AppBarLayout>
+        android:layout_height="?attr/actionBarSize"
+        android:background="@android:color/transparent"
+        app:navigationIcon="@drawable/ic_arrow_back"
+        app:titleTextColor="@color/primary_blue"
+        android:elevation="0dp" />
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:clipToPadding="false"
-        android:paddingBottom="64dp"
+        android:fillViewport="true"
         android:scrollbars="none"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+        android:paddingTop="?attr/actionBarSize">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="16dp">
 
-            <!-- Mentor Info Section -->
+            <!-- Compact Page Title with icon -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="16dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Book a Session"
+                    android:textColor="?android:attr/textColorPrimary"
+                    android:textSize="24sp"
+                    android:textStyle="bold" />
+
+                <ImageView
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:src="@drawable/ic_calendar"
+                    android:tint="@color/primary_blue"
+                    android:contentDescription="Calendar" />
+            </LinearLayout>
+
+            <!-- Tutor Card - Elevated and more polished -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="24dp"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="2dp"
-                app:strokeWidth="1dp"
-                app:strokeColor="#E0E6F5">
+                app:cardCornerRadius="16dp"
+                app:cardElevation="4dp"
+                app:cardBackgroundColor="?attr/colorSurface">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:padding="16dp">
+                    android:orientation="vertical">
 
-                    <de.hdodenhof.circleimageview.CircleImageView
-                        android:id="@+id/mentorImageView"
+                    <!-- Blue accent line instead of header bar -->
+                    <View
                         android:layout_width="80dp"
-                        android:layout_height="80dp"
-                        android:src="@drawable/ic_person"
-                        app:civ_border_width="2dp"
-                        app:civ_border_color="@color/primary_blue_light" />
+                        android:layout_height="4dp"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginTop="16dp"
+                        android:background="@color/primary_blue" />
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:layout_marginStart="16dp"
-                        android:layout_gravity="center_vertical">
+                        android:orientation="horizontal"
+                        android:padding="16dp">
 
-                        <TextView
-                            android:id="@+id/mentorNameTextView"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Mentor Name"
-                            android:textSize="18sp"
-                            android:textStyle="bold"
-                            android:textColor="@color/primary_blue" />
+                        <de.hdodenhof.circleimageview.CircleImageView
+                            android:id="@+id/mentorImageView"
+                            android:layout_width="80dp"
+                            android:layout_height="80dp"
+                            android:src="@drawable/ic_person"
+                            app:civ_border_width="3dp"
+                            app:civ_border_color="@color/primary_blue" />
 
-                        <TextView
-                            android:id="@+id/mentorSpecialtyTextView"
-                            android:layout_width="wrap_content"
+                        <LinearLayout
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="Mathematics, Physics"
-                            android:textSize="14sp"
-                            android:textColor="?android:textColorSecondary"
-                            android:layout_marginTop="4dp" />
+                            android:orientation="vertical"
+                            android:layout_marginStart="16dp"
+                            android:layout_gravity="center_vertical">
 
-                        <RatingBar
-                            android:id="@+id/mentorRatingBar"
-                            style="?android:attr/ratingBarStyleSmall"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="8dp"
-                            android:isIndicator="true"
-                            android:numStars="5"
-                            android:rating="4.5"
-                            android:stepSize="0.5"
-                            android:progressTint="@color/secondary_color" />
+                            <TextView
+                                android:id="@+id/mentorNameTextView"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Tutor Name"
+                                android:textSize="20sp"
+                                android:textStyle="bold"
+                                android:textColor="?android:attr/textColorPrimary" />
+
+                            <TextView
+                                android:id="@+id/mentorSpecialtyTextView"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Mathematics, Physics"
+                                android:textSize="14sp"
+                                android:textColor="?android:attr/textColorSecondary"
+                                android:layout_marginTop="4dp" />
+
+                            <LinearLayout
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:layout_marginTop="8dp"
+                                android:gravity="center_vertical">
+
+                                <RatingBar
+                                    android:id="@+id/mentorRatingBar"
+                                    style="?android:attr/ratingBarStyleSmall"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:isIndicator="true"
+                                    android:numStars="5"
+                                    android:rating="4.5"
+                                    android:stepSize="0.5"
+                                    android:progressTint="@color/accent_color" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Excellent"
+                                    android:textSize="12sp"
+                                    android:textColor="?android:attr/textColorSecondary"
+                                    android:layout_marginStart="8dp" />
+                            </LinearLayout>
+                        </LinearLayout>
                     </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Session Type Section -->
+            <!-- Session Information Section -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Session Type"
-                android:textColor="@color/primary_blue"
+                android:text="Session Details"
+                android:textColor="?android:attr/textColorPrimary"
                 android:textStyle="bold"
                 android:textSize="18sp"
                 android:layout_marginBottom="16dp" />
 
+            <!-- Session Type with improved visuals -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="24dp"
+                android:layout_marginBottom="16dp"
                 app:cardCornerRadius="12dp"
                 app:cardElevation="2dp"
-                app:strokeWidth="1dp"
-                app:strokeColor="#E0E6F5">
-
-                <RadioGroup
-                    android:id="@+id/sessionTypeRadioGroup"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:padding="16dp">
-
-                    <RadioButton
-                        android:id="@+id/onlineRadioButton"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="Online"
-                        android:textSize="16sp"
-                        android:paddingStart="8dp"
-                        android:buttonTint="@color/primary_blue"
-                        android:checked="true" />
-
-                    <RadioButton
-                        android:id="@+id/inPersonRadioButton"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="In-Person"
-                        android:textSize="16sp"
-                        android:paddingStart="8dp"
-                        android:buttonTint="@color/primary_blue"
-                        android:layout_marginTop="8dp" />
-                </RadioGroup>
-            </com.google.android.material.card.MaterialCardView>
-
-            <!-- Date Section -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Date"
-                android:textColor="@color/primary_blue"
-                android:textStyle="bold"
-                android:textSize="18sp"
-                android:layout_marginBottom="16dp" />
-
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="24dp"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="2dp"
-                app:strokeWidth="1dp"
-                app:strokeColor="#E0E6F5">
+                app:cardBackgroundColor="?attr/colorSurface">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -175,59 +176,129 @@
                     android:padding="16dp">
 
                     <TextView
-                        android:id="@+id/selectedDateTextView"
-                        android:layout_width="match_parent"
+                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Select a date"
+                        android:text="Session Type"
+                        android:textColor="@color/primary_blue"
+                        android:textStyle="bold"
                         android:textSize="16sp"
-                        android:textColor="?android:textColorPrimary" />
+                        android:layout_marginBottom="12dp" />
 
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/selectDateButton"
+                    <RadioGroup
+                        android:id="@+id/sessionTypeRadioGroup"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Choose Date"
-                        android:textAllCaps="false"
-                        android:layout_marginTop="8dp"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                        app:strokeColor="@color/primary_blue"
-                        app:cornerRadius="12dp"
-                        app:icon="@drawable/ic_calendar"
-                        app:iconTint="@color/primary_blue" />
+                        android:orientation="horizontal">
+
+                        <RadioButton
+                            android:id="@+id/onlineRadioButton"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Online"
+                            android:textSize="16sp"
+                            android:textColor="?android:attr/textColorPrimary"
+                            android:buttonTint="@color/primary_blue"
+                            android:checked="true" />
+
+                        <RadioButton
+                            android:id="@+id/inPersonRadioButton"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="In-Person"
+                            android:textSize="16sp"
+                            android:textColor="?android:attr/textColorPrimary"
+                            android:buttonTint="@color/primary_blue" />
+                    </RadioGroup>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Time Section -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Time Slot"
-                android:textColor="@color/primary_blue"
-                android:textStyle="bold"
-                android:textSize="18sp"
-                android:layout_marginBottom="16dp" />
-
+            <!-- Date Selection with Calendar Icon -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="24dp"
+                android:layout_marginBottom="16dp"
                 app:cardCornerRadius="12dp"
                 app:cardElevation="2dp"
-                app:strokeWidth="1dp"
-                app:strokeColor="#E0E6F5">
+                app:cardBackgroundColor="?attr/colorSurface">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Select Date"
+                        android:textColor="@color/primary_blue"
+                        android:textStyle="bold"
+                        android:textSize="16sp"
+                        android:layout_marginBottom="12dp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:id="@+id/selectedDateTextView"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Select a date"
+                            android:textSize="16sp"
+                            android:textColor="?android:attr/textColorPrimary" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/selectDateButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Choose"
+                            android:textAllCaps="false"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            app:strokeColor="@color/primary_blue"
+                            app:cornerRadius="8dp"
+                            app:icon="@drawable/ic_calendar"
+                            app:iconTint="@color/primary_blue" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Time Slots with horizontal scrolling -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="?attr/colorSurface">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Available Time Slots"
+                        android:textColor="@color/primary_blue"
+                        android:textStyle="bold"
+                        android:textSize="16sp"
+                        android:layout_marginBottom="12dp" />
 
                     <TextView
                         android:id="@+id/noSlotsTextView"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="Please select a date to see available time slots"
-                        android:textSize="16sp"
+                        android:textSize="14sp"
+                        android:textColor="?android:attr/textColorSecondary"
                         android:gravity="center"
                         android:padding="16dp"
                         android:visibility="visible" />
@@ -238,6 +309,8 @@
                         android:layout_height="wrap_content"
                         android:clipToPadding="false"
                         android:orientation="horizontal"
+                        android:paddingStart="4dp"
+                        android:paddingEnd="4dp"
                         android:visibility="gone"
                         app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
                         tools:listitem="@layout/item_time_slot"
@@ -245,61 +318,69 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Topic Section -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Topic"
-                android:textColor="@color/primary_blue"
-                android:textStyle="bold"
-                android:textSize="18sp"
-                android:layout_marginBottom="16dp" />
-
+            <!-- Topic Input with Nice Prompt -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="24dp"
                 app:cardCornerRadius="12dp"
                 app:cardElevation="2dp"
-                app:strokeWidth="1dp"
-                app:strokeColor="#E0E6F5">
+                app:cardBackgroundColor="?attr/colorSurface">
 
-                <com.google.android.material.textfield.TextInputLayout
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:padding="16dp"
-                    app:boxBackgroundMode="outline"
-                    app:boxCornerRadiusBottomEnd="12dp"
-                    app:boxCornerRadiusBottomStart="12dp"
-                    app:boxCornerRadiusTopEnd="12dp"
-                    app:boxCornerRadiusTopStart="12dp"
-                    app:boxStrokeColor="@color/primary_blue"
-                    app:hintTextColor="@color/primary_blue"
-                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+                    android:orientation="vertical"
+                    android:padding="16dp">
 
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/topicEditText"
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="What would you like to learn?"
+                        android:textColor="@color/primary_blue"
+                        android:textStyle="bold"
+                        android:textSize="16sp"
+                        android:layout_marginBottom="12dp" />
+
+                    <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:hint="What would you like to learn about?"
-                        android:inputType="textMultiLine"
-                        android:maxLines="3"
-                        android:gravity="top|start" />
-                </com.google.android.material.textfield.TextInputLayout>
+                        app:boxBackgroundMode="outline"
+                        app:boxCornerRadiusBottomEnd="8dp"
+                        app:boxCornerRadiusBottomStart="8dp"
+                        app:boxCornerRadiusTopEnd="8dp"
+                        app:boxCornerRadiusTopStart="8dp"
+                        app:boxStrokeColor="@color/primary_blue"
+                        app:hintTextColor="@color/primary_blue"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/topicEditText"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="Describe your learning goals or specific topics"
+                            android:inputType="textMultiLine"
+                            android:minLines="3"
+                            android:maxLines="5"
+                            android:textColor="?android:attr/textColorPrimary"
+                            android:gravity="top|start" />
+                    </com.google.android.material.textfield.TextInputLayout>
+                </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Book Button -->
+            <!-- Book Button - Larger, More Prominent -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/bookButton"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="56dp"
                 android:text="Book Session"
                 android:textSize="16sp"
+                android:textStyle="bold"
                 android:textAllCaps="false"
-                android:paddingTop="12dp"
-                android:paddingBottom="12dp"
                 app:cornerRadius="12dp"
-                style="@style/Widget.MaterialComponents.Button" />
+                android:backgroundTint="@color/primary_blue"
+                app:icon="@drawable/ic_check"
+                app:iconGravity="textStart" />
 
             <!-- Progress and Error States -->
             <ProgressBar
@@ -316,7 +397,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:textColor="@android:color/holo_red_dark"
+                android:textColor="@color/error"
                 android:textSize="14sp"
                 android:gravity="center"
                 android:visibility="gone" />

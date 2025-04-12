@@ -255,4 +255,16 @@ public class TutorProfileController {
             return ResponseEntity.notFound().build();
         }
     }
-} 
+
+    @Operation(summary = "Get random tutor profiles", description = "Returns a list of random tutor profiles with a limit to avoid performance issues")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Successfully retrieved random tutor profiles")
+    })
+    @GetMapping("/random")
+    public ResponseEntity<List<TutorProfileDTO>> getRandomTutorProfiles(
+            @Parameter(description = "Maximum number of tutor profiles to return (default and max is 10)") 
+            @RequestParam(defaultValue = "10") int limit) {
+        List<TutorProfileDTO> randomTutors = tutorProfileService.getRandomTutorProfiles(limit);
+        return ResponseEntity.ok(randomTutors);
+    }
+}

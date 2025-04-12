@@ -50,6 +50,7 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
                 context, 
                 response.firstName ?: "", 
                 response.lastName ?: "", 
+                response.email ?: "",
                 response.role ?: "LEARNER"
             )
 
@@ -91,6 +92,7 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
             context, 
             response.firstName ?: "", 
             response.lastName ?: "", 
+            response.email ?: "",
             response.role ?: "LEARNER"
         )
 

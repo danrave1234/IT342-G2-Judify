@@ -124,7 +124,7 @@
 
         <!-- Top Mentors Section - This will be pinned -->
         <LinearLayout
-            android:id="@+id/topMentorsSection"
+            android:id="@+id/topTutorsSection"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
@@ -144,13 +144,13 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Top Mentors"
+                    android:text="Tutors"
                     android:textSize="18sp"
                     android:textStyle="bold"
                     android:textColor="?android:textColorPrimary" />
 
                 <TextView
-                    android:id="@+id/seeAllMentors"
+                    android:id="@+id/seeAllTutors"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="See All"
@@ -165,226 +165,17 @@
                 android:scrollbars="none">
 
                 <LinearLayout
+                    android:id="@+id/topTutorsContainer"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal">
 
-                    <!-- Mentor 1 -->
-                    <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:gravity="center"
-                        android:layout_marginEnd="16dp">
+                    <!-- Tutors will be dynamically added here -->
 
-                        <de.hdodenhof.circleimageview.CircleImageView
-                            android:layout_width="60dp"
-                            android:layout_height="60dp"
-                            android:src="@drawable/mentor_jacob" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Jacob"
-                            android:textSize="14sp"
-                            android:textColor="?android:textColorPrimary"
-                            android:layout_marginTop="4dp" />
-                    </LinearLayout>
-
-                    <!-- Mentor 2 -->
-                    <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:gravity="center"
-                        android:layout_marginEnd="16dp">
-
-                        <de.hdodenhof.circleimageview.CircleImageView
-                            android:layout_width="60dp"
-                            android:layout_height="60dp"
-                            android:src="@drawable/mentor_claire" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Claire"
-                            android:textSize="14sp"
-                            android:textColor="?android:textColorPrimary"
-                            android:layout_marginTop="4dp" />
-                    </LinearLayout>
-
-                    <!-- Mentor 3 -->
-                    <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:gravity="center"
-                        android:layout_marginEnd="16dp">
-
-                        <de.hdodenhof.circleimageview.CircleImageView
-                            android:layout_width="60dp"
-                            android:layout_height="60dp"
-                            android:src="@drawable/mentor_priscilla" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Priscilla"
-                            android:textSize="14sp"
-                            android:textColor="?android:textColorPrimary"
-                            android:layout_marginTop="4dp" />
-                    </LinearLayout>
-
-                    <!-- Mentor 4 -->
-                    <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:gravity="center"
-                        android:layout_marginEnd="16dp">
-
-                        <de.hdodenhof.circleimageview.CircleImageView
-                            android:layout_width="60dp"
-                            android:layout_height="60dp"
-                            android:src="@drawable/mentor_wade" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Wade"
-                            android:textSize="14sp"
-                            android:textColor="?android:textColorPrimary"
-                            android:layout_marginTop="4dp" />
-                    </LinearLayout>
-
-                    <!-- Mentor 5 -->
-                    <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:gravity="center">
-
-                        <de.hdodenhof.circleimageview.CircleImageView
-                            android:layout_width="60dp"
-                            android:layout_height="60dp"
-                            android:src="@drawable/mentor_kathryn" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Kathryn"
-                            android:textSize="14sp"
-                            android:textColor="?android:textColorPrimary"
-                            android:layout_marginTop="4dp" />
-                    </LinearLayout>
                 </LinearLayout>
             </HorizontalScrollView>
         </LinearLayout>
 
-        <!-- Popular Categories - This will be pinned -->
-        <LinearLayout
-            android:id="@+id/categoriesSection"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:background="?attr/colorSurface"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
-            android:paddingTop="8dp"
-            android:paddingBottom="8dp"
-            app:layout_scrollFlags="scroll">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal">
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Most Popular Courses"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:textColor="?android:textColorPrimary" />
-
-                <TextView
-                    android:id="@+id/seeAllCategories"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="See All"
-                    android:textSize="14sp"
-                    android:textColor="@color/primary_blue" />
-            </LinearLayout>
-
-            <HorizontalScrollView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:scrollbars="none">
-
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal">
-
-                    <!-- Category 1 -->
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="All"
-                        android:textSize="14sp"
-                        android:textColor="#FFFFFF"
-                        android:background="@drawable/category_selected_background"
-                        android:paddingStart="16dp"
-                        android:paddingEnd="16dp"
-                        android:paddingTop="8dp"
-                        android:paddingBottom="8dp"
-                        android:layout_marginEnd="8dp" />
-
-                    <!-- Category 2 -->
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="3D Design"
-                        android:textSize="14sp"
-                        android:textColor="?android:textColorPrimary"
-                        android:background="@drawable/category_background"
-                        android:paddingStart="16dp"
-                        android:paddingEnd="16dp"
-                        android:paddingTop="8dp"
-                        android:paddingBottom="8dp"
-                        android:layout_marginEnd="8dp" />
-
-                    <!-- Category 3 -->
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Business"
-                        android:textSize="14sp"
-                        android:textColor="?android:textColorPrimary"
-                        android:background="@drawable/category_background"
-                        android:paddingStart="16dp"
-                        android:paddingEnd="16dp"
-                        android:paddingTop="8dp"
-                        android:paddingBottom="8dp"
-                        android:layout_marginEnd="8dp" />
-
-                    <!-- Category 4 -->
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="UI/UX"
-                        android:textSize="14sp"
-                        android:textColor="?android:textColorPrimary"
-                        android:background="@drawable/category_background"
-                        android:paddingStart="16dp"
-                        android:paddingEnd="16dp"
-                        android:paddingTop="8dp"
-                        android:paddingBottom="8dp" />
-                </LinearLayout>
-            </HorizontalScrollView>
-        </LinearLayout>
     </com.google.android.material.appbar.AppBarLayout>
 
     <!-- Shadow for the sticky header -->
@@ -484,24 +275,6 @@
                 android:paddingTop="16dp"
                 android:paddingRight="16dp"
                 android:paddingBottom="32dp">
-
-                <!-- Popular Courses RecyclerView -->
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Popular Courses"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:textColor="?android:textColorPrimary"
-                    android:layout_marginBottom="8dp" />
-
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/popularCoursesRecyclerView"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="16dp"
-                    android:clipToPadding="false"
-                    android:nestedScrollingEnabled="false" />
 
                 <!-- All Courses RecyclerView -->
                 <TextView

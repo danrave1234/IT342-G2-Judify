@@ -14,7 +14,7 @@ data class User(
     val lastName: String,
     val profilePicture: String? = null,
     val contactDetails: String? = null,
-    val roles: String = "LEARNER", // Default role
+    val roles: String = "LEARNER", // Default role is LEARNER (equivalent to STUDENT in backend)
     val createdAt: Date? = null,
     val updatedAt: Date? = null
 ) 

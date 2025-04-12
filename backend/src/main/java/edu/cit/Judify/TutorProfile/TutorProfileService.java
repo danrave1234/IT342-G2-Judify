@@ -193,4 +193,33 @@ public class TutorProfileService {
 
         return profiles.map(dtoMapper::toDTO);
     }
+
+    /**
+     * Get a list of random tutor profiles
+     * 
+     * @param limit Maximum number of tutor profiles to return (default is 10)
+     * @return List of random tutor profiles
+     */
+    public List<TutorProfileDTO> getRandomTutorProfiles(int limit) {
+        // Limit the number of tutors to avoid performance issues
+        if (limit <= 0 || limit > 10) {
+            limit = 10;
+        }
+
+        // Get all tutor profiles
+        List<TutorProfileEntity> allProfiles = tutorProfileRepository.findAll();
+
+        // Shuffle the list to get random tutors
+        java.util.Collections.shuffle(allProfiles);
+
+        // Take only the first 'limit' elements
+        List<TutorProfileEntity> randomProfiles = allProfiles.stream()
+                .limit(limit)
+                .collect(Collectors.toList());
+
+        // Convert to DTOs
+        return randomProfiles.stream()
+                .map(dtoMapper::toDTO)
+                .collect(Collectors.toList());
+    }
 } 

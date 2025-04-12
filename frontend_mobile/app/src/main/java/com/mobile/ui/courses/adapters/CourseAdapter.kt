@@ -69,7 +69,7 @@ class CourseAdapter(
         private val courseTitle: TextView = itemView.findViewById(R.id.courseTitle)
         private val courseSubtitle: TextView = itemView.findViewById(R.id.courseSubtitle)
         private val courseDescription: TextView = itemView.findViewById(R.id.courseDescription)
-        private val tutorCount: TextView = itemView.findViewById(R.id.tutorCount)
+        private val tutorName: TextView = itemView.findViewById(R.id.tutorName)
         private val averageRating: TextView = itemView.findViewById(R.id.averageRating)
         private val averagePrice: TextView = itemView.findViewById(R.id.averagePrice)
         private val viewTutorsButton: Button = itemView.findViewById(R.id.viewTutorsButton)
@@ -79,7 +79,7 @@ class CourseAdapter(
             courseTitle.text = course.title
             courseSubtitle.text = course.subtitle
             courseDescription.text = course.description
-            tutorCount.text = "${course.tutorCount} Tutors"
+            tutorName.text = "By ${course.tutorName ?: "Unknown Tutor"}"
             averageRating.text = course.averageRating.toString()
 
             // Format price as currency
