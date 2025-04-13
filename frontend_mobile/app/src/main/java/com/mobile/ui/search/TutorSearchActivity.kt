@@ -63,8 +63,8 @@ class TutorSearchActivity : AppCompatActivity() {
         setupRecyclerView()
         setupObservers()
 
-        // Initial search
-        viewModel.searchTutors("")
+        // Load random tutors initially
+        viewModel.loadRandomTutors()
     }
 
     private fun initializeViews() {
@@ -130,10 +130,10 @@ class TutorSearchActivity : AppCompatActivity() {
         viewModel.searchState.observe(this) { state ->
             // Update UI based on state
             loadingProgressBar.visibility = if (state.isLoading) View.VISIBLE else View.GONE
-            
+
             // Handle location loading state
             locationProgressBar.visibility = if (state.isLocationLoading) View.VISIBLE else View.GONE
-            
+
             // Handle error state
             if (state.error != null) {
                 errorTextView.text = "Error: ${state.error}"
@@ -142,7 +142,7 @@ class TutorSearchActivity : AppCompatActivity() {
                 tutorsRecyclerView.visibility = View.GONE
             } else {
                 errorTextView.visibility = View.GONE
-                
+
                 // Handle empty results
                 if (state.tutors.isEmpty() && !state.isLoading) {
                     emptyTextView.visibility = View.VISIBLE
@@ -169,7 +169,7 @@ class TutorSearchActivity : AppCompatActivity() {
     }
 
     override fun onSupportNavigateUp(): Boolean {
-        onBackPressed()
+        onBackPressedDispatcher.onBackPressed()
         return true
     }
 } 

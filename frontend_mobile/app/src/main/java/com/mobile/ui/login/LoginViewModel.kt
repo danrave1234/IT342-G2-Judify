@@ -43,7 +43,18 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun handleLoginResponse(response: AuthResponse, rememberMe: Boolean) {
         if (response.success) {
-            // Save user data
+            // Use PreferenceUtils to save user data consistently
+            val context = getApplication<Application>()
+            com.mobile.utils.PreferenceUtils.saveLoginState(context, true, response.email ?: "", rememberMe)
+            com.mobile.utils.PreferenceUtils.saveUserDetails(
+                context, 
+                response.firstName ?: "", 
+                response.lastName ?: "", 
+                response.email ?: "",
+                response.role ?: "LEARNER"
+            )
+
+            // Also save to local SharedPreferences for backward compatibility
             sharedPreferences.edit().apply {
                 putLong("user_id", response.userId ?: -1)
                 putString("user_email", response.email)
@@ -69,7 +80,23 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
         return sharedPreferences.getBoolean("is_logged_in", false)
     }
 
+    fun getUserRole(): String {
+        return sharedPreferences.getString("user_role", "LEARNER") ?: "LEARNER"
+    }
+
     fun saveUserSession(response: AuthResponse, rememberMe: Boolean) {
+        // Use PreferenceUtils to save user data consistently
+        val context = getApplication<Application>()
+        com.mobile.utils.PreferenceUtils.saveLoginState(context, true, response.email ?: "", rememberMe)
+        com.mobile.utils.PreferenceUtils.saveUserDetails(
+            context, 
+            response.firstName ?: "", 
+            response.lastName ?: "", 
+            response.email ?: "",
+            response.role ?: "LEARNER"
+        )
+
+        // Also save to local SharedPreferences for backward compatibility
         sharedPreferences.edit().apply {
             putLong("user_id", response.userId ?: -1)
             putString("user_email", response.email)
