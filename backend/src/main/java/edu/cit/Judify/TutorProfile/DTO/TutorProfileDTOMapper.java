@@ -15,6 +15,8 @@ public class TutorProfileDTOMapper {
         dto.setProfileId(entity.getId());
         dto.setUserId(entity.getUser().getUserId());
         dto.setUsername(entity.getUser().getUsername());
+        dto.setFirstName(entity.getUser().getFirstName());
+        dto.setLastName(entity.getUser().getLastName());
         dto.setBio(entity.getBiography());
         dto.setExpertise(entity.getExpertise());
         dto.setHourlyRate(entity.getHourlyRate());

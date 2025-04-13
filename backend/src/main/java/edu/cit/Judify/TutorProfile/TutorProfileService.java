@@ -131,27 +131,6 @@ public class TutorProfileService {
     }
 
     // New method for paginated and filtered tutor profiles
-    /**
-     * Update a tutor's location
-     * 
-     * @param id Tutor profile ID
-     * @param latitude Latitude coordinate
-     * @param longitude Longitude coordinate
-     * @return Updated tutor profile DTO
-     * @throws EntityNotFoundException if tutor profile not found
-     */
-    @Transactional
-    public TutorProfileDTO updateTutorLocation(Long id, Double latitude, Double longitude) {
-        TutorProfileEntity profile = tutorProfileRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("TutorProfile not found with id: " + id));
-
-        profile.setLatitude(latitude);
-        profile.setLongitude(longitude);
-
-        TutorProfileEntity updatedEntity = tutorProfileRepository.save(profile);
-        return dtoMapper.toDTO(updatedEntity);
-    }
-
     public Page<TutorProfileDTO> getAllTutorProfilesPaginated(int page, int size, 
                                                            String expertise, 
                                                            Double minRate, 
@@ -195,31 +174,25 @@ public class TutorProfileService {
     }
 
     /**
-     * Get a list of random tutor profiles
-     * 
-     * @param limit Maximum number of tutor profiles to return (default is 10)
+     * Get random tutor profiles
+     * @param limit Maximum number of profiles to return
      * @return List of random tutor profiles
      */
     public List<TutorProfileDTO> getRandomTutorProfiles(int limit) {
-        // Limit the number of tutors to avoid performance issues
-        if (limit <= 0 || limit > 10) {
-            limit = 10;
-        }
-
         // Get all tutor profiles
         List<TutorProfileEntity> allProfiles = tutorProfileRepository.findAll();
 
-        // Shuffle the list to get random tutors
+        // Shuffle the list to randomize the order
         java.util.Collections.shuffle(allProfiles);
 
-        // Take only the first 'limit' elements
+        // Take the first 'limit' profiles or all if there are fewer
         List<TutorProfileEntity> randomProfiles = allProfiles.stream()
                 .limit(limit)
-                .collect(Collectors.toList());
+                .collect(java.util.stream.Collectors.toList());
 
         // Convert to DTOs
         return randomProfiles.stream()
                 .map(dtoMapper::toDTO)
-                .collect(Collectors.toList());
+                .collect(java.util.stream.Collectors.toList());
     }
 } 

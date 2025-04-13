@@ -179,24 +179,6 @@ public class TutorProfileController {
         }
     }
 
-    @Operation(summary = "Update tutor location", description = "Updates the location (latitude and longitude) of a tutor profile")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Tutor location successfully updated"),
-        @ApiResponse(responseCode = "404", description = "Tutor profile not found")
-    })
-    @PutMapping("/updateLocation/{id}")
-    public ResponseEntity<TutorProfileDTO> updateTutorLocation(
-            @Parameter(description = "Tutor profile ID") @PathVariable Long id,
-            @Parameter(description = "Latitude coordinate") @RequestParam Double latitude,
-            @Parameter(description = "Longitude coordinate") @RequestParam Double longitude) {
-        try {
-            TutorProfileDTO updatedProfile = tutorProfileService.updateTutorLocation(id, latitude, longitude);
-            return ResponseEntity.ok(updatedProfile);
-        } catch (EntityNotFoundException e) {
-            return ResponseEntity.notFound().build();
-        }
-    }
-
     @Operation(summary = "Get subjects for a tutor profile", description = "Returns all subjects associated with a specific tutor profile")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Successfully retrieved subjects"),
@@ -256,15 +238,14 @@ public class TutorProfileController {
         }
     }
 
-    @Operation(summary = "Get random tutor profiles", description = "Returns a list of random tutor profiles with a limit to avoid performance issues")
+    @Operation(summary = "Get random tutor profiles", description = "Returns a list of random tutor profiles")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Successfully retrieved random tutor profiles")
     })
     @GetMapping("/random")
     public ResponseEntity<List<TutorProfileDTO>> getRandomTutorProfiles(
-            @Parameter(description = "Maximum number of tutor profiles to return (default and max is 10)") 
-            @RequestParam(defaultValue = "10") int limit) {
-        List<TutorProfileDTO> randomTutors = tutorProfileService.getRandomTutorProfiles(limit);
-        return ResponseEntity.ok(randomTutors);
+            @Parameter(description = "Maximum number of profiles to return") @RequestParam(defaultValue = "10") int limit) {
+        List<TutorProfileDTO> tutors = tutorProfileService.getRandomTutorProfiles(limit);
+        return ResponseEntity.ok(tutors);
     }
 }
