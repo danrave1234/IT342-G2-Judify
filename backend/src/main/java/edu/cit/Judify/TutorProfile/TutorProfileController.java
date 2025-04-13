@@ -58,7 +58,7 @@ public class TutorProfileController {
             @Parameter(description = "Filter by minimum hourly rate (optional)") @RequestParam(required = false) Double minRate,
             @Parameter(description = "Filter by maximum hourly rate (optional)") @RequestParam(required = false) Double maxRate,
             @Parameter(description = "Filter by minimum rating (optional)") @RequestParam(required = false) Double minRating) {
-        
+
         Page<TutorProfileDTO> tutors = tutorProfileService.getAllTutorProfilesPaginated(
                 page, size, expertise, minRate, maxRate, minRating);
         return ResponseEntity.ok(tutors);
@@ -109,7 +109,7 @@ public class TutorProfileController {
         try {
             // Set the userId in the DTO
             tutorProfileDTO.setUserId(userId);
-            
+
             TutorProfileDTO createdProfile = tutorProfileService.createTutorProfile(tutorProfileDTO);
             return new ResponseEntity<>(createdProfile, HttpStatus.CREATED);
         } catch (EntityNotFoundException e) {
@@ -190,7 +190,7 @@ public class TutorProfileController {
         try {
             // First check if the profile exists
             tutorProfileService.getTutorProfileById(tutorProfileId);
-            
+
             List<TutorSubjectDTO> subjects = tutorSubjectService.getSubjectsByTutorProfileId(tutorProfileId);
             return ResponseEntity.ok(subjects);
         } catch (EntityNotFoundException e) {
@@ -211,7 +211,7 @@ public class TutorProfileController {
         try {
             // First check if the profile exists
             tutorProfileService.getTutorProfileById(tutorProfileId);
-            
+
             List<TutorSubjectDTO> addedSubjects = tutorSubjectService.addSubjectsForTutor(tutorProfileId, subjects);
             return new ResponseEntity<>(addedSubjects, HttpStatus.CREATED);
         } catch (EntityNotFoundException e) {
@@ -230,11 +230,22 @@ public class TutorProfileController {
         try {
             // First check if the profile exists
             tutorProfileService.getTutorProfileById(tutorProfileId);
-            
+
             tutorSubjectService.deleteAllSubjectsForTutor(tutorProfileId);
             return ResponseEntity.noContent().build();
         } catch (EntityNotFoundException e) {
             return ResponseEntity.notFound().build();
         }
     }
-} 
+
+    @Operation(summary = "Get random tutor profiles", description = "Returns a list of random tutor profiles")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Successfully retrieved random tutor profiles")
+    })
+    @GetMapping("/random")
+    public ResponseEntity<List<TutorProfileDTO>> getRandomTutorProfiles(
+            @Parameter(description = "Maximum number of profiles to return") @RequestParam(defaultValue = "10") int limit) {
+        List<TutorProfileDTO> tutors = tutorProfileService.getRandomTutorProfiles(limit);
+        return ResponseEntity.ok(tutors);
+    }
+}
