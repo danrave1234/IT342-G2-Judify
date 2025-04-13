@@ -1,8 +1,9 @@
 package com.mobile.ui.profile
 
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
 
@@ -31,31 +32,102 @@ data class ProfileState(
 /**
  * ViewModel for the profile screen
  */
-class ProfileViewModel : ViewModel() {
-    
+class ProfileViewModel(application: Application) : AndroidViewModel(application) {
+
     private val _profileState = MutableLiveData(ProfileState(isLoading = true))
     val profileState: LiveData<ProfileState> = _profileState
-    
+
     /**
-     * Load user profile data
+     * Load user profile data from preferences first, then try backend as fallback
+     * @param email User's email address
      */
-    fun loadUserProfile(userId: Long) {
+    fun loadUserProfile(email: String) {
         _profileState.value = _profileState.value?.copy(isLoading = true, error = null)
-        
+
         viewModelScope.launch {
             try {
-                // In a real app, fetch user data from API
-                // For now, use mock data
-                val user = getMockUser(userId)
-                
-                // Update profile state with user data and stats
+                // Get user details from PreferenceUtils
+                val context = getApplication<Application>()
+                val firstName = com.mobile.utils.PreferenceUtils.getUserFirstName(context) ?: ""
+                val lastName = com.mobile.utils.PreferenceUtils.getUserLastName(context) ?: ""
+
+                if (firstName.isNotEmpty() && lastName.isNotEmpty()) {
+                    // Create User object from saved preferences
+                    val user = User(
+                        id = 0, // We don't need the ID for display purposes
+                        name = "$firstName $lastName",
+                        email = email,
+                        profileImageUrl = null // No profile image for now
+                    )
+
+                    // Update profile state with user data and stats
+                    _profileState.value = _profileState.value?.copy(
+                        isLoading = false,
+                        user = user,
+                        sessions = 0,   // Placeholder
+                        reviews = 0,    // Placeholder
+                        messages = 0,   // Placeholder
+                        error = null
+                    )
+                } else {
+                    // If user data is missing from preferences, try to fetch from backend
+                    fetchUserFromBackend(email)
+                }
+            } catch (e: Exception) {
                 _profileState.value = _profileState.value?.copy(
                     isLoading = false,
-                    user = user,
-                    sessions = 12,   // Mock session count
-                    reviews = 5,     // Mock review count
-                    messages = 8,     // Mock message count
-                    error = null
+                    error = e.message ?: "Failed to load profile"
+                )
+            }
+        }
+    }
+
+    /**
+     * Fetch user profile data from the backend as a fallback
+     * @param email User's email address
+     */
+    private fun fetchUserFromBackend(email: String) {
+        viewModelScope.launch {
+            try {
+                // Fetch user data from API using email
+                val result = com.mobile.utils.NetworkUtils.findUserByEmail(email)
+
+                result.fold(
+                    onSuccess = { userEntity ->
+                        // Create User object from backend data
+                        val user = User(
+                            id = userEntity.userId ?: 0,
+                            name = "${userEntity.firstName} ${userEntity.lastName}",
+                            email = userEntity.email,
+                            profileImageUrl = userEntity.profilePicture
+                        )
+
+                        // Update profile state with user data
+                        _profileState.value = _profileState.value?.copy(
+                            isLoading = false,
+                            user = user,
+                            sessions = 0,   // Placeholder
+                            reviews = 0,    // Placeholder
+                            messages = 0,   // Placeholder
+                            error = null
+                        )
+
+                        // Save user details to preferences for future use
+                        val context = getApplication<Application>()
+                        com.mobile.utils.PreferenceUtils.saveUserDetails(
+                            context,
+                            userEntity.firstName,
+                            userEntity.lastName,
+                            userEntity.email,
+                            userEntity.roles
+                        )
+                    },
+                    onFailure = { exception ->
+                        _profileState.value = _profileState.value?.copy(
+                            isLoading = false,
+                            error = exception.message ?: "Failed to load profile"
+                        )
+                    }
                 )
             } catch (e: Exception) {
                 _profileState.value = _profileState.value?.copy(
@@ -65,7 +137,7 @@ class ProfileViewModel : ViewModel() {
             }
         }
     }
-    
+
     /**
      * Get mock user data for demo purposes
      */
@@ -77,31 +149,120 @@ class ProfileViewModel : ViewModel() {
             profileImageUrl = null // No image for mock data
         )
     }
-    
+
     /**
      * Update user profile
+     * @param name Full name of the user (first and last name)
+     * @param email Email address of the user
+     * @param contactDetails Optional contact details (phone number)
      */
-    fun updateUserProfile(name: String, email: String) {
+    fun updateUserProfile(name: String, email: String, contactDetails: String? = null) {
         _profileState.value = _profileState.value?.copy(isLoading = true, error = null)
-        
+
         viewModelScope.launch {
             try {
-                // In a real app, send update to API
-                // For now, just update local state
+                // Parse name into first and last name
+                val nameParts = name.split(" ", limit = 2)
+                val firstName = nameParts[0]
+                val lastName = if (nameParts.size > 1) nameParts[1] else ""
+
+                // Get current user from state
                 val currentUser = _profileState.value?.user
                 if (currentUser != null) {
-                    val updatedUser = currentUser.copy(
-                        name = name,
-                        email = email
-                    )
+                    // Use the user ID from the current user object
+                    val context = getApplication<Application>()
+                    val userId = currentUser.id
                     
+                    // Log the update attempt
+                    android.util.Log.d("ProfileViewModel", "Updating user profile: userId=$userId, name=$name, email=$email")
+
+                    // Save contact details to preferences right away, regardless of API success
+                    if (!contactDetails.isNullOrEmpty()) {
+                        com.mobile.utils.PreferenceUtils.saveUserContactDetails(context, contactDetails)
+                    }
+
+                    // Create User object for the API
+                    val apiUser = com.mobile.data.model.User(
+                        userId = userId,
+                        email = email,
+                        passwordHash = "", // Not updating password
+                        firstName = firstName,
+                        lastName = lastName,
+                        profilePicture = currentUser.profileImageUrl,
+                        contactDetails = contactDetails ?: "",
+                        roles = com.mobile.utils.PreferenceUtils.getUserRole(context) ?: "LEARNER"
+                    )
+
+                    // Send update to API with timeout handling
+                    var apiCallCompleted = false
+                    val timeoutJob = viewModelScope.launch {
+                        // Set a timeout of 10 seconds
+                        kotlinx.coroutines.delay(10000)
+                        if (!apiCallCompleted) {
+                            _profileState.value = _profileState.value?.copy(
+                                isLoading = false,
+                                error = "Request timed out. Changes may not have been saved."
+                            )
+                        }
+                    }
+
+                    try {
+                        // Send the update request
+                        val result = com.mobile.utils.NetworkUtils.updateUser(apiUser)
+                        apiCallCompleted = true
+                        
+                        // Cancel the timeout job since the API call completed
+                        timeoutJob.cancel()
+
+                        result.fold(
+                            onSuccess = { updatedUser ->
+                                // Update local state with the response from the API
+                                val profileUser = User(
+                                    id = updatedUser.userId ?: 0,
+                                    name = "${updatedUser.firstName} ${updatedUser.lastName}",
+                                    email = updatedUser.email,
+                                    profileImageUrl = updatedUser.profilePicture
+                                )
+
+                                _profileState.value = _profileState.value?.copy(
+                                    isLoading = false,
+                                    user = profileUser,
+                                    error = null
+                                )
+
+                                // Update preferences
+                                com.mobile.utils.PreferenceUtils.saveUserDetails(
+                                    context,
+                                    updatedUser.firstName,
+                                    updatedUser.lastName,
+                                    updatedUser.email,
+                                    updatedUser.roles
+                                )
+                                
+                                android.util.Log.d("ProfileViewModel", "Profile updated successfully")
+                            },
+                            onFailure = { exception ->
+                                android.util.Log.e("ProfileViewModel", "Failed to update profile: ${exception.message}", exception)
+                                _profileState.value = _profileState.value?.copy(
+                                    isLoading = false,
+                                    error = exception.message ?: "Failed to update profile"
+                                )
+                            }
+                        )
+                    } catch (e: Exception) {
+                        apiCallCompleted = true
+                        timeoutJob.cancel()
+                        throw e
+                    }
+                } else {
+                    android.util.Log.e("ProfileViewModel", "User data not available")
                     _profileState.value = _profileState.value?.copy(
                         isLoading = false,
-                        user = updatedUser,
-                        error = null
+                        error = "User data not available"
                     )
                 }
             } catch (e: Exception) {
+                android.util.Log.e("ProfileViewModel", "Exception updating profile: ${e.message}", e)
                 _profileState.value = _profileState.value?.copy(
                     isLoading = false,
                     error = e.message ?: "Failed to update profile"

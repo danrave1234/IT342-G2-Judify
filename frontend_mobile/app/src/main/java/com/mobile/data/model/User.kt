@@ -7,13 +7,14 @@ import java.util.Date
  */
 data class User(
     val userId: Long? = null,
+    val username: String? = null,
     val email: String,
-    val passwordHash: String,
+    val passwordHash: String, // Note: Despite the name, this field stores the plain password to be sent to the server
     val firstName: String,
     val lastName: String,
     val profilePicture: String? = null,
     val contactDetails: String? = null,
-    val roles: String = "LEARNER", // Default role
+    val roles: String = "LEARNER", // Default role is LEARNER (equivalent to STUDENT in backend)
     val createdAt: Date? = null,
     val updatedAt: Date? = null
 ) 

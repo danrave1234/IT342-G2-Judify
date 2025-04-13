@@ -19,9 +19,13 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // Swagger UI endpoints
                 .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/api-docs/**", "/v3/api-docs/**").permitAll()
+                // Authentication endpoints
+                .requestMatchers("/api/users/authenticate", "/api/users/addUser").permitAll()
                 .anyRequest().permitAll()  // Allow all requests during development
+                // For production, replace the line above with something like:
+                // .anyRequest().authenticated()
             );
-        
+
         return http.build();
     }
 
