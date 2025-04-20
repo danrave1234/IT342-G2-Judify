@@ -131,38 +131,52 @@
             android:background="?attr/colorSurface"
             android:paddingStart="16dp"
             android:paddingEnd="16dp"
-            android:paddingTop="8dp"
-            android:paddingBottom="8dp"
+            android:paddingTop="12dp"
+            android:paddingBottom="12dp"
             app:layout_scrollFlags="scroll">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_person"
+                    app:tint="?attr/colorPrimary"
+                    android:layout_marginEnd="8dp" />
 
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Tutors"
+                    android:text="Featured Tutors"
                     android:textSize="18sp"
                     android:textStyle="bold"
                     android:textColor="?android:textColorPrimary" />
 
-                <TextView
+                <com.google.android.material.button.MaterialButton
                     android:id="@+id/seeAllTutors"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="See All"
                     android:textSize="14sp"
+                    android:paddingHorizontal="8dp"
+                    android:minWidth="0dp"
+                    android:minHeight="0dp"
+                    app:rippleColor="?attr/colorPrimary"
                     android:textColor="?attr/colorPrimary" />
             </LinearLayout>
 
             <HorizontalScrollView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:scrollbars="none">
+                android:layout_marginTop="12dp"
+                android:scrollbars="none"
+                android:paddingBottom="4dp">
 
                 <LinearLayout
                     android:id="@+id/topTutorsContainer"
@@ -201,72 +215,8 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-            <!-- Special Offer Card -->
-            <androidx.cardview.widget.CardView
-                android:id="@+id/specialOfferCard"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="16dp"
-                android:layout_marginEnd="16dp"
-                android:layout_marginTop="16dp"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="4dp">
 
-                <androidx.constraintlayout.widget.ConstraintLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:background="@color/primary_blue"
-                    android:padding="16dp">
-
-                    <TextView
-                        android:id="@+id/offerLabel"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="40% OFF"
-                        android:textColor="#FFFFFF"
-                        android:textSize="14sp"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toTopOf="parent" />
-
-                    <TextView
-                        android:id="@+id/offerTitle"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:text="Today's Special"
-                        android:textColor="#FFFFFF"
-                        android:textSize="20sp"
-                        android:textStyle="bold"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@id/offerLabel"
-                        app:layout_constraintEnd_toStartOf="@id/offerPercentage" />
-
-                    <TextView
-                        android:id="@+id/offerDescription"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:text="Get a discount for every course order! Only valid for today!"
-                        android:textColor="#FFFFFF"
-                        android:textSize="14sp"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@id/offerTitle"
-                        app:layout_constraintEnd_toStartOf="@id/offerPercentage"
-                        android:layout_marginEnd="16dp" />
-
-                    <TextView
-                        android:id="@+id/offerPercentage"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="40%"
-                        android:textColor="#FFFFFF"
-                        android:textSize="32sp"
-                        android:textStyle="bold"
-                        app:layout_constraintEnd_toEndOf="parent"
-                        app:layout_constraintTop_toTopOf="parent"
-                        app:layout_constraintBottom_toBottomOf="parent" />
-                </androidx.constraintlayout.widget.ConstraintLayout>
-            </androidx.cardview.widget.CardView>
-
-            <!-- Course List -->
+            <!-- Sessions List -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -276,18 +226,18 @@
                 android:paddingRight="16dp"
                 android:paddingBottom="32dp">
 
-                <!-- All Courses RecyclerView -->
+                <!-- All Sessions RecyclerView -->
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="All Courses"
+                    android:text="All Sessions"
                     android:textSize="18sp"
                     android:textStyle="bold"
                     android:textColor="?android:textColorPrimary"
                     android:layout_marginBottom="8dp" />
 
                 <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/allCoursesRecyclerView"
+                    android:id="@+id/allSessionsRecyclerView"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:clipToPadding="false"
@@ -306,18 +256,11 @@
         android:background="?android:colorBackground" />
 
     <!-- Bottom Navigation -->
-    <com.google.android.material.bottomnavigation.BottomNavigationView
+    <include
         android:id="@+id/bottomNavigation"
+        layout="@layout/bottom_navigation_bar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom"
-        android:background="?android:attr/windowBackground"
-        app:elevation="8dp"
-        app:labelVisibilityMode="labeled"
-        app:itemTextAppearanceActive="@style/BottomNavigationView.ActiveItemText"
-        app:itemTextAppearanceInactive="@style/BottomNavigationView.InactiveItemText"
-        app:itemIconTint="@color/bottom_nav_item_color"
-        app:itemTextColor="@color/bottom_nav_item_color"
-        app:menu="@menu/bottom_nav_menu" />
+        android:layout_gravity="bottom" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

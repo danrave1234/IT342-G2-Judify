@@ -303,6 +303,61 @@
                 </LinearLayout>
             </HorizontalScrollView>
         </LinearLayout>
+
+        <!-- My Availability Section - This will be pinned -->
+        <LinearLayout
+            android:id="@+id/myAvailabilitySection"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="?attr/colorSurface"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
+            app:layout_scrollFlags="scroll">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="My Availability"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="?android:textColorPrimary" />
+
+                <TextView
+                    android:id="@+id/addAvailability"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Add"
+                    android:textSize="14sp"
+                    android:textColor="@color/primary_blue" />
+            </LinearLayout>
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/availabilityRecyclerView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:nestedScrollingEnabled="false" />
+
+            <!-- Placeholder for empty state -->
+            <TextView
+                android:id="@+id/noAvailabilityText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="No availability slots added yet"
+                android:textSize="14sp"
+                android:textColor="?android:textColorSecondary"
+                android:layout_marginTop="8dp"
+                android:visibility="gone" />
+        </LinearLayout>
     </com.google.android.material.appbar.AppBarLayout>
 
     <!-- Shadow for the sticky header -->
@@ -379,18 +434,11 @@
         android:background="?android:colorBackground" />
 
     <!-- Bottom Navigation -->
-    <com.google.android.material.bottomnavigation.BottomNavigationView
+    <include
         android:id="@+id/bottomNavigation"
+        layout="@layout/bottom_navigation_bar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom"
-        android:background="?android:attr/windowBackground"
-        app:elevation="8dp"
-        app:labelVisibilityMode="labeled"
-        app:itemTextAppearanceActive="@style/BottomNavigationView.ActiveItemText"
-        app:itemTextAppearanceInactive="@style/BottomNavigationView.InactiveItemText"
-        app:itemIconTint="@color/bottom_nav_item_color"
-        app:itemTextColor="@color/bottom_nav_item_color"
-        app:menu="@menu/bottom_nav_menu" />
+        android:layout_gravity="bottom" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

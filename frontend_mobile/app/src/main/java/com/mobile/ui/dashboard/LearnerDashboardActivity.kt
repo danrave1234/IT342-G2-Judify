@@ -17,9 +17,6 @@ import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.mobile.R
 import com.mobile.databinding.ActivityLearnerDashboardBinding
 import com.mobile.ui.chat.ChatFragment
-import com.mobile.ui.courses.CoursesFragment
-import com.mobile.ui.courses.adapters.CourseAdapter
-import com.mobile.ui.courses.models.Course
 import com.mobile.ui.map.MapFragment
 import com.mobile.ui.profile.ProfileFragment
 import com.mobile.utils.NetworkUtils
@@ -43,8 +40,6 @@ class LearnerDashboardActivity : AppCompatActivity() {
     private lateinit var binding: ActivityLearnerDashboardBinding
     private val TAG = "LearnerDashboard"
 
-    private lateinit var allCoursesAdapter: CourseAdapter
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -66,11 +61,11 @@ class LearnerDashboardActivity : AppCompatActivity() {
         // Load top tutors
         loadTopTutors()
 
-        // Set up courses
-        setupCourses()
-
         // Set up bottom navigation
         setupBottomNavigation()
+
+        // Handle navigation from other activities
+        handleNavigationExtras()
     }
 
     // Load tutors from the network
@@ -135,15 +130,20 @@ class LearnerDashboardActivity : AppCompatActivity() {
             // Set tutor data
             val tutorImageView = tutorView.findViewById<CircleImageView>(R.id.tutorImageView)
             val tutorNameTextView = tutorView.findViewById<TextView>(R.id.tutorNameTextView)
-            val tutorRatingBar = tutorView.findViewById<RatingBar>(R.id.tutorRatingBar)
+            val tutorSubjectTextView = tutorView.findViewById<TextView>(R.id.tutorSubjectTextView)
+            val tutorRatingBadge = tutorView.findViewById<TextView>(R.id.tutorRatingBadge)
 
             // Set tutor name - use a default if empty
             val displayName = if (tutor.name.isBlank()) "Tutor #${tutor.id}" else tutor.name
             tutorNameTextView.text = displayName
 
-            // Set rating - default to 4.0 if 0
-            val rating = if (tutor.rating <= 0f) 4.0f else tutor.rating
-            tutorRatingBar.rating = rating
+            // Display subject if available
+            val primarySubject = tutor.subjects.firstOrNull() ?: "Tutor"
+            tutorSubjectTextView.text = primarySubject
+
+            // Set rating badge
+            val formattedRating = String.format("%.1f", tutor.rating)
+            tutorRatingBadge.text = formattedRating
 
             // Set click listener to view tutor profile
             tutorView.setOnClickListener {
@@ -166,11 +166,15 @@ class LearnerDashboardActivity : AppCompatActivity() {
         val messageView = LayoutInflater.from(this).inflate(R.layout.item_top_tutor, container, false)
 
         // Set message data
+        val tutorImageView = messageView.findViewById<CircleImageView>(R.id.tutorImageView)
         val tutorNameTextView = messageView.findViewById<TextView>(R.id.tutorNameTextView)
-        val tutorRatingBar = messageView.findViewById<RatingBar>(R.id.tutorRatingBar)
+        val tutorSubjectTextView = messageView.findViewById<TextView>(R.id.tutorSubjectTextView)
+        val tutorRatingBadge = messageView.findViewById<TextView>(R.id.tutorRatingBadge)
 
-        tutorNameTextView.text = "No tutors available"
-        tutorRatingBar.visibility = View.GONE
+        // Style for placeholder
+        tutorNameTextView.text = "No tutors"
+        tutorSubjectTextView.text = "Try again later"
+        tutorRatingBadge.visibility = View.GONE
 
         // Add a toast message when clicked
         messageView.setOnClickListener {
@@ -184,18 +188,21 @@ class LearnerDashboardActivity : AppCompatActivity() {
     }
 
     private fun setupBottomNavigation() {
-        binding.bottomNavigation.setOnItemSelectedListener { item ->
+        val bottomNavigation = findViewById<BottomNavigationView>(R.id.bottomNavigation)
+        bottomNavigation.setOnItemSelectedListener { item ->
             when (item.itemId) {
                 R.id.navigation_home -> {
                     // Show the main dashboard content
                     showMainContent(true)
                     return@setOnItemSelectedListener true
                 }
-                R.id.navigation_courses -> {
-                    // Show the courses fragment
-                    showMainContent(false)
-                    loadFragment(CoursesFragment())
-                    return@setOnItemSelectedListener true
+                R.id.navigation_sessions -> {
+                    // Navigate to the subjects activity
+                    val intent = Intent(this, TutorSearchActivity::class.java)
+                    startActivity(intent)
+                    overridePendingTransition(0, 0)
+                    // Return false to not update the selected item, since we're navigating away
+                    return@setOnItemSelectedListener false
                 }
                 R.id.navigation_map -> {
                     // Show the map fragment
@@ -219,8 +226,19 @@ class LearnerDashboardActivity : AppCompatActivity() {
             }
         }
 
-        // Set the home item as selected by default
-        binding.bottomNavigation.selectedItemId = R.id.navigation_home
+        // Initialize selected item based on intent extras
+        val fragmentToShow = intent.getStringExtra("FRAGMENT")
+        if (fragmentToShow != null) {
+            when (fragmentToShow) {
+                "MAP" -> bottomNavigation.selectedItemId = R.id.navigation_map
+                "CHAT" -> bottomNavigation.selectedItemId = R.id.navigation_chat
+                "PROFILE" -> bottomNavigation.selectedItemId = R.id.navigation_profile
+                else -> bottomNavigation.selectedItemId = R.id.navigation_home
+            }
+        } else {
+            // Set the home item as selected by default
+            bottomNavigation.selectedItemId = R.id.navigation_home
+        }
     }
 
     private fun setupGreeting() {
@@ -282,6 +300,7 @@ class LearnerDashboardActivity : AppCompatActivity() {
         binding.searchEditText.setOnClickListener {
             // Launch TutorSearchActivity for finding tutors
             startActivity(Intent(this, TutorSearchActivity::class.java))
+            overridePendingTransition(0, 0)
         }
 
         // Set up filter functionality
@@ -293,6 +312,7 @@ class LearnerDashboardActivity : AppCompatActivity() {
         binding.seeAllTutors.setOnClickListener {
             // Launch TutorSearchActivity for finding tutors
             startActivity(Intent(this, TutorSearchActivity::class.java))
+            overridePendingTransition(0, 0)
         }
 
         // Set up notification icon click
@@ -305,10 +325,6 @@ class LearnerDashboardActivity : AppCompatActivity() {
             // TODO: Navigate to messages screen
         }
 
-        // Set up special offer card click
-        binding.specialOfferCard.setOnClickListener {
-            // TODO: Navigate to special offer details
-        }
 
         // Set up profile image click
         binding.profileImage.setOnClickListener {
@@ -339,54 +355,25 @@ class LearnerDashboardActivity : AppCompatActivity() {
         })
     }
 
-    private fun setupCourses() {
-        // Load courses asynchronously
-        lifecycleScope.launch {
-            try {
-                // All Courses RecyclerView
-                binding.allCoursesRecyclerView.layoutManager = LinearLayoutManager(this@LearnerDashboardActivity)
-
-                allCoursesAdapter = CourseAdapter(
-                    onCourseClick = { course ->
-                        // Handle course click - navigate to book a session with the tutor
-                        if (course.tutorId == null) {
-                            Toast.makeText(this@LearnerDashboardActivity, "Tutor information not available", Toast.LENGTH_SHORT).show()
-                            return@CourseAdapter
-                        }
-
-                        // Create intent with proper extras
-                        val intent = Intent(this@LearnerDashboardActivity, BookingActivity::class.java).apply {
-                            putExtra(BookingActivity.EXTRA_TUTOR_ID, course.tutorId)
-                            putExtra(BookingActivity.EXTRA_COURSE_ID, course.id)
-                            putExtra(BookingActivity.EXTRA_COURSE_TITLE, course.title)
-                        }
-                        startActivity(intent)
-                    }
-                )
-                binding.allCoursesRecyclerView.adapter = allCoursesAdapter
-
-                // Load course data
-                val allCourses = NetworkUtils.getAllCourses()
-                allCoursesAdapter.submitList(allCourses)
-
-                Log.d(TAG, "Loaded ${allCourses.size} all courses")
-
-            } catch (e: Exception) {
-                Log.e(TAG, "Error loading courses: ${e.message}", e)
+    private fun handleNavigationExtras() {
+        // Check if we have any navigation extras
+        val fragmentToShow = intent.getStringExtra("FRAGMENT")
+        if (fragmentToShow != null) {
+            when (fragmentToShow) {
+                "MAP" -> {
+                    showMainContent(false)
+                    loadFragment(MapFragment())
+                }
+                "CHAT" -> {
+                    showMainContent(false)
+                    loadFragment(ChatFragment())
+                }
+                "PROFILE" -> {
+                    showMainContent(false)
+                    loadFragment(ProfileFragment())
+                }
             }
         }
     }
 
-    private fun filterCoursesByCategory(category: String?) {
-        lifecycleScope.launch {
-            try {
-                val filteredCourses = NetworkUtils.getCoursesByCategory(category)
-                allCoursesAdapter.submitList(filteredCourses)
-                Log.d(TAG, "Filtered courses by category: $category, found ${filteredCourses.size} courses")
-            } catch (e: Exception) {
-                Log.e(TAG, "Error filtering courses: ${e.message}", e)
-                // TODO: Show error message
-            }
-        }
-    }
-} 
+}

@@ -73,6 +73,20 @@ public class UserController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @Operation(summary = "Get user by email (query param)", description = "Returns a user by their email address using query parameter")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Successfully retrieved user"),
+        @ApiResponse(responseCode = "404", description = "User not found")
+    })
+    @GetMapping("/find-by-email")
+    public ResponseEntity<UserDTO> getUserByEmailQueryParam(
+            @Parameter(description = "User email") @RequestParam String email) {
+        return userService.getUserByEmail(email)
+                .map(userDTOMapper::toDTO)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
     @Operation(summary = "Get all users", description = "Returns a list of all users")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Successfully retrieved users list")

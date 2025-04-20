@@ -2,7 +2,7 @@ package com.mobile.data.model
 
 data class Schedule(
     val id: String,
-    val mentorId: String,
+    val tutorId: String,
     val dayOfWeek: String,
     val startTime: String,
     val endTime: String,

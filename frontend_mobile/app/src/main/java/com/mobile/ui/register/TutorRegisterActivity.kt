@@ -9,115 +9,121 @@ import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.mobile.R
-import com.mobile.data.model.User
-import com.mobile.databinding.ActivityRegisterBinding
+import com.mobile.data.model.TutorRegistration
+import com.mobile.databinding.ActivityTutorRegisterBinding
 import com.mobile.ui.login.LoginActivity
-import com.mobile.ui.register.TutorRegisterActivity
-import com.mobile.data.repository.AuthRepository
+import com.mobile.ui.register.RegisterActivity
 import com.mobile.utils.NetworkUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class RegisterActivity : AppCompatActivity() {
+class TutorRegisterActivity : AppCompatActivity() {
 
-    private lateinit var binding: ActivityRegisterBinding
-    private lateinit var authRepository: AuthRepository
+    private lateinit var binding: ActivityTutorRegisterBinding
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        binding = ActivityRegisterBinding.inflate(layoutInflater)
+        binding = ActivityTutorRegisterBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
-        // Initialize AuthRepository
-        authRepository = AuthRepository()
 
         // Initialize UI elements
         val emailEditText = binding.emailEditText
         val usernameEditText = binding.usernameEditText
-        val contactDetailsEditText = binding.contactDetailsEditText
+        val passwordEditText = binding.passwordEditText
         val firstNameEditText = binding.firstNameEditText
         val lastNameEditText = binding.lastNameEditText
-        val passwordEditText = binding.passwordEditText
-        val signUpButton = binding.signUpButton
+        val contactDetailsEditText = binding.contactDetailsEditText
+        val bioEditText = binding.bioEditText
+        val expertiseEditText = binding.expertiseEditText
+        val hourlyRateEditText = binding.hourlyRateEditText
+        val subjectsEditText = binding.subjectsEditText
+        val registerButton = binding.registerButton
         val backButton = binding.backButton
-        val rememberMeCheckbox = binding.rememberMeCheckbox
-        val facebookButton = binding.facebookButton
-        val googleButton = binding.googleButton
         val signInTextView = binding.signInTextView
-        val tutorRegisterTextView = binding.tutorRegisterTextView
+        val learnerRegisterTextView = binding.learnerRegisterTextView
 
         // Set up text watchers for validation
         setupTextWatcher(emailEditText)
         setupTextWatcher(usernameEditText)
-        setupTextWatcher(contactDetailsEditText)
         setupTextWatcher(passwordEditText)
         setupTextWatcher(firstNameEditText)
         setupTextWatcher(lastNameEditText)
+        setupTextWatcher(bioEditText)
+        setupTextWatcher(expertiseEditText)
+        setupTextWatcher(hourlyRateEditText)
+        setupTextWatcher(subjectsEditText)
 
         // Set up back button
         backButton.setOnClickListener {
             finish()
         }
 
-        // Set up sign up button
-        signUpButton.setOnClickListener {
+        // Set up register button
+        registerButton.setOnClickListener {
             // Show loading indicator
-            binding.loading?.visibility = View.VISIBLE
+            binding.loading.visibility = View.VISIBLE
 
             // Get user input
             val email = emailEditText.text.toString()
             val username = usernameEditText.text.toString()
-            val contactDetails = contactDetailsEditText.text.toString()
+            val password = passwordEditText.text.toString()
             val firstName = firstNameEditText.text.toString()
             val lastName = lastNameEditText.text.toString()
-            val password = passwordEditText.text.toString()
+            val contactDetails = contactDetailsEditText.text.toString()
+            val bio = bioEditText.text.toString()
+            val expertise = expertiseEditText.text.toString()
+            val hourlyRateStr = hourlyRateEditText.text.toString()
+            val subjectsStr = subjectsEditText.text.toString()
 
             // Validate input
-            if (email.isEmpty() || username.isEmpty() || firstName.isEmpty() || lastName.isEmpty() || password.isEmpty()) {
+            if (email.isEmpty() || username.isEmpty() || password.isEmpty() || 
+                firstName.isEmpty() || lastName.isEmpty() || bio.isEmpty() || 
+                expertise.isEmpty() || hourlyRateStr.isEmpty() || subjectsStr.isEmpty()) {
                 Toast.makeText(
                     applicationContext,
                     getString(R.string.please_fill_all_fields),
                     Toast.LENGTH_SHORT
                 ).show()
-                binding.loading?.visibility = View.GONE
+                binding.loading.visibility = View.GONE
                 return@setOnClickListener
             }
 
-            // Create user object - send plain password to the server
-            val user = User(
-                email = email,
+            // Parse hourly rate
+            val hourlyRate = try {
+                hourlyRateStr.toDouble()
+            } catch (e: NumberFormatException) {
+                Toast.makeText(
+                    applicationContext,
+                    "Please enter a valid hourly rate",
+                    Toast.LENGTH_SHORT
+                ).show()
+                binding.loading.visibility = View.GONE
+                return@setOnClickListener
+            }
+
+            // Parse subjects (comma separated)
+            val subjects = subjectsStr.split(",").map { it.trim() }
+
+            // Create tutor registration object
+            val tutorRegistration = TutorRegistration(
                 username = username,
-                passwordHash = password, // Despite the name, this sends the plain password to the server
+                email = email,
+                password = password,
                 firstName = firstName,
                 lastName = lastName,
-                contactDetails = contactDetails,
-                roles = "LEARNER" // Default role
+                contactDetails = contactDetails.takeIf { it.isNotEmpty() },
+                bio = bio,
+                expertise = expertise,
+                hourlyRate = hourlyRate,
+                subjects = subjects
             )
 
-            // Register user
-            registerUser(user)
+            // Register tutor
+            registerTutor(tutorRegistration)
         }
-
-        // Set up social login buttons
-        facebookButton.setOnClickListener {
-            Toast.makeText(
-                applicationContext,
-                "Facebook login coming soon!",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
-
-        googleButton.setOnClickListener {
-            Toast.makeText(
-                applicationContext,
-                "Google login coming soon!",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
-
 
         // Set up sign in text view
         signInTextView.setOnClickListener {
@@ -127,31 +133,25 @@ class RegisterActivity : AppCompatActivity() {
             finish()
         }
 
-        // Set up tutor register text view
-        tutorRegisterTextView.setOnClickListener {
-            // Navigate to TutorRegisterActivity
-            val intent = Intent(this, TutorRegisterActivity::class.java)
+        // Set up learner register text view
+        learnerRegisterTextView.setOnClickListener {
+            // Navigate to RegisterActivity
+            val intent = Intent(this, RegisterActivity::class.java)
             startActivity(intent)
             finish()
         }
     }
 
-    private fun registerUser(user: User) {
+    private fun registerTutor(tutorRegistration: TutorRegistration) {
         CoroutineScope(Dispatchers.Main).launch {
             try {
-                // Use AuthRepository instead of directly using NetworkUtils
-                val authResponse = authRepository.register(
-                    email = user.email,
-                    username = user.username ?: user.email, // Use email as username if not provided
-                    password = user.passwordHash,
-                    firstName = user.firstName,
-                    lastName = user.lastName,
-                    contactDetails = user.contactDetails
-                )
+                val result = withContext(Dispatchers.IO) {
+                    NetworkUtils.registerTutor(tutorRegistration)
+                }
 
-                binding.loading?.visibility = View.GONE
+                binding.loading.visibility = View.GONE
 
-                if (authResponse.success) {
+                if (result.isSuccess) {
                     // Registration successful
                     Toast.makeText(
                         applicationContext,
@@ -160,20 +160,20 @@ class RegisterActivity : AppCompatActivity() {
                     ).show()
 
                     // Navigate to login screen
-                    val intent = Intent(this@RegisterActivity, LoginActivity::class.java)
+                    val intent = Intent(this@TutorRegisterActivity, LoginActivity::class.java)
                     startActivity(intent)
                     finish()
                 } else {
                     // Registration failed
                     Toast.makeText(
                         applicationContext,
-                        "${getString(R.string.registration_failed)}: ${authResponse.message}",
+                        "${getString(R.string.registration_failed)}: ${result.exceptionOrNull()?.message}",
                         Toast.LENGTH_SHORT
                     ).show()
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    binding.loading?.visibility = View.GONE
+                    binding.loading.visibility = View.GONE
 
                     // Handle exception
                     Toast.makeText(
@@ -205,15 +205,23 @@ class RegisterActivity : AppCompatActivity() {
     private fun validateForm() {
         val email = binding.emailEditText.text.toString()
         val username = binding.usernameEditText.text.toString()
+        val password = binding.passwordEditText.text.toString()
         val firstName = binding.firstNameEditText.text.toString()
         val lastName = binding.lastNameEditText.text.toString()
-        val password = binding.passwordEditText.text.toString()
+        val bio = binding.bioEditText.text.toString()
+        val expertise = binding.expertiseEditText.text.toString()
+        val hourlyRate = binding.hourlyRateEditText.text.toString()
+        val subjects = binding.subjectsEditText.text.toString()
 
         // Simple validation
-        binding.signUpButton.isEnabled = email.contains("@") && 
+        binding.registerButton.isEnabled = email.contains("@") && 
                                          username.isNotEmpty() &&
                                          password.length >= 5 &&
                                          firstName.isNotEmpty() &&
-                                         lastName.isNotEmpty()
+                                         lastName.isNotEmpty() &&
+                                         bio.isNotEmpty() &&
+                                         expertise.isNotEmpty() &&
+                                         hourlyRate.isNotEmpty() &&
+                                         subjects.isNotEmpty()
     }
-} 
+}

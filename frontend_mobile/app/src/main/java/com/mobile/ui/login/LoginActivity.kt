@@ -16,12 +16,15 @@ import com.mobile.data.model.AuthResponse
 import com.mobile.ui.dashboard.LearnerDashboardActivity
 import com.mobile.ui.dashboard.TutorDashboardActivity
 import com.mobile.ui.register.RegisterActivity
+import com.mobile.ui.register.TutorRegisterActivity
 import com.mobile.data.repository.AuthRepository
 import com.mobile.utils.NetworkUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.mobile.ui.login.LoginViewModel
+import com.mobile.ui.login.LoginViewModelFactory
 
 class LoginActivity : AppCompatActivity() {
 
@@ -32,6 +35,7 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var loginButton: Button
     private lateinit var loadingProgressBar: ProgressBar
     private lateinit var registerTextView: TextView
+    private lateinit var tutorRegisterTextView: TextView
     private lateinit var rememberMeCheckbox: CheckBox
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,6 +55,7 @@ class LoginActivity : AppCompatActivity() {
         loginButton = findViewById(R.id.login)
         loadingProgressBar = findViewById(R.id.loading)
         registerTextView = findViewById(R.id.registerTextView)
+        tutorRegisterTextView = findViewById(R.id.tutorRegisterTextView)
         rememberMeCheckbox = findViewById(R.id.rememberMeCheckbox)
 
         // Setup login button click listener
@@ -61,6 +66,11 @@ class LoginActivity : AppCompatActivity() {
         // Setup register text view click listener
         registerTextView.setOnClickListener {
             navigateToRegister()
+        }
+
+        // Setup tutor register text view click listener
+        tutorRegisterTextView.setOnClickListener {
+            navigateToTutorRegister()
         }
     }
 
@@ -130,6 +140,12 @@ class LoginActivity : AppCompatActivity() {
     private fun navigateToRegister() {
         // Navigate to register screen
         val intent = Intent(this, RegisterActivity::class.java)
+        startActivity(intent)
+    }
+
+    private fun navigateToTutorRegister() {
+        // Navigate to tutor register screen
+        val intent = Intent(this, TutorRegisterActivity::class.java)
         startActivity(intent)
     }
 }

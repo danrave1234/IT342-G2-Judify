@@ -70,7 +70,11 @@ public class TutoringSessionController {
     })
     @GetMapping("/findByTutor/{tutorId}")
     public ResponseEntity<List<TutoringSessionDTO>> getTutorSessions(
-            @Parameter(description = "Tutor ID") @PathVariable UserEntity tutor) {
+            @Parameter(description = "Tutor ID") @PathVariable("tutorId") Long tutorId) {
+        // Find the tutor by ID
+        UserEntity tutor = new UserEntity();
+        tutor.setUserId(tutorId);
+
         return ResponseEntity.ok(sessionService.getTutorSessions(tutor)
                 .stream()
                 .map(sessionDTOMapper::toDTO)
@@ -83,7 +87,11 @@ public class TutoringSessionController {
     })
     @GetMapping("/findByStudent/{studentId}")
     public ResponseEntity<List<TutoringSessionDTO>> getStudentSessions(
-            @Parameter(description = "Student ID") @PathVariable UserEntity student) {
+            @Parameter(description = "Student ID") @PathVariable("studentId") Long studentId) {
+        // Find the student by ID
+        UserEntity student = new UserEntity();
+        student.setUserId(studentId);
+
         return ResponseEntity.ok(sessionService.getStudentSessions(student)
                 .stream()
                 .map(sessionDTOMapper::toDTO)
@@ -167,8 +175,12 @@ public class TutoringSessionController {
     })
     @GetMapping("/findByTutorAndStatus/{tutorId}/{status}")
     public ResponseEntity<List<TutoringSessionDTO>> getTutorSessionsByStatus(
-            @Parameter(description = "Tutor ID") @PathVariable UserEntity tutor,
+            @Parameter(description = "Tutor ID") @PathVariable("tutorId") Long tutorId,
             @Parameter(description = "Session status") @PathVariable String status) {
+        // Find the tutor by ID
+        UserEntity tutor = new UserEntity();
+        tutor.setUserId(tutorId);
+
         return ResponseEntity.ok(sessionService.getTutorSessionsByStatus(tutor, status)
                 .stream()
                 .map(sessionDTOMapper::toDTO)
@@ -181,8 +193,12 @@ public class TutoringSessionController {
     })
     @GetMapping("/findByStudentAndStatus/{studentId}/{status}")
     public ResponseEntity<List<TutoringSessionDTO>> getStudentSessionsByStatus(
-            @Parameter(description = "Student ID") @PathVariable UserEntity student,
+            @Parameter(description = "Student ID") @PathVariable("studentId") Long studentId,
             @Parameter(description = "Session status") @PathVariable String status) {
+        // Find the student by ID
+        UserEntity student = new UserEntity();
+        student.setUserId(studentId);
+
         return ResponseEntity.ok(sessionService.getStudentSessionsByStatus(student, status)
                 .stream()
                 .map(sessionDTOMapper::toDTO)
@@ -195,42 +211,50 @@ public class TutoringSessionController {
     })
     @GetMapping("/findByTutorPaginated/{tutorId}")
     public ResponseEntity<Page<TutoringSessionDTO>> getTutorSessionsPaginated(
-            @Parameter(description = "Tutor ID") @PathVariable UserEntity tutor,
+            @Parameter(description = "Tutor ID") @PathVariable("tutorId") Long tutorId,
             @Parameter(description = "Start date filter (optional)") 
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date startDate,
             @Parameter(description = "End date filter (optional)") 
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date endDate,
             @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Page size") @RequestParam(defaultValue = "10") int size) {
-        
+
+        // Find the tutor by ID
+        UserEntity tutor = new UserEntity();
+        tutor.setUserId(tutorId);
+
         Page<TutoringSessionEntity> sessions = sessionService.getTutorSessionsPaginated(
                 tutor, startDate, endDate, page, size);
-                
+
         Page<TutoringSessionDTO> sessionDTOs = sessions.map(sessionDTOMapper::toDTO);
         return ResponseEntity.ok(sessionDTOs);
     }
-    
+
     @Operation(summary = "Get student sessions with pagination", description = "Returns a paginated list of tutoring sessions for a specific student with optional date filtering")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Successfully retrieved paginated student sessions")
     })
     @GetMapping("/findByStudentPaginated/{studentId}")
     public ResponseEntity<Page<TutoringSessionDTO>> getStudentSessionsPaginated(
-            @Parameter(description = "Student ID") @PathVariable UserEntity student,
+            @Parameter(description = "Student ID") @PathVariable("studentId") Long studentId,
             @Parameter(description = "Start date filter (optional)") 
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date startDate,
             @Parameter(description = "End date filter (optional)") 
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date endDate,
             @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Page size") @RequestParam(defaultValue = "10") int size) {
-        
+
+        // Find the student by ID
+        UserEntity student = new UserEntity();
+        student.setUserId(studentId);
+
         Page<TutoringSessionEntity> sessions = sessionService.getStudentSessionsPaginated(
                 student, startDate, endDate, page, size);
-                
+
         Page<TutoringSessionDTO> sessionDTOs = sessions.map(sessionDTOMapper::toDTO);
         return ResponseEntity.ok(sessionDTOs);
     }
-    
+
     @Operation(summary = "Get sessions by status with pagination", description = "Returns a paginated list of tutoring sessions with a specific status")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Successfully retrieved paginated sessions by status")
@@ -240,10 +264,10 @@ public class TutoringSessionController {
             @Parameter(description = "Session status") @PathVariable String status,
             @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Page size") @RequestParam(defaultValue = "10") int size) {
-        
+
         Page<TutoringSessionEntity> sessions = sessionService.getSessionsByStatusPaginated(
                 status, page, size);
-                
+
         Page<TutoringSessionDTO> sessionDTOs = sessions.map(sessionDTOMapper::toDTO);
         return ResponseEntity.ok(sessionDTOs);
     }

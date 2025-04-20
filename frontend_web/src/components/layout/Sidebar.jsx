@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { FaHome, FaUser, FaCalendarAlt, FaChartLine, FaSearch, FaComments } from 'react-icons/fa';
+import { FaHome, FaUser, FaCalendarAlt, FaChartLine, FaSearch, FaComments, FaBook } from 'react-icons/fa';
 
 const Sidebar = ({ userType }) => {
   const location = useLocation();
@@ -117,8 +117,8 @@ const Sidebar = ({ userType }) => {
                   : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-700'
               }`}
             >
-              <FaCalendarAlt className="text-xl" />
-              <span>My Sessions</span>
+              <FaBook className="text-xl" />
+              <span>Subjects</span>
             </Link>
             <Link
               to="/student/messages"

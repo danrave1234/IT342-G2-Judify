@@ -1,6 +1,8 @@
 package com.mobile.utils
 
 import android.util.Log
+import com.mobile.data.model.SubjectDTO
+import com.mobile.data.model.TutorRegistration
 import com.mobile.data.model.User
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -14,6 +16,8 @@ import java.net.URL
 import java.net.URLEncoder
 import java.net.ConnectException
 import java.net.SocketTimeoutException
+import java.util.*
+import java.text.SimpleDateFormat
 
 /**
  * Utility class for handling network operations
@@ -46,6 +50,7 @@ object NetworkUtils {
     // Base URL with fallback mechanism
     private fun getBaseUrl(index: Int = 0): String {
         val ip = if (index < SERVER_IPS.size) SERVER_IPS[index] else DEFAULT_SERVER_IP
+        // Remove the trailing slash so we can consistently add it when constructing URLs
         return "http://$ip:$SERVER_PORT/$API_PATH"
     }
 
@@ -100,118 +105,6 @@ object NetworkUtils {
             )
         )
 
-        // Mock courses data
-        val mockCourses = listOf(
-            com.mobile.ui.courses.models.Course(
-                id = 1,
-                title = "Mathematics",
-                subtitle = "Algebra, Calculus, Geometry",
-                description = "Learn mathematics from experienced tutors. Our courses cover a wide range of topics from basic arithmetic to advanced calculus.",
-                tutorCount = 24,
-                averageRating = 4.8f,
-                averagePrice = 35.0f,
-                category = "Mathematics",
-                imageResId = com.mobile.R.drawable.ic_courses,
-                tutorId = 101L,
-                tutorName = "Dr. John Smith"
-            ),
-            com.mobile.ui.courses.models.Course(
-                id = 2,
-                title = "Physics",
-                subtitle = "Mechanics, Thermodynamics, Electromagnetism",
-                description = "Explore the fundamental laws that govern the universe. Our physics courses cover classical mechanics, thermodynamics, electromagnetism, and modern physics.",
-                tutorCount = 18,
-                averageRating = 4.7f,
-                averagePrice = 40.0f,
-                category = "Science",
-                imageResId = com.mobile.R.drawable.ic_courses,
-                tutorId = 102L,
-                tutorName = "Prof. Maria Garcia"
-            ),
-            com.mobile.ui.courses.models.Course(
-                id = 3,
-                title = "Chemistry",
-                subtitle = "Organic, Inorganic, Physical Chemistry",
-                description = "Discover the fascinating world of chemistry. Our courses cover organic chemistry, inorganic chemistry, physical chemistry, and biochemistry.",
-                tutorCount = 15,
-                averageRating = 4.6f,
-                averagePrice = 38.0f,
-                category = "Science",
-                imageResId = com.mobile.R.drawable.ic_courses,
-                tutorId = 103L,
-                tutorName = "Dr. Robert Chen"
-            ),
-            com.mobile.ui.courses.models.Course(
-                id = 4,
-                title = "English",
-                subtitle = "Grammar, Literature, Writing",
-                description = "Improve your English language skills with our comprehensive courses. We offer classes in grammar, literature, writing, and conversation.",
-                tutorCount = 30,
-                averageRating = 4.9f,
-                averagePrice = 32.0f,
-                category = "Languages",
-                imageResId = com.mobile.R.drawable.ic_courses,
-                tutorId = 104L,
-                tutorName = "Sarah Johnson"
-            ),
-            com.mobile.ui.courses.models.Course(
-                id = 5,
-                title = "Spanish",
-                subtitle = "Beginner to Advanced",
-                description = "Learn Spanish from native speakers. Our courses are designed for all levels, from beginners to advanced learners.",
-                tutorCount = 12,
-                averageRating = 4.7f,
-                averagePrice = 30.0f,
-                category = "Languages",
-                imageResId = com.mobile.R.drawable.ic_courses,
-                tutorId = 105L,
-                tutorName = "Carlos Rodriguez"
-            ),
-            com.mobile.ui.courses.models.Course(
-                id = 6,
-                title = "Programming",
-                subtitle = "Java, Python, JavaScript",
-                description = "Learn programming languages and software development. Our courses cover Java, Python, JavaScript, and web development.",
-                tutorCount = 20,
-                averageRating = 4.8f,
-                averagePrice = 45.0f,
-                category = "Programming",
-                imageResId = com.mobile.R.drawable.ic_courses,
-                tutorId = 106L,
-                tutorName = "Michael Lee"
-            ),
-            com.mobile.ui.courses.models.Course(
-                id = 7,
-                title = "Data Science",
-                subtitle = "Statistics, Machine Learning, Big Data",
-                description = "Explore the world of data science. Our courses cover statistics, machine learning, big data, and data visualization.",
-                tutorCount = 16,
-                averageRating = 4.9f,
-                averagePrice = 50.0f,
-                category = "Programming",
-                imageResId = com.mobile.R.drawable.ic_courses,
-                tutorId = 107L,
-                tutorName = "Emma Wilson"
-            ),
-            com.mobile.ui.courses.models.Course(
-                id = 8,
-                title = "Biology",
-                subtitle = "Molecular, Cellular, Evolutionary",
-                description = "Discover the science of life. Our biology courses cover molecular biology, cellular biology, evolutionary biology, and ecology.",
-                tutorCount = 14,
-                averageRating = 4.6f,
-                averagePrice = 36.0f,
-                category = "Science",
-                imageResId = com.mobile.R.drawable.ic_courses,
-                tutorId = 108L,
-                tutorName = "Daniel Brown"
-            )
-        )
-
-        // Popular courses (subset of all courses with highest ratings)
-        val mockPopularCourses = mockCourses
-            .sortedByDescending { it.averageRating }
-            .take(4)
     }
 
     /**
@@ -308,7 +201,7 @@ object NetworkUtils {
     data class TutoringSession(
         val id: Long,
         val tutorId: Long,
-        val learnerId: String,
+        val learnerId: String, // Make sure it's String to match Booking model
         val startTime: String,
         val endTime: String,
         val status: String,
@@ -487,6 +380,57 @@ object NetworkUtils {
     }
 
     /**
+     * Register a new tutor with the API
+     * @param tutorRegistration TutorRegistration object containing registration details
+     * @return Result indicating success or failure
+     */
+    suspend fun registerTutor(tutorRegistration: TutorRegistration): Result<Boolean> {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (DEBUG_MODE) {
+                    return@withContext Result.success(true)
+                }
+
+                val url = URL("$BASE_URL/tutors/register")
+                val connection = createPostConnection(url)
+
+                // Create JSON object with both user and tutor profile information
+                val jsonObject = JSONObject().apply {
+                    // User information
+                    put("username", tutorRegistration.username)
+                    put("email", tutorRegistration.email)
+                    put("password", tutorRegistration.password)
+                    put("firstName", tutorRegistration.firstName)
+                    put("lastName", tutorRegistration.lastName)
+                    put("role", "TUTOR")
+                    tutorRegistration.contactDetails?.let { put("contactDetails", it) }
+
+                    // Tutor profile information
+                    put("bio", tutorRegistration.bio)
+                    put("expertise", tutorRegistration.expertise)
+                    put("hourlyRate", tutorRegistration.hourlyRate)
+
+                    // Add subjects as a JSON array
+                    val subjectsArray = JSONArray()
+                    tutorRegistration.subjects.forEach { subjectsArray.put(it) }
+                    put("subjects", subjectsArray)
+
+                    // Add location if available
+                    tutorRegistration.latitude?.let { put("latitude", it) }
+                    tutorRegistration.longitude?.let { put("longitude", it) }
+                }
+
+                return@withContext handleResponse(connection, jsonObject.toString()) { response ->
+                    val json = parseJsonResponse(response)
+                    json.optBoolean("success", true)
+                }
+            } catch (e: Exception) {
+                handleNetworkError(e, "registering tutor")
+            }
+        }
+    }
+
+    /**
      * Extension function to safely get a float value from a JSONObject
      */
     private fun JSONObject.optFloat(name: String, fallback: Float): Float {
@@ -500,9 +444,9 @@ object NetworkUtils {
     }
 
     /**
-     * Get tutor profile by course ID
+     * Get tutor profile by subject ID
      */
-    suspend fun getTutorProfileByCourseId(courseId: Long): Result<TutorProfile> {
+    suspend fun getTutorProfileBySubjectId(subjectId: Long): Result<TutorProfile> {
         return withContext(Dispatchers.IO) {
             try {
                 if (DEBUG_MODE) {
@@ -519,13 +463,13 @@ object NetworkUtils {
                     )
                 }
 
-                val url = URL("$BASE_URL/courses/$courseId/tutor")
+                val url = URL("$BASE_URL/subjects/$subjectId/tutor")
                 val connection = createGetConnection(url)
 
                 return@withContext handleResponse(connection) { response ->
                     val json = parseJsonResponse(response)
                     // Log the raw JSON response for debugging
-                    Log.d(TAG, "Tutor Profile from Course JSON response: $json")
+                    Log.d(TAG, "Tutor Profile from Subject JSON response: $json")
 
                     // Map the fields from the backend TutorProfileDTO to our TutorProfile model
                     val id = json.optLong("profileId", 0L)
@@ -657,7 +601,7 @@ object NetworkUtils {
                     )
                 }
             } catch (e: Exception) {
-                return@withContext handleNetworkError(e, "getting tutor profile by course ID")
+                return@withContext handleNetworkError(e, "getting tutor profile by subject ID")
             }
         }
     }
@@ -875,7 +819,8 @@ object NetworkUtils {
                     return@withContext Result.success(mockConversations)
                 }
 
-                val url = URL("$BASE_URL/conversations/user/$userId")
+                // Use the correct endpoint path as defined in the backend ConversationController
+                val url = URL(createApiUrl("conversations/findByUser/$userId"))
                 val connection = createGetConnection(url)
 
                 return@withContext handleResponse(connection) { response ->
@@ -929,7 +874,8 @@ object NetworkUtils {
                     return@withContext Result.success(mockConversation)
                 }
 
-                val url = URL("$BASE_URL/conversations/create")
+                // Use the correct endpoint path as defined in the backend ConversationController
+                val url = URL(createApiUrl("conversations/createConversation"))
                 val connection = createPostConnection(url)
 
                 // Create JSON array of participant IDs
@@ -976,7 +922,8 @@ object NetworkUtils {
                     return@withContext Result.success(Unit)
                 }
 
-                val url = URL("$BASE_URL/conversations/$conversationId")
+                // Use the correct endpoint path as defined in the backend ConversationController
+                val url = URL(createApiUrl("conversations/deleteConversation/$conversationId"))
                 val connection = createDeleteConnection(url)
 
                 return@withContext handleResponse(connection) { _ -> Unit }
@@ -986,142 +933,233 @@ object NetworkUtils {
         }
     }
 
+
     /**
-     * Create a new course
-     * @param tutorId ID of the tutor creating the course
-     * @param courseDTO Course data transfer object containing course details
-     * @return Result<Course> containing the created course
+     * Data class for TutorSubject
      */
-    suspend fun createCourse(tutorId: Long, courseDTO: com.mobile.data.model.CourseDTO): Result<com.mobile.ui.courses.models.Course> {
+    data class TutorSubject(
+        val id: Long,
+        val tutorProfileId: Long,
+        val subject: String,
+        val createdAt: String
+    )
+
+    /**
+     * Get subjects by tutor profile ID
+     * @param tutorProfileId ID of the tutor profile
+     * @return Result<List<TutorSubject>> containing all subjects for the tutor
+     */
+    suspend fun getSubjectsByTutorProfileId(tutorProfileId: Long): Result<List<TutorSubject>> {
         return withContext(Dispatchers.IO) {
             try {
                 if (DEBUG_MODE) {
-                    // Return a mock course for testing
+                    // Return mock subjects for testing
                     return@withContext Result.success(
-                        com.mobile.ui.courses.models.Course(
-                            id = System.currentTimeMillis(),
-                            title = courseDTO.title,
-                            subtitle = courseDTO.subtitle,
-                            description = courseDTO.description,
-                            tutorCount = 1,
-                            averageRating = 0.0f,
-                            averagePrice = courseDTO.price.toFloat(),
-                            category = courseDTO.category,
-                            imageResId = com.mobile.R.drawable.ic_courses,
-                            tutorId = tutorId,
-                            tutorName = "Test Tutor"
+                        listOf(
+                            TutorSubject(
+                                id = 1,
+                                tutorProfileId = tutorProfileId,
+                                subject = "Mathematics",
+                                createdAt = "2024-03-18T10:00:00"
+                            ),
+                            TutorSubject(
+                                id = 2,
+                                tutorProfileId = tutorProfileId,
+                                subject = "Physics",
+                                createdAt = "2024-03-18T10:00:00"
+                            )
                         )
                     )
                 }
 
-                val url = URL("$BASE_URL/courses/create")
+                val url = URL("$BASE_URL/subjects/by-tutor/$tutorProfileId")
+                val connection = createGetConnection(url)
+
+                return@withContext handleResponse(connection) { response ->
+                    val jsonArray = parseJsonArrayResponse(response)
+                    val subjects = mutableListOf<TutorSubject>()
+
+                    for (i in 0 until jsonArray.length()) {
+                        val json = jsonArray.getJSONObject(i)
+                        subjects.add(
+                            TutorSubject(
+                                id = json.getLong("id"),
+                                tutorProfileId = json.getLong("tutorProfileId"),
+                                subject = json.getString("subject"),
+                                createdAt = json.optString("createdAt", "")
+                            )
+                        )
+                    }
+                    subjects
+                }
+            } catch (e: Exception) {
+                handleNetworkError(e, "getting subjects by tutor profile ID")
+            }
+        }
+    }
+
+    /**
+     * Search subjects
+     * @param query Search query
+     * @return Result<List<TutorSubject>> containing matching subjects
+     */
+    suspend fun searchSubjects(query: String): Result<List<TutorSubject>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (DEBUG_MODE) {
+                    // Return mock subjects for testing
+                    return@withContext Result.success(
+                        listOf(
+                            TutorSubject(
+                                id = 1,
+                                tutorProfileId = 1,
+                                subject = "Mathematics",
+                                createdAt = "2024-03-18T10:00:00"
+                            ),
+                            TutorSubject(
+                                id = 2,
+                                tutorProfileId = 2,
+                                subject = "Physics",
+                                createdAt = "2024-03-18T10:00:00"
+                            )
+                        )
+                    )
+                }
+
+                val params = mapOf("query" to query)
+                val url = createUrlWithParams("$BASE_URL/subjects/search", params)
+                val connection = createGetConnection(url)
+
+                return@withContext handleResponse(connection) { response ->
+                    val jsonArray = parseJsonArrayResponse(response)
+                    val subjects = mutableListOf<TutorSubject>()
+
+                    for (i in 0 until jsonArray.length()) {
+                        val json = jsonArray.getJSONObject(i)
+                        subjects.add(
+                            TutorSubject(
+                                id = json.getLong("id"),
+                                tutorProfileId = json.getLong("tutorProfileId"),
+                                subject = json.getString("subject"),
+                                createdAt = json.optString("createdAt", "")
+                            )
+                        )
+                    }
+                    subjects
+                }
+            } catch (e: Exception) {
+                handleNetworkError(e, "searching subjects")
+            }
+        }
+    }
+
+    /**
+     * Add a subject
+     * @param tutorProfileId ID of the tutor profile
+     * @param subject Subject name
+     * @return Result<TutorSubject> containing the added subject
+     */
+    suspend fun addSubject(tutorProfileId: Long, subject: String): Result<TutorSubject> {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (DEBUG_MODE) {
+                    // Return a mock subject for testing
+                    return@withContext Result.success(
+                        TutorSubject(
+                            id = System.currentTimeMillis(),
+                            tutorProfileId = tutorProfileId,
+                            subject = subject,
+                            createdAt = "2024-03-18T10:00:00"
+                        )
+                    )
+                }
+
+                val url = URL("$BASE_URL/subjects/add")
                 val connection = createPostConnection(url)
 
                 // Create request body
                 val jsonObject = JSONObject().apply {
-                    put("tutorId", tutorId)
-                    put("title", courseDTO.title)
-                    put("subtitle", courseDTO.subtitle)
-                    put("description", courseDTO.description)
-                    put("category", courseDTO.category)
-                    put("price", courseDTO.price)
+                    put("tutorProfileId", tutorProfileId)
+                    put("subject", subject)
                 }
 
                 return@withContext handleResponse(connection, jsonObject.toString()) { response ->
                     val json = parseJsonResponse(response)
 
-                    com.mobile.ui.courses.models.Course(
-                        id = json.optLong("id", System.currentTimeMillis()),
-                        title = json.getString("title"),
-                        subtitle = json.getString("subtitle"),
-                        description = json.getString("description"),
-                        tutorCount = 1,
-                        averageRating = json.optFloat("rating", 0.0f),
-                        averagePrice = json.optDouble("price", 0.0).toFloat(),
-                        category = json.getString("category"),
-                        imageResId = com.mobile.R.drawable.ic_courses,
-                        tutorId = json.optLong("tutorId", tutorId),
-                        tutorName = json.optString("tutorName", "")
+                    TutorSubject(
+                        id = json.getLong("id"),
+                        tutorProfileId = json.getLong("tutorProfileId"),
+                        subject = json.getString("subject"),
+                        createdAt = json.optString("createdAt", "")
                     )
                 }
             } catch (e: Exception) {
-                handleNetworkError(e, "creating course")
+                handleNetworkError(e, "adding subject")
             }
         }
     }
 
     /**
-     * Update an existing course
-     * @param courseId ID of the course to update
-     * @param courseDTO Course data transfer object containing updated course details
-     * @return Result<Course> containing the updated course
+     * Add multiple subjects for a tutor
+     * @param tutorProfileId ID of the tutor profile
+     * @param subjects List of subject names
+     * @return Result<List<TutorSubject>> containing the added subjects
      */
-    suspend fun updateCourse(courseId: Long, courseDTO: com.mobile.data.model.CourseDTO): Result<com.mobile.ui.courses.models.Course> {
+    suspend fun addSubjectsForTutor(tutorProfileId: Long, subjects: List<String>): Result<List<TutorSubject>> {
         return withContext(Dispatchers.IO) {
             try {
                 if (DEBUG_MODE) {
-                    // Return a mock course for testing
-                    return@withContext Result.success(
-                        com.mobile.ui.courses.models.Course(
-                            id = courseId,
-                            title = courseDTO.title,
-                            subtitle = courseDTO.subtitle,
-                            description = courseDTO.description,
-                            tutorCount = 1,
-                            averageRating = 4.5f,
-                            averagePrice = courseDTO.price.toFloat(),
-                            category = courseDTO.category,
-                            imageResId = com.mobile.R.drawable.ic_courses,
-                            tutorId = courseDTO.tutorId,
-                            tutorName = courseDTO.tutorName
+                    // Return mock subjects for testing
+                    val mockSubjects = mutableListOf<TutorSubject>()
+                    subjects.forEachIndexed { index, subject ->
+                        mockSubjects.add(
+                            TutorSubject(
+                                id = index.toLong() + 1,
+                                tutorProfileId = tutorProfileId,
+                                subject = subject,
+                                createdAt = "2024-03-18T10:00:00"
+                            )
                         )
-                    )
+                    }
+                    return@withContext Result.success(mockSubjects)
                 }
 
-                val url = URL("$BASE_URL/courses/update/$courseId")
-                val connection = createPutConnection(url)
+                val url = URL("$BASE_URL/subjects/add-multiple/$tutorProfileId")
+                val connection = createPostConnection(url)
 
-                // Create request body
-                val jsonObject = JSONObject().apply {
-                    put("id", courseId)
-                    put("title", courseDTO.title)
-                    put("subtitle", courseDTO.subtitle)
-                    put("description", courseDTO.description)
-                    put("category", courseDTO.category)
-                    put("price", courseDTO.price)
-                    courseDTO.tutorId?.let { put("tutorId", it) }
-                    courseDTO.tutorName?.let { put("tutorName", it) }
-                }
+                // Create request body with JSON array of subjects
+                val jsonArray = JSONArray()
+                subjects.forEach { jsonArray.put(it) }
 
-                return@withContext handleResponse(connection, jsonObject.toString()) { response ->
-                    val json = parseJsonResponse(response)
+                return@withContext handleResponse(connection, jsonArray.toString()) { response ->
+                    val jsonArray = parseJsonArrayResponse(response)
+                    val addedSubjects = mutableListOf<TutorSubject>()
 
-                    com.mobile.ui.courses.models.Course(
-                        id = json.optLong("id", courseId),
-                        title = json.getString("title"),
-                        subtitle = json.getString("subtitle"),
-                        description = json.getString("description"),
-                        tutorCount = 1,
-                        averageRating = json.optFloat("rating", 0.0f),
-                        averagePrice = json.optDouble("price", 0.0).toFloat(),
-                        category = json.getString("category"),
-                        imageResId = com.mobile.R.drawable.ic_courses,
-                        tutorId = json.optLong("tutorId", courseDTO.tutorId ?: 0L),
-                        tutorName = json.optString("tutorName", courseDTO.tutorName ?: "")
-                    )
+                    for (i in 0 until jsonArray.length()) {
+                        val json = jsonArray.getJSONObject(i)
+                        addedSubjects.add(
+                            TutorSubject(
+                                id = json.getLong("id"),
+                                tutorProfileId = json.getLong("tutorProfileId"),
+                                subject = json.getString("subject"),
+                                createdAt = json.optString("createdAt", "")
+                            )
+                        )
+                    }
+                    addedSubjects
                 }
             } catch (e: Exception) {
-                handleNetworkError(e, "updating course")
+                handleNetworkError(e, "adding multiple subjects")
             }
         }
     }
 
     /**
-     * Delete a course
-     * @param courseId ID of the course to delete
+     * Delete a subject
+     * @param subjectId ID of the subject to delete
      * @return Result<Unit> indicating success or failure
      */
-    suspend fun deleteCourse(courseId: Long): Result<Unit> {
+    suspend fun deleteSubject(subjectId: Long): Result<Unit> {
         return withContext(Dispatchers.IO) {
             try {
                 if (DEBUG_MODE) {
@@ -1129,279 +1167,80 @@ object NetworkUtils {
                     return@withContext Result.success(Unit)
                 }
 
-                val url = URL("$BASE_URL/courses/delete/$courseId")
+                val url = URL("$BASE_URL/subjects/delete/$subjectId")
                 val connection = createDeleteConnection(url)
 
                 return@withContext handleResponse(connection) { _ -> Unit }
             } catch (e: Exception) {
-                handleNetworkError(e, "deleting course")
+                handleNetworkError(e, "deleting subject")
             }
         }
     }
 
     /**
-     * Get all courses
-     * @return Result<List<Course>> containing all available courses
+     * Delete all subjects for a tutor
+     * @param tutorProfileId ID of the tutor profile
+     * @return Result<Unit> indicating success or failure
      */
-    suspend fun getAllCourses(): List<com.mobile.ui.courses.models.Course> {
+    suspend fun deleteAllSubjectsForTutor(tutorProfileId: Long): Result<Unit> {
         return withContext(Dispatchers.IO) {
             try {
                 if (DEBUG_MODE) {
-                    // Return mock courses for testing
-                    return@withContext MockData.mockCourses
+                    // Simulate success for testing
+                    return@withContext Result.success(Unit)
                 }
 
-                val url = URL("$BASE_URL/courses")
-                val connection = createGetConnection(url)
+                val url = URL("$BASE_URL/subjects/delete-all/$tutorProfileId")
+                val connection = createDeleteConnection(url)
 
-                val result = handleResponse(connection) { response ->
-                    val jsonArray = parseJsonArrayResponse(response)
-                    val courses = mutableListOf<com.mobile.ui.courses.models.Course>()
-
-                    for (i in 0 until jsonArray.length()) {
-                        val json = jsonArray.getJSONObject(i)
-                        courses.add(
-                            com.mobile.ui.courses.models.Course(
-                                id = json.getLong("id"),
-                                title = json.getString("title"),
-                                subtitle = json.optString("subtitle", ""),
-                                description = json.optString("description", ""),
-                                tutorCount = 1,
-                                averageRating = json.optFloat("rating", 0.0f),
-                                averagePrice = json.optDouble("price", 0.0).toFloat(),
-                                category = json.optString("category", "Other"),
-                                imageResId = com.mobile.R.drawable.ic_courses,
-                                tutorId = json.optLong("tutorId", 0L),
-                                tutorName = json.optString("tutorName", "")
-                            )
-                        )
-                    }
-                    courses
-                }
-
-                // Unwrap the result to propagate errors
-                val courses = result.getOrThrow()
-                Log.d(TAG, "Successfully fetched ${courses.size} courses")
-                return@withContext courses
+                return@withContext handleResponse(connection) { _ -> Unit }
             } catch (e: Exception) {
-                Log.e(TAG, "Error getting all courses: ${e.message}", e)
-                // Throw the exception to propagate the error
-                throw Exception("Failed to fetch courses: ${e.message}", e)
+                handleNetworkError(e, "deleting all subjects for tutor")
             }
         }
     }
 
     /**
-     * Get popular courses
-     * @return List<Course> containing the most popular courses
+     * Update a subject
+     * @param subjectId ID of the subject to update
+     * @param subject New subject name
+     * @return Result<TutorSubject> containing the updated subject
      */
-    suspend fun getPopularCourses(): List<com.mobile.ui.courses.models.Course> {
+    suspend fun updateSubject(subjectId: Long, subject: String): Result<TutorSubject> {
         return withContext(Dispatchers.IO) {
             try {
                 if (DEBUG_MODE) {
-                    // Return mock popular courses for testing
-                    return@withContext MockData.mockPopularCourses
-                }
-
-                val url = URL("$BASE_URL/courses/popular")
-                val connection = createGetConnection(url)
-
-                val result = handleResponse(connection) { response ->
-                    val jsonArray = parseJsonArrayResponse(response)
-                    val courses = mutableListOf<com.mobile.ui.courses.models.Course>()
-
-                    for (i in 0 until jsonArray.length()) {
-                        val json = jsonArray.getJSONObject(i)
-                        courses.add(
-                            com.mobile.ui.courses.models.Course(
-                                id = json.getLong("id"),
-                                title = json.getString("title"),
-                                subtitle = json.optString("subtitle", ""),
-                                description = json.optString("description", ""),
-                                tutorCount = 1,
-                                averageRating = json.optFloat("rating", 0.0f),
-                                averagePrice = json.optDouble("price", 0.0).toFloat(),
-                                category = json.optString("category", "Other"),
-                                imageResId = com.mobile.R.drawable.ic_courses,
-                                tutorId = json.optLong("tutorId", 0L),
-                                tutorName = json.optString("tutorName", "")
-                            )
+                    // Return a mock subject for testing
+                    return@withContext Result.success(
+                        TutorSubject(
+                            id = subjectId,
+                            tutorProfileId = 1L, // Mock tutor profile ID
+                            subject = subject,
+                            createdAt = "2024-03-18T10:00:00"
                         )
-                    }
-                    courses
+                    )
                 }
 
-                // Unwrap the result to propagate errors
-                val courses = result.getOrThrow()
-                Log.d(TAG, "Successfully fetched ${courses.size} popular courses")
-                return@withContext courses
+                val url = URL("$BASE_URL/subjects/update/$subjectId")
+                val connection = createPutConnection(url)
+
+                // Create request body
+                val jsonObject = JSONObject().apply {
+                    put("subject", subject)
+                }
+
+                return@withContext handleResponse(connection, jsonObject.toString()) { response ->
+                    val json = parseJsonResponse(response)
+
+                    TutorSubject(
+                        id = json.getLong("id"),
+                        tutorProfileId = json.getLong("tutorProfileId"),
+                        subject = json.getString("subject"),
+                        createdAt = json.optString("createdAt", "")
+                    )
+                }
             } catch (e: Exception) {
-                Log.e(TAG, "Error getting popular courses: ${e.message}", e)
-                // Throw the exception to propagate the error
-                throw Exception("Failed to fetch popular courses: ${e.message}", e)
-            }
-        }
-    }
-
-    /**
-     * Get courses by tutor ID
-     * @param tutorId ID of the tutor
-     * @return List<Course> containing the tutor's courses
-     */
-    suspend fun getCoursesByTutor(tutorId: Long): List<com.mobile.ui.courses.models.Course> {
-        return withContext(Dispatchers.IO) {
-            try {
-                if (DEBUG_MODE) {
-                    // Return filtered mock courses for testing
-                    return@withContext MockData.mockCourses.filter { it.tutorId == tutorId }
-                }
-
-                val url = URL("$BASE_URL/courses/tutor/$tutorId")
-                val connection = createGetConnection(url)
-
-                val result = handleResponse(connection) { response ->
-                    val jsonArray = parseJsonArrayResponse(response)
-                    val courses = mutableListOf<com.mobile.ui.courses.models.Course>()
-
-                    for (i in 0 until jsonArray.length()) {
-                        val json = jsonArray.getJSONObject(i)
-                        courses.add(
-                            com.mobile.ui.courses.models.Course(
-                                id = json.getLong("id"),
-                                title = json.getString("title"),
-                                subtitle = json.optString("subtitle", ""),
-                                description = json.optString("description", ""),
-                                tutorCount = 1,
-                                averageRating = json.optFloat("rating", 0.0f),
-                                averagePrice = json.optDouble("price", 0.0).toFloat(),
-                                category = json.optString("category", "Other"),
-                                imageResId = com.mobile.R.drawable.ic_courses,
-                                tutorId = tutorId,
-                                tutorName = json.optString("tutorName", "")
-                            )
-                        )
-                    }
-                    courses
-                }
-
-                return@withContext result.getOrDefault(emptyList())
-            } catch (e: Exception) {
-                Log.e(TAG, "Error getting courses by tutor: ${e.message}", e)
-                return@withContext emptyList()
-            }
-        }
-    }
-
-    /**
-     * Search courses by query
-     * @param query Search query
-     * @return List<Course> containing matching courses
-     */
-    suspend fun searchCourses(query: String): List<com.mobile.ui.courses.models.Course> {
-        return withContext(Dispatchers.IO) {
-            try {
-                if (DEBUG_MODE) {
-                    // Filter mock courses by query for testing
-                    val lowerQuery = query.lowercase()
-                    return@withContext MockData.mockCourses.filter { 
-                        it.title.lowercase().contains(lowerQuery) || 
-                        it.description.lowercase().contains(lowerQuery) ||
-                        it.category.lowercase().contains(lowerQuery)
-                    }
-                }
-
-                val params = mapOf("query" to query)
-                val url = createUrlWithParams("$BASE_URL/courses/search", params)
-                val connection = createGetConnection(url)
-
-                val result = handleResponse(connection) { response ->
-                    val jsonArray = parseJsonArrayResponse(response)
-                    val courses = mutableListOf<com.mobile.ui.courses.models.Course>()
-
-                    for (i in 0 until jsonArray.length()) {
-                        val json = jsonArray.getJSONObject(i)
-                        courses.add(
-                            com.mobile.ui.courses.models.Course(
-                                id = json.getLong("id"),
-                                title = json.getString("title"),
-                                subtitle = json.optString("subtitle", ""),
-                                description = json.optString("description", ""),
-                                tutorCount = 1,
-                                averageRating = json.optFloat("rating", 0.0f),
-                                averagePrice = json.optDouble("price", 0.0).toFloat(),
-                                category = json.optString("category", "Other"),
-                                imageResId = com.mobile.R.drawable.ic_courses,
-                                tutorId = json.optLong("tutorId", 0L),
-                                tutorName = json.optString("tutorName", "")
-                            )
-                        )
-                    }
-                    courses
-                }
-
-                return@withContext result.getOrDefault(emptyList())
-            } catch (e: Exception) {
-                Log.e(TAG, "Error searching courses: ${e.message}", e)
-                return@withContext emptyList()
-            }
-        }
-    }
-
-    /**
-     * Get courses by category
-     * @param category Category name (null for all categories)
-     * @return List<Course> containing courses in the specified category
-     */
-    suspend fun getCoursesByCategory(category: String?): List<com.mobile.ui.courses.models.Course> {
-        return withContext(Dispatchers.IO) {
-            try {
-                if (DEBUG_MODE) {
-                    // Filter mock courses by category for testing
-                    return@withContext if (category == null) {
-                        MockData.mockCourses
-                    } else {
-                        MockData.mockCourses.filter { it.category.equals(category, ignoreCase = true) }
-                    }
-                }
-
-                val url = if (category == null) {
-                    URL("$BASE_URL/courses/all")
-                } else {
-                    val params = mapOf("category" to category)
-                    createUrlWithParams("$BASE_URL/courses/category", params)
-                }
-
-                val connection = createGetConnection(url)
-
-                val result = handleResponse(connection) { response ->
-                    val jsonArray = parseJsonArrayResponse(response)
-                    val courses = mutableListOf<com.mobile.ui.courses.models.Course>()
-
-                    for (i in 0 until jsonArray.length()) {
-                        val json = jsonArray.getJSONObject(i)
-                        courses.add(
-                            com.mobile.ui.courses.models.Course(
-                                id = json.getLong("id"),
-                                title = json.getString("title"),
-                                subtitle = json.optString("subtitle", ""),
-                                description = json.optString("description", ""),
-                                tutorCount = 1,
-                                averageRating = json.optFloat("rating", 0.0f),
-                                averagePrice = json.optDouble("price", 0.0).toFloat(),
-                                category = json.optString("category", "Other"),
-                                imageResId = com.mobile.R.drawable.ic_courses,
-                                tutorId = json.optLong("tutorId", 0L),
-                                tutorName = json.optString("tutorName", "")
-                            )
-                        )
-                    }
-                    courses
-                }
-
-                return@withContext result.getOrDefault(emptyList())
-            } catch (e: Exception) {
-                Log.e(TAG, "Error getting courses by category: ${e.message}", e)
-                return@withContext emptyList()
+                handleNetworkError(e, "updating subject")
             }
         }
     }
@@ -1429,7 +1268,7 @@ object NetworkUtils {
                 }
 
                 val params = mapOf("email" to email)
-                val url = createUrlWithParams("$BASE_URL/users/findByEmail", params)
+                val url = createUrlWithParams("$BASE_URL/users/find-by-email", params)
                 val connection = createGetConnection(url)
 
                 return@withContext handleResponse(connection) { response ->
@@ -2027,10 +1866,18 @@ object NetworkUtils {
                             }
                         }
 
+                        val firstName = tutorJson.optString("firstName", "")
+                        val lastName = tutorJson.optString("lastName", "")
+                        val fullName = if (firstName.isNotBlank() && lastName.isNotBlank()) {
+                            "$firstName $lastName"
+                        } else {
+                            tutorJson.optString("username", "Unknown")
+                        }
+
                         tutors.add(
                             TutorProfile(
                                 id = tutorJson.getLong("profileId"),
-                                name = tutorJson.optString("username", "Unknown"),
+                                name = fullName,
                                 email = tutorJson.optString("username", ""),
                                 bio = tutorJson.optString("bio", ""),
                                 rating = tutorJson.optDouble("rating", 0.0).toFloat(),
@@ -2057,44 +1904,96 @@ object NetworkUtils {
     }
 
     /**
-     * Get course by ID
-     * @param courseId ID of the course
-     * @return Course object or null if not found
+     * Get subject by ID - using the SubjectDTO model
      */
-    suspend fun getCourseById(courseId: Long): com.mobile.ui.courses.models.Course? {
+    suspend fun getSubjectById(subjectId: Long): SubjectDTO? {
         return withContext(Dispatchers.IO) {
             try {
                 if (DEBUG_MODE) {
-                    // Look for the course in mock data
-                    return@withContext MockData.mockCourses.firstOrNull { it.id == courseId }
-                }
-
-                val url = URL("$BASE_URL/courses/$courseId")
-                val connection = createGetConnection(url)
-
-                val result = handleResponse(connection) { response ->
-                    val json = parseJsonResponse(response)
-
-                    com.mobile.ui.courses.models.Course(
-                        id = json.getLong("id"),
-                        title = json.getString("title"),
-                        subtitle = json.optString("subtitle", ""),
-                        description = json.optString("description", ""),
-                        tutorCount = 1,
-                        averageRating = json.optFloat("rating", 0.0f),
-                        averagePrice = json.optDouble("price", 0.0).toFloat(),
-                        category = json.optString("category", "Other"),
-                        imageResId = com.mobile.R.drawable.ic_courses,
-                        tutorId = json.optLong("tutorId", 0L),
-                        tutorName = json.optString("tutorName", "")
+                    // Return mock data for testing
+                    return@withContext SubjectDTO(
+                        id = subjectId,
+                        name = "Mathematics",
+                        description = "Advanced calculus and algebra",
+                        tutorId = 1L,
+                        tutorName = "John Doe",
+                        category = "Science & Math",
+                        hourlyRate = 45.0,
+                        createdAt = Date()
                     )
                 }
 
-                return@withContext result.getOrNull()
+                // The backend doesn't have a direct /api/subjects/{id} endpoint
+                // Try first to search for the subject
+                val params = mapOf("query" to subjectId.toString())
+                val url = createUrlWithParams("$BASE_URL/subjects/search", params)
+                val connection = createGetConnection(url)
+
+                try {
+                    val result = handleResponse(connection) { response ->
+                        val jsonArray = parseJsonArrayResponse(response)
+
+                        // If we found any subjects, try to find one with matching ID
+                        for (i in 0 until jsonArray.length()) {
+                            val json = jsonArray.getJSONObject(i)
+                            val id = json.optLong("id")
+                            if (id == subjectId) {
+                                return@handleResponse SubjectDTO(
+                                    id = id,
+                                    name = json.optString("subject", "Unknown Subject"),
+                                    description = "Subject offered by tutor",
+                                    tutorId = json.optLong("tutorProfileId"),
+                                    tutorName = "Tutor #" + json.optLong("tutorProfileId"), // Use default name instead of null
+                                    category = "Subject",
+                                    hourlyRate = 0.0, // We don't have the hourly rate in this response
+                                    createdAt = parseDate(json.optString("createdAt"))
+                                )
+                            }
+                        }
+
+                        null // No matching subject found
+                    }
+
+                    if (result.isSuccess && result.getOrNull() != null) {
+                        return@withContext result.getOrNull()
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error searching for subject by ID: ${e.message}", e)
+                    // Continue to fallback methods
+                }
+
+                // Create a default subject if the API call fails
+                // Note: Course API has been removed, so we're providing a fallback
+                Log.d(TAG, "Creating fallback subject for ID: $subjectId")
+                return@withContext SubjectDTO(
+                    id = subjectId,
+                    name = "Subject #$subjectId",
+                    description = "Subject information unavailable",
+                    tutorId = null,
+                    tutorName = null,
+                    category = "General",
+                    hourlyRate = 0.0,
+                    createdAt = Date()
+                )
             } catch (e: Exception) {
-                Log.e(TAG, "Error getting course by ID: ${e.message}", e)
+                Log.e(TAG, "Error getting subject by ID: ${e.message}", e)
                 return@withContext null
             }
+        }
+    }
+
+    /**
+     * Helper function to parse date strings
+     */
+    private fun parseDate(dateString: String?): Date? {
+        if (dateString.isNullOrEmpty()) return null
+
+        return try {
+            val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+            format.parse(dateString)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing date: $dateString", e)
+            null
         }
     }
 
@@ -2307,6 +2206,656 @@ object NetworkUtils {
         } catch (e: Exception) {
             Log.e(TAG, "Error parsing JSON array response: ${e.message}", e)
             JSONArray()
+        }
+    }
+
+    /**
+     * Get all tutoring sessions for a tutor
+     * @param tutorId The ID of the tutor
+     * @return List of tutoring sessions
+     */
+    suspend fun getTutorSessions(tutorId: Long): Result<List<TutoringSession>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (DEBUG_MODE) {
+                    // Return mock data for testing
+                    return@withContext Result.success(
+                        listOf(
+                            TutoringSession(
+                                id = 1,
+                                tutorId = tutorId,
+                                learnerId = "2",
+                                startTime = "2025-05-15T14:00:00",
+                                endTime = "2025-05-15T15:30:00",
+                                status = "Scheduled",
+                                subject = "Mathematics",
+                                sessionType = "Online",
+                                notes = "Introduction to Calculus"
+                            ),
+                            TutoringSession(
+                                id = 2,
+                                tutorId = tutorId,
+                                learnerId = "3",
+                                startTime = "2025-05-16T10:00:00",
+                                endTime = "2025-05-16T11:30:00",
+                                status = "Confirmed",
+                                subject = "Physics",
+                                sessionType = "In-person",
+                                notes = "Mechanics review"
+                            ),
+                            TutoringSession(
+                                id = 3,
+                                tutorId = tutorId,
+                                learnerId = "4",
+                                startTime = "2025-05-18T16:00:00",
+                                endTime = "2025-05-18T17:30:00",
+                                status = "Scheduled",
+                                subject = "Chemistry",
+                                sessionType = "Online",
+                                notes = "Organic chemistry basics"
+                            )
+                        )
+                    )
+                }
+
+                // Use the correct endpoint from the Spring Boot controller
+                val url = URL("$BASE_URL/tutoring-sessions/findByTutor/$tutorId")
+                val connection = createGetConnection(url)
+
+                return@withContext handleResponse(connection) { response ->
+                    val jsonArray = parseJsonArrayResponse(response)
+                    val sessions = mutableListOf<TutoringSession>()
+
+                    for (i in 0 until jsonArray.length()) {
+                        val sessionJson = jsonArray.getJSONObject(i)
+                        sessions.add(
+                            TutoringSession(
+                                id = sessionJson.optLong("id"),
+                                tutorId = sessionJson.optLong("tutorId"),
+                                learnerId = sessionJson.optString("studentId"), // Backend uses studentId instead of learnerId
+                                startTime = sessionJson.optString("startTime"),
+                                endTime = sessionJson.optString("endTime"),
+                                status = sessionJson.optString("status"),
+                                subject = sessionJson.optString("subject"),
+                                sessionType = sessionJson.optString("sessionType"),
+                                notes = sessionJson.optString("notes")
+                            )
+                        )
+                    }
+                    sessions
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error fetching tutor sessions: ${e.message}", e)
+                handleNetworkError(e, "fetching tutor sessions")
+            }
+        }
+    }
+
+    /**
+     * Get upcoming tutoring sessions for a tutor (status: Scheduled or Confirmed)
+     * @param tutorId The ID of the tutor
+     * @return List of upcoming tutoring sessions
+     */
+    suspend fun getUpcomingTutorSessions(tutorId: Long): Result<List<TutoringSession>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val allSessionsResult = getTutorSessions(tutorId)
+
+                if (allSessionsResult.isFailure) {
+                    return@withContext allSessionsResult
+                }
+
+                val allSessions = allSessionsResult.getOrNull() ?: emptyList()
+
+                // Filter sessions with status "Scheduled" or "Confirmed"
+                val upcomingSessions = allSessions.filter { 
+                    it.status.equals("Scheduled", ignoreCase = true) || 
+                    it.status.equals("Confirmed", ignoreCase = true) 
+                }
+
+                Result.success(upcomingSessions)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error fetching upcoming tutor sessions: ${e.message}", e)
+                handleNetworkError(e, "fetching upcoming tutor sessions")
+            }
+        }
+    }
+
+    /**
+     * Helper method to create a proper API URL, ensuring correct formatting
+     * @param endpoint The API endpoint path
+     * @return Properly formatted URL string
+     */
+    private fun createApiUrl(endpoint: String): String {
+        // Remove any leading slash from the endpoint if present
+        val cleanEndpoint = if (endpoint.startsWith("/")) endpoint.substring(1) else endpoint
+
+        // Create a properly formatted URL
+        return "$BASE_URL/$cleanEndpoint"
+    }
+
+    /**
+     * Get all availability slots for a tutor
+     * @param tutorId The ID of the tutor
+     * @return List of tutor availability slots
+     */
+    suspend fun getTutorAvailability(tutorId: Long): Result<List<TutorAvailability>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (DEBUG_MODE) {
+                    // Return mock data for testing
+                    return@withContext Result.success(
+                        listOf(
+                            TutorAvailability(
+                                id = 1,
+                                tutorId = tutorId,
+                                dayOfWeek = "MONDAY",
+                                startTime = "9:00 AM",
+                                endTime = "5:00 PM"
+                            ),
+                            TutorAvailability(
+                                id = 2,
+                                tutorId = tutorId,
+                                dayOfWeek = "TUESDAY",
+                                startTime = "10:00 AM",
+                                endTime = "6:00 PM"
+                            ),
+                            TutorAvailability(
+                                id = 3,
+                                tutorId = tutorId,
+                                dayOfWeek = "WEDNESDAY",
+                                startTime = "9:00 AM",
+                                endTime = "3:00 PM"
+                            )
+                        )
+                    )
+                }
+
+                // Use the correct endpoint from the Spring Boot controller
+                val url = URL("$BASE_URL/tutor-availability/findByTutor/$tutorId")
+                val connection = createGetConnection(url)
+
+                return@withContext handleResponse(connection) { response ->
+                    val jsonArray = parseJsonArrayResponse(response)
+                    val availabilitySlots = mutableListOf<TutorAvailability>()
+
+                    for (i in 0 until jsonArray.length()) {
+                        val slotJson = jsonArray.getJSONObject(i)
+                        availabilitySlots.add(
+                            TutorAvailability(
+                                id = slotJson.optLong("id"),
+                                tutorId = slotJson.optLong("tutorId"),
+                                dayOfWeek = slotJson.optString("dayOfWeek"),
+                                startTime = slotJson.optString("startTime"),
+                                endTime = slotJson.optString("endTime")
+                            )
+                        )
+                    }
+                    availabilitySlots
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error fetching tutor availability: ${e.message}", e)
+                handleNetworkError(e, "fetching tutor availability")
+            }
+        }
+    }
+
+    /**
+     * Get all availability slots for a tutor on a specific day
+     * @param tutorId The ID of the tutor
+     * @param dayOfWeek The day of the week (e.g., MONDAY, TUESDAY)
+     * @return List of tutor availability slots for the specified day
+     */
+    suspend fun getTutorAvailabilityByDay(tutorId: Long, dayOfWeek: String): Result<List<TutorAvailability>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (DEBUG_MODE) {
+                    // Return mock data for testing
+                    return@withContext Result.success(
+                        listOf(
+                            TutorAvailability(
+                                id = 1,
+                                tutorId = tutorId,
+                                dayOfWeek = dayOfWeek,
+                                startTime = "9:00 AM",
+                                endTime = "5:00 PM"
+                            )
+                        )
+                    )
+                }
+
+                // Use the correct endpoint from the Spring Boot controller
+                val url = URL("$BASE_URL/tutor-availability/findByTutorAndDay/$tutorId/$dayOfWeek")
+                val connection = createGetConnection(url)
+
+                return@withContext handleResponse(connection) { response ->
+                    val jsonArray = parseJsonArrayResponse(response)
+                    val availabilitySlots = mutableListOf<TutorAvailability>()
+
+                    for (i in 0 until jsonArray.length()) {
+                        val slotJson = jsonArray.getJSONObject(i)
+                        availabilitySlots.add(
+                            TutorAvailability(
+                                id = slotJson.optLong("id"),
+                                tutorId = slotJson.optLong("tutorId"),
+                                dayOfWeek = slotJson.optString("dayOfWeek"),
+                                startTime = slotJson.optString("startTime"),
+                                endTime = slotJson.optString("endTime")
+                            )
+                        )
+                    }
+                    availabilitySlots
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error fetching tutor availability by day: ${e.message}", e)
+                handleNetworkError(e, "fetching tutor availability by day")
+            }
+        }
+    }
+
+    /**
+     * Create a new availability slot for a tutor
+     * @param tutorId The ID of the tutor
+     * @param dayOfWeek The day of the week (e.g., MONDAY, TUESDAY)
+     * @param startTime The start time (e.g., "9:00 AM")
+     * @param endTime The end time (e.g., "5:00 PM")
+     * @return The created availability slot
+     */
+    suspend fun createTutorAvailability(
+        tutorId: Long,
+        dayOfWeek: String,
+        startTime: String,
+        endTime: String
+    ): Result<TutorAvailability> {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (DEBUG_MODE) {
+                    // Return mock data for testing
+                    return@withContext Result.success(
+                        TutorAvailability(
+                            id = System.currentTimeMillis(), // Generate a random ID
+                            tutorId = tutorId,
+                            dayOfWeek = dayOfWeek,
+                            startTime = startTime,
+                            endTime = endTime
+                        )
+                    )
+                }
+
+                // Use the correct endpoint from the Spring Boot controller
+                val url = URL("$BASE_URL/tutor-availability/createAvailability")
+                val connection = createPostConnection(url)
+
+                // Create JSON payload
+                val jsonObject = JSONObject()
+                jsonObject.put("tutorId", tutorId)
+                jsonObject.put("dayOfWeek", dayOfWeek)
+                jsonObject.put("startTime", startTime)
+                jsonObject.put("endTime", endTime)
+
+                return@withContext handleResponse(connection, jsonObject.toString()) { response ->
+                    val json = parseJsonResponse(response)
+                    TutorAvailability(
+                        id = json.optLong("id"),
+                        tutorId = json.optLong("tutorId"),
+                        dayOfWeek = json.optString("dayOfWeek"),
+                        startTime = json.optString("startTime"),
+                        endTime = json.optString("endTime")
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error creating tutor availability: ${e.message}", e)
+                handleNetworkError(e, "creating tutor availability")
+            }
+        }
+    }
+
+    /**
+     * Update an existing availability slot
+     * @param id The ID of the availability slot
+     * @param tutorId The ID of the tutor
+     * @param dayOfWeek The day of the week (e.g., MONDAY, TUESDAY)
+     * @param startTime The start time (e.g., "9:00 AM")
+     * @param endTime The end time (e.g., "5:00 PM")
+     * @return The updated availability slot
+     */
+    suspend fun updateTutorAvailability(
+        id: Long,
+        tutorId: Long,
+        dayOfWeek: String,
+        startTime: String,
+        endTime: String
+    ): Result<TutorAvailability> {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (DEBUG_MODE) {
+                    // Return mock data for testing
+                    return@withContext Result.success(
+                        TutorAvailability(
+                            id = id,
+                            tutorId = tutorId,
+                            dayOfWeek = dayOfWeek,
+                            startTime = startTime,
+                            endTime = endTime
+                        )
+                    )
+                }
+
+                // Use the correct endpoint from the Spring Boot controller
+                val url = URL("$BASE_URL/tutor-availability/updateAvailability/$id")
+                val connection = createPutConnection(url)
+
+                // Create JSON payload
+                val jsonObject = JSONObject()
+                jsonObject.put("id", id)
+                jsonObject.put("tutorId", tutorId)
+                jsonObject.put("dayOfWeek", dayOfWeek)
+                jsonObject.put("startTime", startTime)
+                jsonObject.put("endTime", endTime)
+
+                return@withContext handleResponse(connection, jsonObject.toString()) { response ->
+                    val json = parseJsonResponse(response)
+                    TutorAvailability(
+                        id = json.optLong("id"),
+                        tutorId = json.optLong("tutorId"),
+                        dayOfWeek = json.optString("dayOfWeek"),
+                        startTime = json.optString("startTime"),
+                        endTime = json.optString("endTime")
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error updating tutor availability: ${e.message}", e)
+                handleNetworkError(e, "updating tutor availability")
+            }
+        }
+    }
+
+    /**
+     * Delete an availability slot
+     * @param id The ID of the availability slot
+     * @return Success or failure
+     */
+    suspend fun deleteTutorAvailability(id: Long): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (DEBUG_MODE) {
+                    // Return success for testing
+                    return@withContext Result.success(Unit)
+                }
+
+                // Use the correct endpoint from the Spring Boot controller
+                val url = URL("$BASE_URL/tutor-availability/deleteAvailability/$id")
+                val connection = createDeleteConnection(url)
+
+                return@withContext handleResponse(connection) { _ ->
+                    Unit
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error deleting tutor availability: ${e.message}", e)
+                handleNetworkError(e, "deleting tutor availability")
+            }
+        }
+    }
+
+    /**
+     * Delete all availability slots for a tutor
+     * @param tutorId The ID of the tutor
+     * @return Success or failure
+     */
+    suspend fun deleteAllTutorAvailability(tutorId: Long): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (DEBUG_MODE) {
+                    // Return success for testing
+                    return@withContext Result.success(Unit)
+                }
+
+                // Use the correct endpoint from the Spring Boot controller
+                val url = URL("$BASE_URL/tutor-availability/deleteAllForTutor/$tutorId")
+                val connection = createDeleteConnection(url)
+
+                return@withContext handleResponse(connection) { _ ->
+                    Unit
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error deleting all tutor availability: ${e.message}", e)
+                handleNetworkError(e, "deleting all tutor availability")
+            }
+        }
+    }
+
+    /**
+     * Create a new tutoring session
+     * @param tutorId ID of the tutor
+     * @param studentId ID of the student/learner
+     * @param startTime Start time of the session (format: yyyy-MM-dd'T'HH:mm:ss)
+     * @param endTime End time of the session (format: yyyy-MM-dd'T'HH:mm:ss)
+     * @param subject Subject for the session
+     * @param sessionType Type of session (e.g., "Online", "In-Person")
+     * @param notes Additional notes for the session
+     * @return Result containing the created TutoringSession
+     */
+    suspend fun createTutoringSession(
+        tutorId: Long,
+        studentId: Long,
+        startTime: String,
+        endTime: String,
+        subject: String,
+        sessionType: String,
+        notes: String?
+    ): Result<TutoringSession> {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (DEBUG_MODE) {
+                    // Return mock data for testing
+                    return@withContext Result.success(
+                        TutoringSession(
+                            id = System.currentTimeMillis(),
+                            tutorId = tutorId,
+                            learnerId = studentId.toString(),
+                            startTime = startTime,
+                            endTime = endTime,
+                            status = "Scheduled",
+                            subject = subject,
+                            sessionType = sessionType,
+                            notes = notes
+                        )
+                    )
+                }
+
+                // Use the correct endpoint from the Spring Boot controller
+                val url = URL("$BASE_URL/tutoring-sessions/createSession")
+                val connection = createPostConnection(url)
+
+                // Create the request body
+                val jsonObject = JSONObject().apply {
+                    put("tutorId", tutorId)
+                    put("studentId", studentId) // Backend uses studentId instead of learnerId
+                    put("startTime", startTime)
+                    put("endTime", endTime)
+                    put("status", "Scheduled") // Default status for new sessions
+                    put("subject", subject)
+                    put("sessionType", sessionType)
+                    notes?.let { put("notes", it) }
+                }
+
+                return@withContext handleResponse(connection, jsonObject.toString()) { response ->
+                    val json = parseJsonResponse(response)
+
+                    TutoringSession(
+                        id = json.optLong("id"),
+                        tutorId = json.optLong("tutorId"),
+                        learnerId = json.optString("studentId"), // Backend uses studentId instead of learnerId
+                        startTime = json.optString("startTime"),
+                        endTime = json.optString("endTime"),
+                        status = json.optString("status"),
+                        subject = json.optString("subject"),
+                        sessionType = json.optString("sessionType"),
+                        notes = json.optString("notes", null)
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error creating tutoring session: ${e.message}", e)
+                handleNetworkError(e, "creating tutoring session")
+            }
+        }
+    }
+
+    /**
+     * Get all availability slots for a tutor on a specific date
+     * @param tutorId The ID of the tutor
+     * @param date The specific date in yyyy-MM-dd format
+     * @return List of tutor availability slots for the specified date
+     */
+    suspend fun getTutorAvailabilityByDate(tutorId: Long, date: String): Result<List<TutorAvailability>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (DEBUG_MODE) {
+                    // Convert the date to a day of week for mock data
+                    val calendar = Calendar.getInstance()
+                    val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                    calendar.time = dateFormat.parse(date) ?: Date()
+                    
+                    val dayOfWeek = when (calendar.get(Calendar.DAY_OF_WEEK)) {
+                        Calendar.MONDAY -> "MONDAY"
+                        Calendar.TUESDAY -> "TUESDAY"
+                        Calendar.WEDNESDAY -> "WEDNESDAY"
+                        Calendar.THURSDAY -> "THURSDAY"
+                        Calendar.FRIDAY -> "FRIDAY"
+                        Calendar.SATURDAY -> "SATURDAY"
+                        Calendar.SUNDAY -> "SUNDAY"
+                        else -> "MONDAY" // Default to Monday if parsing fails
+                    }
+                    
+                    // Return mock data based on the day of week that matches actual tutor availability
+                    val baseAvailabilityMap = mapOf(
+                        "MONDAY" to listOf(
+                            TutorAvailability(
+                                id = 1,
+                                tutorId = tutorId,
+                                dayOfWeek = "MONDAY",
+                                startTime = "12:00",
+                                endTime = "18:00"
+                            )
+                        ),
+                        "TUESDAY" to listOf(
+                            TutorAvailability(
+                                id = 2,
+                                tutorId = tutorId,
+                                dayOfWeek = "TUESDAY",
+                                startTime = "12:00",
+                                endTime = "18:00"
+                            )
+                        ),
+                        "WEDNESDAY" to listOf(
+                            TutorAvailability(
+                                id = 3,
+                                tutorId = tutorId,
+                                dayOfWeek = "WEDNESDAY",
+                                startTime = "12:00",
+                                endTime = "20:00"
+                            )
+                        ),
+                        "THURSDAY" to listOf(
+                            TutorAvailability(
+                                id = 4,
+                                tutorId = tutorId,
+                                dayOfWeek = "THURSDAY",
+                                startTime = "12:00",
+                                endTime = "18:00"
+                            )
+                        ),
+                        "FRIDAY" to listOf(
+                            TutorAvailability(
+                                id = 5,
+                                tutorId = tutorId,
+                                dayOfWeek = "FRIDAY",
+                                startTime = "12:00",
+                                endTime = "18:00"
+                            )
+                        ),
+                        "SATURDAY" to emptyList(),
+                        "SUNDAY" to emptyList()
+                    )
+                    
+                    // Get the availability for the day of week
+                    val availability = baseAvailabilityMap[dayOfWeek] ?: emptyList()
+                    
+                    // Check if this is a specific date we want to simulate special availability for
+                    // (For example, if the tutor has a different schedule on specific dates)
+                    val today = Calendar.getInstance()
+                    val selectedDate = Calendar.getInstance()
+                    selectedDate.time = dateFormat.parse(date) ?: Date()
+                    
+                    // If the selected date is today, adjust the start time to account for current time
+                    if (today.get(Calendar.YEAR) == selectedDate.get(Calendar.YEAR) && 
+                        today.get(Calendar.MONTH) == selectedDate.get(Calendar.MONTH) && 
+                        today.get(Calendar.DAY_OF_MONTH) == selectedDate.get(Calendar.DAY_OF_MONTH)
+                    ) {
+                        val currentHour = today.get(Calendar.HOUR_OF_DAY)
+                        
+                        // If we're already past the tutor's start time for today
+                        if (currentHour >= 12) {
+                            // Start the availability an hour after current time if it's not too late
+                            if (currentHour < 17) { // Allow booking until 1 hour before end time
+                                return@withContext Result.success(
+                                    listOf(
+                                        TutorAvailability(
+                                            id = 1,
+                                            tutorId = tutorId,
+                                            dayOfWeek = dayOfWeek,
+                                            startTime = "${currentHour + 1}:00",
+                                            endTime = "18:00"
+                                        )
+                                    )
+                                )
+                            } else {
+                                // No more slots available today
+                                return@withContext Result.success(emptyList())
+                            }
+                        }
+                    }
+                    
+                    // For a date 7 days from now, simulate no availability
+                    val nextWeek = Calendar.getInstance()
+                    nextWeek.add(Calendar.DAY_OF_MONTH, 7)
+                    if (nextWeek.get(Calendar.YEAR) == selectedDate.get(Calendar.YEAR) && 
+                        nextWeek.get(Calendar.MONTH) == selectedDate.get(Calendar.MONTH) && 
+                        nextWeek.get(Calendar.DAY_OF_MONTH) == selectedDate.get(Calendar.DAY_OF_MONTH)
+                    ) {
+                        // For this specific date, return no availability
+                        return@withContext Result.success(emptyList())
+                    }
+                    
+                    return@withContext Result.success(availability)
+                }
+
+                // Use the correct endpoint from the Spring Boot controller
+                val url = URL("$BASE_URL/tutor-availability/findByTutorAndDate/$tutorId/$date")
+                val connection = createGetConnection(url)
+
+                return@withContext handleResponse(connection) { response ->
+                    val jsonArray = parseJsonArrayResponse(response)
+                    val availabilitySlots = mutableListOf<TutorAvailability>()
+
+                    for (i in 0 until jsonArray.length()) {
+                        val slotJson = jsonArray.getJSONObject(i)
+                        availabilitySlots.add(
+                            TutorAvailability(
+                                id = slotJson.optLong("id"),
+                                tutorId = slotJson.optLong("tutorId"),
+                                dayOfWeek = slotJson.optString("dayOfWeek"),
+                                startTime = slotJson.optString("startTime"),
+                                endTime = slotJson.optString("endTime")
+                            )
+                        )
+                    }
+                    availabilitySlots
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error fetching tutor availability by date: ${e.message}", e)
+                handleNetworkError(e, "fetching tutor availability by date")
+            }
         }
     }
 }

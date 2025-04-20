@@ -67,7 +67,11 @@ public class TutorAvailabilityController {
     })
     @GetMapping("/findByTutor/{tutorId}")
     public ResponseEntity<List<TutorAvailabilityDTO>> getTutorAvailability(
-            @Parameter(description = "Tutor ID") @PathVariable UserEntity tutor) {
+            @Parameter(description = "Tutor ID") @PathVariable("tutorId") Long tutorId) {
+        // Find the tutor by ID
+        UserEntity tutor = new UserEntity();
+        tutor.setUserId(tutorId);
+
         return ResponseEntity.ok(availabilityService.getTutorAvailability(tutor)
                 .stream()
                 .map(availabilityDTOMapper::toDTO)
@@ -93,8 +97,12 @@ public class TutorAvailabilityController {
     })
     @GetMapping("/findByTutorAndDay/{tutorId}/{dayOfWeek}")
     public ResponseEntity<List<TutorAvailabilityDTO>> getTutorAvailabilityByDay(
-            @Parameter(description = "Tutor ID") @PathVariable UserEntity tutor,
+            @Parameter(description = "Tutor ID") @PathVariable("tutorId") Long tutorId,
             @Parameter(description = "Day of week (e.g., MONDAY, TUESDAY)") @PathVariable String dayOfWeek) {
+        // Find the tutor by ID
+        UserEntity tutor = new UserEntity();
+        tutor.setUserId(tutorId);
+
         return ResponseEntity.ok(availabilityService.getTutorAvailabilityByDay(tutor, dayOfWeek)
                 .stream()
                 .map(availabilityDTOMapper::toDTO)
@@ -134,7 +142,11 @@ public class TutorAvailabilityController {
     })
     @DeleteMapping("/deleteAllForTutor/{tutorId}")
     public ResponseEntity<Void> deleteTutorAvailability(
-            @Parameter(description = "Tutor ID") @PathVariable UserEntity tutor) {
+            @Parameter(description = "Tutor ID") @PathVariable("tutorId") Long tutorId) {
+        // Find the tutor by ID
+        UserEntity tutor = new UserEntity();
+        tutor.setUserId(tutorId);
+
         availabilityService.deleteTutorAvailability(tutor);
         return ResponseEntity.ok().build();
     }
@@ -145,10 +157,14 @@ public class TutorAvailabilityController {
     })
     @GetMapping("/checkAvailability")
     public ResponseEntity<Boolean> isTimeSlotAvailable(
-            @Parameter(description = "Tutor ID") @RequestParam UserEntity tutor,
+            @Parameter(description = "Tutor ID") @RequestParam Long tutorId,
             @Parameter(description = "Day of week (e.g., MONDAY, TUESDAY)") @RequestParam String dayOfWeek,
             @Parameter(description = "Start time (HH:MM)") @RequestParam String startTime,
             @Parameter(description = "End time (HH:MM)") @RequestParam String endTime) {
+        // Find the tutor by ID
+        UserEntity tutor = new UserEntity();
+        tutor.setUserId(tutorId);
+
         return ResponseEntity.ok(availabilityService.isTimeSlotAvailable(tutor, dayOfWeek, startTime, endTime));
     }
 } 

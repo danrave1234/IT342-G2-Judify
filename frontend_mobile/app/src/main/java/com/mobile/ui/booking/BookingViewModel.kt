@@ -9,6 +9,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.mobile.data.model.Booking
 import com.mobile.data.model.Schedule
+import com.mobile.data.model.SubjectDTO
 import com.mobile.data.repository.BookingRepository
 import com.mobile.utils.NetworkUtils
 import kotlinx.coroutines.delay
@@ -18,8 +19,8 @@ import java.util.*
 class BookingViewModel(
     application: Application,
     private val tutorId: Long,
-    private val courseId: Long = -1,
-    private val courseTitle: String? = null
+    private val subjectId: Long = -1,
+    private val subjectName: String? = null
 ) : AndroidViewModel(application) {
     private val repository = BookingRepository()
     private val _bookingResult = MutableLiveData<Boolean>()
@@ -40,11 +41,11 @@ class BookingViewModel(
     val availabilityState: LiveData<AvailabilityState> = _availabilityState
 
     init {
-        Log.d("BookingViewModel", "Initialized with tutorId=$tutorId, courseId=$courseId, courseTitle=$courseTitle")
-        // If we have a course title, we'll pre-fill the subject field
-        if (!courseTitle.isNullOrBlank()) {
+        Log.d("BookingViewModel", "Initialized with tutorId=$tutorId, subjectId=$subjectId, subjectName=$subjectName")
+        // If we have a subject name, we'll pre-fill the subject field
+        if (!subjectName.isNullOrBlank()) {
             _bookingState.value = _bookingState.value?.copy(
-                selectedSubject = courseTitle
+                selectedSubject = subjectName
             )
         }
     }
@@ -55,9 +56,9 @@ class BookingViewModel(
                 _bookingState.value = _bookingState.value?.copy(isLoading = true)
                 Log.d("BookingViewModel", "Loading tutor profile for tutorId: $tutorId")
 
-                // First try to get the tutor info from the course data
+                // First try to get the tutor info from the subject data
                 // This can be used as a fallback if the API call fails
-                val courseTitle = _bookingState.value?.selectedSubject
+                val subjectName = _bookingState.value?.selectedSubject
 
                 // Attempt to get the tutor profile from API
                 val result = NetworkUtils.getTutorProfile(tutorId)
@@ -75,7 +76,7 @@ class BookingViewModel(
                         Log.e("BookingViewModel", "Failed to load tutor profile: ${exception.message}", exception)
 
                         // Try to get tutor info directly from the database as fallback
-                        loadTutorFromDatabase(tutorId, courseTitle)
+                        loadTutorFromDatabase(tutorId, subjectName)
                     }
                 )
             } catch (e: Exception) {
@@ -86,30 +87,30 @@ class BookingViewModel(
         }
     }
 
-    private suspend fun loadTutorFromDatabase(tutorId: Long, courseTitle: String?) {
+    private suspend fun loadTutorFromDatabase(tutorId: Long, subjectName: String?) {
         try {
-            // Try to get course details which might contain tutor name
-            val course = if (courseId > 0) {
-                // Load course info which should contain tutor name
-                NetworkUtils.getCourseById(courseId)
+            // Try to get subject details which might contain tutor name
+            val subject = if (subjectId > 0) {
+                // Load subject info which should contain tutor name
+                NetworkUtils.getSubjectById(subjectId)
             } else {
                 null
             }
 
-            val tutorNameFromDb = course?.tutorName
-            val expertiseFromDb = course?.category ?: courseTitle
+            // Use the tutorName if available, otherwise use a default name
+            // This handles the case where subject.tutorName might be null
+            val tutorNameFromDb = subject?.tutorName ?: "Tutor #$tutorId" 
+            val expertiseFromDb = subject?.category ?: subjectName
 
             // Create a reasonable fallback profile using whatever info we have
-            // Use 0.0f for rating to ensure we're not using dummy data
-            // Add "(fallback)" to subjects to indicate they're not from the API
             val fallbackProfile = NetworkUtils.TutorProfile(
                 id = tutorId,
-                name = tutorNameFromDb ?: "Tutor (ID: $tutorId)",
+                name = tutorNameFromDb,
                 email = "contact@judify.edu",
-                bio = courseTitle?.let { "Expert in $it (fallback info)" } ?: "Academic Tutor (fallback info)",
-                rating = 0.0f, // Use 0.0f to ensure we're not using dummy data
+                bio = subjectName?.let { "Expert in $it (fallback info)" } ?: "Academic Tutor (fallback info)",
+                rating = 0.0f,
                 subjects = expertiseFromDb?.let { listOf("$it (fallback)") } ?: 
-                            courseTitle?.let { listOf("$it (fallback)") } ?: 
+                            subjectName?.let { listOf("$it (fallback)") } ?: 
                             listOf("No subjects available"),
                 hourlyRate = 35.0
             )
@@ -133,9 +134,9 @@ class BookingViewModel(
                 id = tutorId,
                 name = "Academic Tutor",
                 email = "contact@judify.edu",
-                bio = courseTitle?.let { "Expert in $it (fallback info)" } ?: "Academic Tutor (fallback info)",
+                bio = subjectName?.let { "Expert in $it (fallback info)" } ?: "Academic Tutor (fallback info)",
                 rating = 0.0f, // Use 0.0f to ensure we're not using dummy data
-                subjects = courseTitle?.let { listOf("$it (fallback)") } ?: listOf("No subjects available"),
+                subjects = subjectName?.let { listOf("$it (fallback)") } ?: listOf("No subjects available"),
                 hourlyRate = 35.0
             )
 
@@ -150,31 +151,196 @@ class BookingViewModel(
         }
     }
 
-    fun loadTutorAvailability(dayOfWeek: String) {
+    /**
+     * Generates time slots from tutor availability
+     * @param availability List of tutor availability objects
+     * @return List of time slot strings in format "HH:MM - HH:MM"
+     */
+    private fun generateTimeSlotsFromAvailability(availability: List<NetworkUtils.TutorAvailability>): List<String> {
+        val timeSlots = mutableListOf<String>()
+
+        // If no availability, return empty list
+        if (availability.isEmpty()) {
+            Log.d("BookingViewModel", "No availability found for the selected day")
+            return timeSlots
+        }
+
+        Log.d("BookingViewModel", "Processing ${availability.size} availability slots: ${availability.map { "${it.dayOfWeek} ${it.startTime}-${it.endTime}" }}")
+
+        // For each availability period, generate time slots in 30-minute intervals
+        for (avail in availability) {
+            try {
+                // Log the raw time values for debugging
+                Log.d("BookingViewModel", "Processing availability: dayOfWeek=${avail.dayOfWeek}, startTime=${avail.startTime}, endTime=${avail.endTime}")
+
+                // Normalize the time format to handle various input formats
+                val (startHour, startMinute) = parseTimeToHourAndMinute(avail.startTime)
+                val (endHour, endMinute) = parseTimeToHourAndMinute(avail.endTime)
+
+                Log.d("BookingViewModel", "Parsed times: startHour=$startHour, startMinute=$startMinute, endHour=$endHour, endMinute=$endMinute")
+
+                // Generate time slots in 30-minute intervals
+                var currentHour = startHour
+                var currentMinute = startMinute
+
+                while (currentHour < endHour || (currentHour == endHour && currentMinute < endMinute)) {
+                    // Calculate end time of this slot (30 minutes later)
+                    var slotEndHour = currentHour
+                    var slotEndMinute = currentMinute + 30
+
+                    // Handle minute overflow
+                    if (slotEndMinute >= 60) {
+                        slotEndHour += 1
+                        slotEndMinute -= 60
+                    }
+
+                    // Only add the slot if it ends before or at the availability end time
+                    if (slotEndHour < endHour || (slotEndHour == endHour && slotEndMinute <= endMinute)) {
+                        val timeSlot = String.format("%02d:%02d - %02d:%02d", currentHour, currentMinute, slotEndHour, slotEndMinute)
+                        timeSlots.add(timeSlot)
+                        Log.d("BookingViewModel", "Added time slot: $timeSlot")
+                    }
+
+                    // Move to next slot
+                    currentMinute += 30
+                    if (currentMinute >= 60) {
+                        currentHour += 1
+                        currentMinute -= 60
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("BookingViewModel", "Error parsing availability times: ${e.message}", e)
+                // Continue to next availability period
+            }
+        }
+
+        Log.d("BookingViewModel", "Generated ${timeSlots.size} time slots: $timeSlots")
+        return timeSlots
+    }
+
+    /**
+     * Parse time string to hour and minute, handling various formats
+     * @param timeString The time string to parse (e.g., "9:00", "9:00 AM", "09:00", "12:00", etc.)
+     * @return Pair of hour (0-23) and minute (0-59)
+     */
+    private fun parseTimeToHourAndMinute(timeString: String): Pair<Int, Int> {
+        try {
+            // Remove any extra whitespace
+            val trimmedTime = timeString.trim()
+
+            // Check if time contains AM/PM
+            val hasAmPm = trimmedTime.contains(" AM", ignoreCase = true) || 
+                          trimmedTime.contains(" PM", ignoreCase = true) ||
+                          trimmedTime.contains("AM", ignoreCase = true) || 
+                          trimmedTime.contains("PM", ignoreCase = true)
+
+            if (hasAmPm) {
+                // Handle AM/PM format
+                val isAm = trimmedTime.contains("AM", ignoreCase = true)
+                val isPm = trimmedTime.contains("PM", ignoreCase = true)
+
+                // Remove AM/PM and split by colon
+                val timePart = trimmedTime
+                    .replace(" AM", "", ignoreCase = true)
+                    .replace(" PM", "", ignoreCase = true)
+                    .replace("AM", "", ignoreCase = true)
+                    .replace("PM", "", ignoreCase = true)
+                    .trim()
+
+                val parts = timePart.split(":")
+                var hour = parts[0].toInt()
+                val minute = if (parts.size > 1) parts[1].toInt() else 0
+
+                // Adjust hour for 12-hour format
+                if (isPm && hour < 12) {
+                    hour += 12
+                } else if (isAm && hour == 12) {
+                    hour = 0
+                }
+
+                return Pair(hour, minute)
+            } else {
+                // Handle 24-hour format (HH:MM or H:MM)
+                val parts = trimmedTime.split(":")
+                val hour = parts[0].toInt()
+                val minute = if (parts.size > 1) parts[1].toInt() else 0
+
+                // Log for debugging
+                Log.d("BookingViewModel", "Parsed 24-hour time: $hour:$minute from $timeString")
+                
+                return Pair(hour, minute)
+            }
+        } catch (e: Exception) {
+            Log.e("BookingViewModel", "Error parsing time string '$timeString': ${e.message}", e)
+            // Default to 12:00 PM if parsing fails (more likely to be within tutor hours)
+            return Pair(12, 0)
+        }
+    }
+
+    /**
+     * Loads availability slots for a tutor on a specific day and date
+     * @param dayOfWeek The day of week (e.g. "MONDAY")
+     * @param specificDate The specific date in yyyy-MM-dd format
+     */
+    fun loadTutorAvailability(dayOfWeek: String, specificDate: String? = null) {
         _availabilityState.value = _availabilityState.value?.copy(isLoading = true)
 
         viewModelScope.launch {
             try {
-                // In a real app, we would call an API to get tutor availability
-                // For this demo, we're simulating availability for different days
-                val availabilityMap = mapOf(
-                    "MONDAY" to listOf(NetworkUtils.TutorAvailability(id = 1, tutorId = tutorId, dayOfWeek = "MONDAY", startTime = "9:00 AM", endTime = "5:00 PM")),
-                    "TUESDAY" to listOf(NetworkUtils.TutorAvailability(id = 2, tutorId = tutorId, dayOfWeek = "TUESDAY", startTime = "10:00 AM", endTime = "6:00 PM")),
-                    "WEDNESDAY" to listOf(NetworkUtils.TutorAvailability(id = 3, tutorId = tutorId, dayOfWeek = "WEDNESDAY", startTime = "9:00 AM", endTime = "3:00 PM")),
-                    "THURSDAY" to listOf(NetworkUtils.TutorAvailability(id = 4, tutorId = tutorId, dayOfWeek = "THURSDAY", startTime = "12:00 PM", endTime = "8:00 PM")),
-                    "FRIDAY" to listOf(NetworkUtils.TutorAvailability(id = 5, tutorId = tutorId, dayOfWeek = "FRIDAY", startTime = "8:00 AM", endTime = "4:00 PM")),
-                    "SATURDAY" to emptyList(),
-                    "SUNDAY" to emptyList()
-                )
+                // First try to get tutor availability for the specific date
+                val result = if (!specificDate.isNullOrEmpty()) {
+                    // Try to get availability for the specific date first
+                    NetworkUtils.getTutorAvailabilityByDate(tutorId, specificDate)
+                } else if (dayOfWeek.isNotEmpty()) {
+                    // Fall back to getting availability by day of week if no specific date
+                    NetworkUtils.getTutorAvailabilityByDay(tutorId, dayOfWeek)
+                } else {
+                    // Last resort: get all availability
+                    NetworkUtils.getTutorAvailability(tutorId)
+                }
 
-                val availability = availabilityMap[dayOfWeek] ?: emptyList()
+                result.fold(
+                    onSuccess = { availability ->
+                        // Generate time slots from availability
+                        val timeSlots = generateTimeSlotsFromAvailability(availability)
 
-                _availabilityState.postValue(
-                    _availabilityState.value?.copy(
-                        availability = availability,
-                        isLoading = false,
-                        error = null
-                    )
+                        _availabilityState.postValue(
+                            _availabilityState.value?.copy(
+                                availability = availability,
+                                timeSlots = timeSlots,
+                                isLoading = false,
+                                error = null
+                            )
+                        )
+                    },
+                    onFailure = { exception ->
+                        Log.e("BookingViewModel", "Failed to load tutor availability: ${exception.message}", exception)
+
+                        // Fall back to mock data if the API fails
+                        val availabilityMap = mapOf(
+                            "MONDAY" to listOf(NetworkUtils.TutorAvailability(id = 1, tutorId = tutorId, dayOfWeek = "MONDAY", startTime = "12:00", endTime = "18:00")),
+                            "TUESDAY" to listOf(NetworkUtils.TutorAvailability(id = 2, tutorId = tutorId, dayOfWeek = "TUESDAY", startTime = "12:00", endTime = "18:00")),
+                            "WEDNESDAY" to listOf(NetworkUtils.TutorAvailability(id = 3, tutorId = tutorId, dayOfWeek = "WEDNESDAY", startTime = "12:00", endTime = "20:00")),
+                            "THURSDAY" to listOf(NetworkUtils.TutorAvailability(id = 4, tutorId = tutorId, dayOfWeek = "THURSDAY", startTime = "12:00", endTime = "18:00")),
+                            "FRIDAY" to listOf(NetworkUtils.TutorAvailability(id = 5, tutorId = tutorId, dayOfWeek = "FRIDAY", startTime = "12:00", endTime = "18:00")),
+                            "SATURDAY" to emptyList(),
+                            "SUNDAY" to emptyList()
+                        )
+
+                        val availability = availabilityMap[dayOfWeek] ?: emptyList()
+
+                        // Generate time slots from mock availability
+                        val timeSlots = generateTimeSlotsFromAvailability(availability)
+
+                        _availabilityState.postValue(
+                            _availabilityState.value?.copy(
+                                availability = availability,
+                                timeSlots = timeSlots,
+                                isLoading = false,
+                                error = "Using mock data. ${exception.message}"
+                            )
+                        )
+                    }
                 )
             } catch (e: Exception) {
                 _availabilityState.postValue(
@@ -200,9 +366,9 @@ class BookingViewModel(
                 _bookingState.value = _bookingState.value?.copy(isLoading = true)
 
                 // Get learner ID from SharedPreferences
-                val learnerId = sharedPreferences.getString("user_id", "") ?: ""
+                val learnerId = sharedPreferences.getLong("user_id", -1).toString()
 
-                if (learnerId.isEmpty()) {
+                if (learnerId == "-1") {
                     _bookingState.value = _bookingState.value?.copy(
                         isLoading = false,
                         error = "User not found. Please login again."
@@ -211,20 +377,19 @@ class BookingViewModel(
                     return@launch
                 }
 
-                // Create booking object
-                val booking = Booking(
-                    id = UUID.randomUUID().toString(),
-                    learnerId = learnerId,
-                    mentorId = tutorId.toString(),
-                    scheduleId = UUID.randomUUID().toString(), // This should come from backend
-                    status = "pending",
-                    createdAt = Date()
+                // Create a tutoring session through the NetworkUtils API
+                val result = NetworkUtils.createTutoringSession(
+                    tutorId = tutorId,
+                    studentId = learnerId.toLong(),
+                    startTime = startTime,
+                    endTime = endTime,
+                    subject = subject,
+                    sessionType = sessionType,
+                    notes = notes
                 )
 
-                // Attempt to create the booking
-                val result = repository.createBooking(booking)
                 result.fold(
-                    onSuccess = {
+                    onSuccess = { session ->
                         _bookingState.value = _bookingState.value?.copy(
                             isLoading = false,
                             bookingComplete = true
@@ -232,11 +397,49 @@ class BookingViewModel(
                         callback(true)
                     },
                     onFailure = { exception ->
-                        _bookingState.value = _bookingState.value?.copy(
-                            isLoading = false,
-                            error = exception.message ?: "Failed to create booking"
-                        )
-                        callback(false)
+                        // Fall back to the old method if the API call fails
+                        try {
+                            // Create booking object for the legacy API
+                            val booking = Booking(
+                                id = UUID.randomUUID().toString(),
+                                learnerId = learnerId,
+                                tutorId = tutorId.toString(),
+                                scheduleId = UUID.randomUUID().toString(), // This should come from backend
+                                status = "pending",
+                                startTime = startTime,
+                                endTime = endTime,
+                                subject = subject,
+                                sessionType = sessionType,
+                                notes = notes,
+                                createdAt = Date()
+                            )
+
+                            // Attempt to create the booking
+                            val fallbackResult = repository.createBooking(booking)
+                            fallbackResult.fold(
+                                onSuccess = {
+                                    _bookingState.value = _bookingState.value?.copy(
+                                        isLoading = false,
+                                        bookingComplete = true,
+                                        error = "Created using legacy system. Some features may be limited."
+                                    )
+                                    callback(true)
+                                },
+                                onFailure = { fallbackException ->
+                                    _bookingState.value = _bookingState.value?.copy(
+                                        isLoading = false,
+                                        error = fallbackException.message ?: "Failed to create booking"
+                                    )
+                                    callback(false)
+                                }
+                            )
+                        } catch (e: Exception) {
+                            _bookingState.value = _bookingState.value?.copy(
+                                isLoading = false,
+                                error = exception.message ?: "Failed to create booking"
+                            )
+                            callback(false)
+                        }
                     }
                 )
             } catch (e: Exception) {
@@ -253,9 +456,9 @@ class BookingViewModel(
         _loading.value = true
 
         // Get user ID from SharedPreferences
-        val learnerId = sharedPreferences.getString("user_id", "") ?: ""
+        val learnerId = sharedPreferences.getLong("user_id", -1).toString()
 
-        if (learnerId.isEmpty()) {
+        if (learnerId == "-1") {
             _error.value = "User not found. Please login again."
             _loading.value = false
             return
@@ -264,7 +467,7 @@ class BookingViewModel(
         val booking = Booking(
             id = UUID.randomUUID().toString(),
             learnerId = learnerId,
-            mentorId = schedule.mentorId,
+            tutorId = schedule.tutorId,
             scheduleId = schedule.id,
             status = "pending",
             createdAt = Date()
@@ -285,6 +488,7 @@ data class BookingState(
 
 data class AvailabilityState(
     val availability: List<NetworkUtils.TutorAvailability> = emptyList(),
+    val timeSlots: List<String> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null
 ) 

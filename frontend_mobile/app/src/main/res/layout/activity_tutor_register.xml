@@ -34,21 +34,33 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="Create Account"
+            android:text="Register as Tutor"
             android:textSize="24sp"
             android:textStyle="bold"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/logoImage" />
 
+        <!-- User Information Section -->
+        <TextView
+            android:id="@+id/userInfoSectionTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="User Information"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/titleText" />
+
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/emailLayout"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="8dp"
             android:hint="Email"
-            app:layout_constraintTop_toBottomOf="@id/titleText">
+            app:layout_constraintTop_toBottomOf="@id/userInfoSectionTitle">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/emailEditText"
@@ -74,19 +86,20 @@
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/contactDetailsLayout"
+            android:id="@+id/passwordLayout"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:hint="Contact Details (Phone Number)"
-            app:layout_constraintTop_toBottomOf="@id/usernameLayout">
+            android:hint="Password"
+            app:layout_constraintTop_toBottomOf="@id/usernameLayout"
+            app:passwordToggleEnabled="true">
 
             <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/contactDetailsEditText"
+                android:id="@+id/passwordEditText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="phone" />
+                android:inputType="textPassword" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout
@@ -96,7 +109,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             android:hint="First Name"
-            app:layout_constraintTop_toBottomOf="@id/contactDetailsLayout">
+            app:layout_constraintTop_toBottomOf="@id/passwordLayout">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/firstNameEditText"
@@ -122,79 +135,105 @@
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/passwordLayout"
+            android:id="@+id/contactDetailsLayout"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:hint="Password"
-            app:layout_constraintTop_toBottomOf="@id/lastNameLayout"
-            app:passwordToggleEnabled="true">
+            android:hint="Contact Details (Phone Number)"
+            app:layout_constraintTop_toBottomOf="@id/lastNameLayout">
 
             <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/passwordEditText"
+                android:id="@+id/contactDetailsEditText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="textPassword" />
+                android:inputType="phone" />
         </com.google.android.material.textfield.TextInputLayout>
 
-        <CheckBox
-            android:id="@+id/rememberMeCheckbox"
+        <!-- Tutor Profile Information Section -->
+        <TextView
+            android:id="@+id/tutorInfoSectionTitle"
             android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="Tutor Profile Information"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/contactDetailsLayout" />
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/bioLayout"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="Biography"
+            app:layout_constraintTop_toBottomOf="@id/tutorInfoSectionTitle">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/bioEditText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textMultiLine"
+                android:minLines="3" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/expertiseLayout"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="Remember me"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/passwordLayout" />
+            android:hint="Expertise"
+            app:layout_constraintTop_toBottomOf="@id/bioLayout">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/expertiseEditText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="text" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/hourlyRateLayout"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:hint="Hourly Rate ($)"
+            app:layout_constraintTop_toBottomOf="@id/expertiseLayout">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/hourlyRateEditText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="numberDecimal" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/subjectsLayout"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:hint="Subjects (comma separated)"
+            app:layout_constraintTop_toBottomOf="@id/hourlyRateLayout">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/subjectsEditText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="text" />
+        </com.google.android.material.textfield.TextInputLayout>
 
         <Button
-            android:id="@+id/signUpButton"
+            android:id="@+id/registerButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
-            android:text="Sign Up"
-            app:layout_constraintTop_toBottomOf="@id/rememberMeCheckbox" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="Or continue with"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/signUpButton" />
-
-        <LinearLayout
-            android:id="@+id/socialButtonsLayout"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:gravity="center"
-            android:orientation="horizontal"
-            app:layout_constraintTop_toBottomOf="@id/signUpButton">
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/facebookButton"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="8dp"
-                android:layout_weight="1"
-                android:text="Facebook"
-                app:icon="@drawable/ic_facebook"
-                app:iconTint="?attr/colorPrimary" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/googleButton"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:layout_weight="1"
-                android:text="Google"
-                app:icon="@drawable/ic_google"
-                app:iconTint="?attr/colorPrimary" />
-        </LinearLayout>
+            android:text="Register as Tutor"
+            app:layout_constraintTop_toBottomOf="@id/subjectsLayout" />
 
         <TextView
             android:id="@+id/signInTextView"
@@ -205,14 +244,14 @@
             android:textColor="@color/primary_blue"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/socialButtonsLayout" />
+            app:layout_constraintTop_toBottomOf="@id/registerButton" />
 
         <TextView
-            android:id="@+id/tutorRegisterTextView"
+            android:id="@+id/learnerRegisterTextView"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="Want to be a tutor? Register as Tutor Instead"
+            android:text="Want to be a learner? Register as Learner Instead"
             android:textColor="@color/primary_blue"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
@@ -230,4 +269,4 @@
             app:layout_constraintTop_toTopOf="parent" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
-</ScrollView> 
+</ScrollView>

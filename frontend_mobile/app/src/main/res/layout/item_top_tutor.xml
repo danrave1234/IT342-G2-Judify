@@ -1,34 +1,71 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
+<androidx.cardview.widget.CardView
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="wrap_content"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="120dp"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:gravity="center"
-    android:layout_marginEnd="16dp">
+    android:layout_marginEnd="12dp"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="3dp"
+    android:foreground="?attr/selectableItemBackground">
 
-    <de.hdodenhof.circleimageview.CircleImageView
-        android:id="@+id/tutorImageView"
-        android:layout_width="60dp"
-        android:layout_height="60dp"
-        android:src="@drawable/ic_person" />
-
-    <TextView
-        android:id="@+id/tutorNameTextView"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Tutor"
-        android:textSize="14sp"
-        android:textColor="?android:textColorPrimary"
-        android:layout_marginTop="4dp" />
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="12dp">
 
-    <RatingBar
-        android:id="@+id/tutorRatingBar"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        style="?android:attr/ratingBarStyleSmall"
-        android:numStars="5"
-        android:rating="0"
-        android:stepSize="0.1"
-        android:layout_marginTop="2dp" />
-</LinearLayout> 
+        <FrameLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content">
+
+            <de.hdodenhof.circleimageview.CircleImageView
+                android:id="@+id/tutorImageView"
+                android:layout_width="70dp"
+                android:layout_height="70dp"
+                android:src="@drawable/ic_person"
+                app:civ_border_width="2dp"
+                app:civ_border_color="?attr/colorPrimary" />
+
+            <TextView
+                android:id="@+id/tutorRatingBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/rating_badge_background"
+                android:paddingHorizontal="6dp"
+                android:paddingVertical="2dp"
+                android:layout_gravity="bottom|end"
+                android:textColor="@android:color/white"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                tools:text="4.8" />
+        </FrameLayout>
+
+        <TextView
+            android:id="@+id/tutorNameTextView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Tutor"
+            android:textSize="14sp"
+            android:textColor="?android:textColorPrimary"
+            android:textStyle="bold"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:maxLines="1"
+            android:ellipsize="end" />
+
+        <TextView
+            android:id="@+id/tutorSubjectTextView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Subject"
+            android:textSize="12sp"
+            android:textColor="?android:textColorSecondary"
+            android:layout_marginTop="2dp"
+            android:gravity="center"
+            android:maxLines="1"
+            android:ellipsize="end" />
+    </LinearLayout>
+</androidx.cardview.widget.CardView> 
