@@ -1,7 +1,7 @@
 package com.mobile.utils
 
 import android.util.Log
-import com.mobile.data.model.SubjectDTO
+import com.mobile.data.model.CourseDTO
 import com.mobile.data.model.TutorRegistration
 import com.mobile.data.model.User
 import kotlinx.coroutines.Dispatchers
@@ -1904,21 +1904,22 @@ object NetworkUtils {
     }
 
     /**
-     * Get subject by ID - using the SubjectDTO model
+     * Get subject by ID - using the CourseDTO model
      */
-    suspend fun getSubjectById(subjectId: Long): SubjectDTO? {
+    suspend fun getSubjectById(subjectId: Long): CourseDTO? {
         return withContext(Dispatchers.IO) {
             try {
                 if (DEBUG_MODE) {
                     // Return mock data for testing
-                    return@withContext SubjectDTO(
+                    return@withContext CourseDTO(
                         id = subjectId,
-                        name = "Mathematics",
+                        title = "Mathematics",
+                        subtitle = "Learn advanced math concepts",
                         description = "Advanced calculus and algebra",
                         tutorId = 1L,
                         tutorName = "John Doe",
                         category = "Science & Math",
-                        hourlyRate = 45.0,
+                        price = 45.0,
                         createdAt = Date()
                     )
                 }
@@ -1938,14 +1939,15 @@ object NetworkUtils {
                             val json = jsonArray.getJSONObject(i)
                             val id = json.optLong("id")
                             if (id == subjectId) {
-                                return@handleResponse SubjectDTO(
+                                return@handleResponse CourseDTO(
                                     id = id,
-                                    name = json.optString("subject", "Unknown Subject"),
+                                    title = json.optString("subject", "Unknown Subject"),
+                                    subtitle = "Course by tutor #" + json.optLong("tutorProfileId"),
                                     description = "Subject offered by tutor",
                                     tutorId = json.optLong("tutorProfileId"),
                                     tutorName = "Tutor #" + json.optLong("tutorProfileId"), // Use default name instead of null
                                     category = "Subject",
-                                    hourlyRate = 0.0, // We don't have the hourly rate in this response
+                                    price = 0.0, // We don't have the hourly rate in this response
                                     createdAt = parseDate(json.optString("createdAt"))
                                 )
                             }
@@ -1965,14 +1967,15 @@ object NetworkUtils {
                 // Create a default subject if the API call fails
                 // Note: Course API has been removed, so we're providing a fallback
                 Log.d(TAG, "Creating fallback subject for ID: $subjectId")
-                return@withContext SubjectDTO(
+                return@withContext CourseDTO(
                     id = subjectId,
-                    name = "Subject #$subjectId",
-                    description = "Subject information unavailable",
+                    title = "Course #$subjectId",
+                    subtitle = "Course information",
+                    description = "Course information unavailable",
                     tutorId = null,
                     tutorName = null,
                     category = "General",
-                    hourlyRate = 0.0,
+                    price = 0.0,
                     createdAt = Date()
                 )
             } catch (e: Exception) {
@@ -2715,7 +2718,7 @@ object NetworkUtils {
                     val calendar = Calendar.getInstance()
                     val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
                     calendar.time = dateFormat.parse(date) ?: Date()
-                    
+
                     val dayOfWeek = when (calendar.get(Calendar.DAY_OF_WEEK)) {
                         Calendar.MONDAY -> "MONDAY"
                         Calendar.TUESDAY -> "TUESDAY"
@@ -2726,7 +2729,7 @@ object NetworkUtils {
                         Calendar.SUNDAY -> "SUNDAY"
                         else -> "MONDAY" // Default to Monday if parsing fails
                     }
-                    
+
                     // Return mock data based on the day of week that matches actual tutor availability
                     val baseAvailabilityMap = mapOf(
                         "MONDAY" to listOf(
@@ -2777,23 +2780,23 @@ object NetworkUtils {
                         "SATURDAY" to emptyList(),
                         "SUNDAY" to emptyList()
                     )
-                    
+
                     // Get the availability for the day of week
                     val availability = baseAvailabilityMap[dayOfWeek] ?: emptyList()
-                    
+
                     // Check if this is a specific date we want to simulate special availability for
                     // (For example, if the tutor has a different schedule on specific dates)
                     val today = Calendar.getInstance()
                     val selectedDate = Calendar.getInstance()
                     selectedDate.time = dateFormat.parse(date) ?: Date()
-                    
+
                     // If the selected date is today, adjust the start time to account for current time
                     if (today.get(Calendar.YEAR) == selectedDate.get(Calendar.YEAR) && 
                         today.get(Calendar.MONTH) == selectedDate.get(Calendar.MONTH) && 
                         today.get(Calendar.DAY_OF_MONTH) == selectedDate.get(Calendar.DAY_OF_MONTH)
                     ) {
                         val currentHour = today.get(Calendar.HOUR_OF_DAY)
-                        
+
                         // If we're already past the tutor's start time for today
                         if (currentHour >= 12) {
                             // Start the availability an hour after current time if it's not too late
@@ -2815,7 +2818,7 @@ object NetworkUtils {
                             }
                         }
                     }
-                    
+
                     // For a date 7 days from now, simulate no availability
                     val nextWeek = Calendar.getInstance()
                     nextWeek.add(Calendar.DAY_OF_MONTH, 7)
@@ -2826,7 +2829,7 @@ object NetworkUtils {
                         // For this specific date, return no availability
                         return@withContext Result.success(emptyList())
                     }
-                    
+
                     return@withContext Result.success(availability)
                 }
 

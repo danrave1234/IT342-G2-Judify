@@ -9,7 +9,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.mobile.data.model.Booking
 import com.mobile.data.model.Schedule
-import com.mobile.data.model.SubjectDTO
+import com.mobile.data.model.CourseDTO
 import com.mobile.data.repository.BookingRepository
 import com.mobile.utils.NetworkUtils
 import kotlinx.coroutines.delay
@@ -267,7 +267,7 @@ class BookingViewModel(
 
                 // Log for debugging
                 Log.d("BookingViewModel", "Parsed 24-hour time: $hour:$minute from $timeString")
-                
+
                 return Pair(hour, minute)
             }
         } catch (e: Exception) {

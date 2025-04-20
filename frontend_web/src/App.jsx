@@ -28,7 +28,7 @@ import Pricing from './pages/Pricing';
 // Student pages
 import StudentDashboard from './pages/student/Dashboard';
 import StudentProfile from './pages/student/Profile';
-import Subjects from './pages/student/Subjects';
+import StudentSessions from './pages/student/Sessions';
 import SessionDetails from './pages/student/SessionDetails';
 import BookSession from './pages/student/BookSession';
 
@@ -76,7 +76,7 @@ function App() {
                   <Route element={<PrivateRoute><StudentRoute><MainLayout /></StudentRoute></PrivateRoute>}>
                     <Route path="/student" element={<StudentDashboard />} />
                     <Route path="/student/profile" element={<StudentProfile />} />
-                    <Route path="/student/sessions" element={<Subjects />} />
+                    <Route path="/student/sessions" element={<StudentSessions />} />
                     <Route path="/student/sessions/:sessionId" element={<SessionDetails />} />
                     <Route path="/student/book/:tutorId" element={<BookSession />} />
                     <Route path="/student/messages" element={<Messages />} />
