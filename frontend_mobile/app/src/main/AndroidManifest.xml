@@ -108,6 +108,13 @@
             android:theme="@style/Theme.Judify"
             android:parentActivityName=".ui.booking.BookingActivity" />
 
+        <!-- Add the MessageActivity -->
+        <activity
+            android:name=".ui.chat.MessageActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Judify"
+            android:windowSoftInputMode="adjustResize" />
+
     </application>
 
 </manifest>

@@ -1,10 +1,17 @@
 package edu.cit.Judify.TutoringSession.DTO;
 
-import edu.cit.Judify.TutoringSession.TutoringSessionEntity;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+
+import edu.cit.Judify.TutoringSession.TutoringSessionEntity;
+import edu.cit.Judify.User.UserEntity;
+import edu.cit.Judify.User.UserRepository;
 
 @Component
 public class TutoringSessionDTOMapper {
+
+    @Autowired
+    private UserRepository userRepository;
 
     public TutoringSessionDTO toDTO(TutoringSessionEntity entity) {
         if (entity == null) {
@@ -13,8 +20,8 @@ public class TutoringSessionDTOMapper {
 
         TutoringSessionDTO dto = new TutoringSessionDTO();
         dto.setSessionId(entity.getSessionId());
-        dto.setTutorId(entity.getTutor().getUserId());
-        dto.setStudentId(entity.getStudent().getUserId());
+        dto.setTutorId(entity.getTutor() != null ? entity.getTutor().getUserId() : null);
+        dto.setStudentId(entity.getStudent() != null ? entity.getStudent().getUserId() : null);
         dto.setStartTime(entity.getStartTime());
         dto.setEndTime(entity.getEndTime());
         dto.setSubject(entity.getSubject());
@@ -35,7 +42,22 @@ public class TutoringSessionDTOMapper {
 
         TutoringSessionEntity entity = new TutoringSessionEntity();
         entity.setSessionId(dto.getSessionId());
-        // Note: Tutor and Student should be set separately as they require UserEntity objects
+        
+        // Set Tutor and Student entities from IDs
+        if (dto.getTutorId() != null) {
+            UserEntity tutor = userRepository.findById(dto.getTutorId())
+                .orElseThrow(() -> new IllegalArgumentException("Tutor not found with ID: " + dto.getTutorId()));
+            entity.setTutor(tutor);
+        }
+        
+        if (dto.getStudentId() != null) {
+            UserEntity student = userRepository.findById(dto.getStudentId())
+                .orElseThrow(() -> new IllegalArgumentException("Student not found with ID: " + dto.getStudentId()));
+            entity.setStudent(student);
+        } else {
+            throw new IllegalArgumentException("Student ID must not be null");
+        }
+        
         entity.setStartTime(dto.getStartTime());
         entity.setEndTime(dto.getEndTime());
         entity.setSubject(dto.getSubject());

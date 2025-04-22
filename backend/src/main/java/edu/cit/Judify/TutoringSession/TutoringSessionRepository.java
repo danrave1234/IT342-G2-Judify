@@ -1,12 +1,14 @@
 package edu.cit.Judify.TutoringSession;
 
-import edu.cit.Judify.User.UserEntity;
+import java.util.Date;
+import java.util.List;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
-import java.util.Date;
-import java.util.List;
+
+import edu.cit.Judify.User.UserEntity;
 
 @Repository
 public interface TutoringSessionRepository extends JpaRepository<TutoringSessionEntity, Long> {

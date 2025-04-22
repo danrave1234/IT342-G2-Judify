@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.util.Log
 import android.view.MenuItem
 import android.view.View
+import android.view.ViewGroup
 import android.widget.HorizontalScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
@@ -60,6 +61,9 @@ class LearnerDashboardActivity : AppCompatActivity() {
 
         // Load top tutors
         loadTopTutors()
+        
+        // Load learner sessions
+        loadLearnerSessions()
 
         // Set up bottom navigation
         setupBottomNavigation()
@@ -296,41 +300,36 @@ class LearnerDashboardActivity : AppCompatActivity() {
     }
 
     private fun setupClickListeners() {
-        // Set up search functionality
+        // Set up search click listener
         binding.searchEditText.setOnClickListener {
-            // Launch TutorSearchActivity for finding tutors
-            startActivity(Intent(this, TutorSearchActivity::class.java))
-            overridePendingTransition(0, 0)
+            // Navigate to the search activity
+            val intent = Intent(this, TutorSearchActivity::class.java)
+            startActivity(intent)
         }
 
-        // Set up filter functionality
+        // Disable actual editing in the search box
+        binding.searchEditText.keyListener = null
+
+        // Set up filter button click listener
         binding.filterButton.setOnClickListener {
-            // TODO: Implement filter functionality
+            // TODO: Show filter options
+            Toast.makeText(this, "Filters coming soon!", Toast.LENGTH_SHORT).show()
         }
 
-        // Set up see all tutors
+        // Set up see all tutors click listener
         binding.seeAllTutors.setOnClickListener {
-            // Launch TutorSearchActivity for finding tutors
-            startActivity(Intent(this, TutorSearchActivity::class.java))
-            overridePendingTransition(0, 0)
+            // Navigate to the search activity
+            val intent = Intent(this, TutorSearchActivity::class.java)
+            startActivity(intent)
         }
 
-        // Set up notification icon click
-        binding.notificationIcon.setOnClickListener {
-            // TODO: Navigate to notifications screen
-        }
-
-        // Set up message icon click
-        binding.messageIcon.setOnClickListener {
-            // TODO: Navigate to messages screen
-        }
-
-
-        // Set up profile image click
+        // Set up profile image click listener
         binding.profileImage.setOnClickListener {
-            // Show the profile fragment and hide the main content
+            // Show the profile fragment
             showMainContent(false)
             loadFragment(ProfileFragment())
+            val bottomNavigation = findViewById<BottomNavigationView>(R.id.bottomNavigation)
+            bottomNavigation.selectedItemId = R.id.navigation_profile
         }
     }
 
@@ -374,6 +373,177 @@ class LearnerDashboardActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    /**
+     * Load sessions for the current learner
+     */
+    private fun loadLearnerSessions() {
+        lifecycleScope.launch {
+            try {
+                // Get the user ID from preferences
+                val userId = PreferenceUtils.getUserId(this@LearnerDashboardActivity)
+                if (userId != null) {
+                    // Get all sessions
+                    val allSessionsResult = NetworkUtils.getLearnerSessions(userId)
+                    if (allSessionsResult.isSuccess) {
+                        val allSessions = allSessionsResult.getOrNull() ?: emptyList()
+                        
+                        // Get upcoming sessions
+                        val upcomingSessionsResult = NetworkUtils.getUpcomingLearnerSessions(userId)
+                        if (upcomingSessionsResult.isSuccess) {
+                            val upcomingSessions = upcomingSessionsResult.getOrNull() ?: emptyList()
+                            
+                            // Display sessions in the UI
+                            displaySessions(allSessions)
+                        } else {
+                            // Handle error
+                            showNoSessions()
+                        }
+                    } else {
+                        // Handle error
+                        showNoSessions()
+                    }
+                } else {
+                    // Handle error - user not found
+                    Log.e(TAG, "User ID not found in preferences")
+                    showNoSessions()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error loading sessions: ${e.message}", e)
+                showNoSessions()
+            }
+        }
+    }
+    
+    /**
+     * Display the sessions in the UI
+     */
+    private fun displaySessions(sessions: List<NetworkUtils.TutoringSession>) {
+        // Set up RecyclerView for sessions
+        val recyclerView = binding.allSessionsRecyclerView
+        
+        if (sessions.isEmpty()) {
+            showNoSessions()
+            return
+        }
+        
+        // Create an adapter for the sessions
+        val adapter = SessionAdapter(sessions)
+        recyclerView.adapter = adapter
+        recyclerView.layoutManager = LinearLayoutManager(this)
+    }
+    
+    /**
+     * Show a message when no sessions are available
+     */
+    private fun showNoSessions() {
+        val recyclerView = binding.allSessionsRecyclerView
+        recyclerView.visibility = View.GONE
+        
+        // Create and show a message in place of the RecyclerView
+        val noSessionsView = layoutInflater.inflate(R.layout.item_no_sessions, null)
+        val parent = recyclerView.parent as LinearLayout
+        
+        // Remove any existing no-sessions view first
+        for (i in 0 until parent.childCount) {
+            val child = parent.getChildAt(i)
+            if (child.id == R.id.noSessionsView) {
+                parent.removeViewAt(i)
+                break
+            }
+        }
+        
+        // Set up click listener for Find Tutors button
+        noSessionsView.findViewById<com.google.android.material.button.MaterialButton>(R.id.findTutorButton)
+            .setOnClickListener {
+                val intent = Intent(this, TutorSearchActivity::class.java)
+                startActivity(intent)
+            }
+        
+        // Add the no-sessions view
+        parent.addView(noSessionsView, parent.indexOfChild(recyclerView) + 1)
+    }
+    
+    /**
+     * Adapter for the sessions RecyclerView
+     */
+    private inner class SessionAdapter(private val sessions: List<NetworkUtils.TutoringSession>) : 
+        androidx.recyclerview.widget.RecyclerView.Adapter<SessionAdapter.ViewHolder>() {
+        
+        inner class ViewHolder(view: View) : androidx.recyclerview.widget.RecyclerView.ViewHolder(view) {
+            val subject: TextView = view.findViewById(R.id.sessionSubject)
+            val date: TextView = view.findViewById(R.id.sessionDate)
+            val time: TextView = view.findViewById(R.id.sessionTime)
+            val status: TextView = view.findViewById(R.id.sessionStatus)
+            val tutorName: TextView = view.findViewById(R.id.tutorName)
+        }
+        
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+            val view = LayoutInflater.from(parent.context)
+                .inflate(R.layout.item_session, parent, false)
+            return ViewHolder(view)
+        }
+        
+        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+            val session = sessions[position]
+            
+            // Set session details
+            holder.subject.text = session.subject
+            
+            // Format date and time
+            val dateTimeFormatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+            val dateFormatter = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+            val timeFormatter = SimpleDateFormat("h:mm a", Locale.getDefault())
+            
+            try {
+                val startDateTime = dateTimeFormatter.parse(session.startTime)
+                val endDateTime = dateTimeFormatter.parse(session.endTime)
+                
+                if (startDateTime != null && endDateTime != null) {
+                    val formattedDate = dateFormatter.format(startDateTime)
+                    val formattedStartTime = timeFormatter.format(startDateTime)
+                    val formattedEndTime = timeFormatter.format(endDateTime)
+                    
+                    holder.date.text = formattedDate
+                    holder.time.text = "$formattedStartTime - $formattedEndTime"
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error formatting date: ${e.message}")
+                holder.date.text = "Invalid date"
+                holder.time.text = "Invalid time"
+            }
+            
+            holder.status.text = session.status
+            
+            // Get tutor name - in a real app, you would load this from the network
+            lifecycleScope.launch {
+                try {
+                    val tutorResult = NetworkUtils.findTutorById(session.tutorId)
+                    if (tutorResult.isSuccess) {
+                        val tutor = tutorResult.getOrNull()
+                        if (tutor != null) {
+                            holder.tutorName.text = tutor.name
+                        } else {
+                            holder.tutorName.text = "Unknown Tutor"
+                        }
+                    } else {
+                        holder.tutorName.text = "Unknown Tutor"
+                    }
+                } catch (e: Exception) {
+                    holder.tutorName.text = "Unknown Tutor"
+                }
+            }
+            
+            // Set click listener to view session details
+            holder.itemView.setOnClickListener {
+                // TODO: Navigate to session details
+                Toast.makeText(this@LearnerDashboardActivity, 
+                    "Session details coming soon!", Toast.LENGTH_SHORT).show()
+            }
+        }
+        
+        override fun getItemCount() = sessions.size
     }
 
 }

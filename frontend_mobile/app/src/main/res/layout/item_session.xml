@@ -5,7 +5,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="16dp"
+    android:layout_marginBottom="8dp"
     app:cardCornerRadius="8dp"
     app:cardElevation="2dp">
 
@@ -15,127 +15,110 @@
         android:orientation="vertical"
         android:padding="16dp">
 
-        <!-- Session Header -->
+        <TextView
+            android:id="@+id/sessionSubject"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Mathematics"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="?android:textColorPrimary" />
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="8dp">
+            android:layout_marginTop="4dp">
 
-            <ImageView
-                android:id="@+id/sessionIcon"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:src="@drawable/ic_courses"
-                android:contentDescription="Session Icon"
-                android:background="@drawable/circle_background"
-                android:padding="8dp" />
-
-            <LinearLayout
-                android:layout_width="0dp"
+            <TextView
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical"
-                android:layout_marginStart="16dp">
-
-                <TextView
-                    android:id="@+id/sessionSubject"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
-                    android:textStyle="bold"
-                    tools:text="Mathematics" />
-
-                <TextView
-                    android:id="@+id/sessionDateTime"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
-                    android:textColor="?android:textColorSecondary"
-                    tools:text="May 15, 2024 • 10:00 AM - 11:30 AM" />
-
-            </LinearLayout>
-
-        </LinearLayout>
-
-        <!-- Session Description -->
-        <TextView
-            android:id="@+id/sessionNotes"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
-            android:maxLines="3"
-            android:ellipsize="end"
-            android:layout_marginBottom="16dp"
-            tools:text="Tutoring session focusing on algebra equations and problem-solving strategies." />
-
-        <!-- Session Stats -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
+                android:text="Tutor: "
+                android:textSize="14sp"
+                android:textColor="?android:textColorSecondary" />
 
             <TextView
                 android:id="@+id/tutorName"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:drawableStart="@drawable/ic_person"
-                android:drawablePadding="4dp"
-                android:gravity="center_vertical"
-                android:textSize="12sp"
-                tools:text="Tutor: John Doe" />
-
-            <View
-                android:layout_width="0dp"
-                android:layout_height="0dp"
-                android:layout_weight="1" />
-
-            <TextView
-                android:id="@+id/sessionType"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:drawablePadding="4dp"
-                android:gravity="center_vertical"
-                android:textSize="12sp"
-                tools:text="Online" />
-
-            <TextView
-                android:id="@+id/sessionStatus"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="16dp"
-                android:drawablePadding="4dp"
-                android:gravity="center_vertical"
-                android:textSize="12sp"
-                tools:text="Scheduled" />
-
+                android:text="John Doe"
+                android:textSize="14sp"
+                android:textColor="?android:textColorPrimary" />
         </LinearLayout>
 
-        <!-- Session Actions -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginTop="16dp">
-            
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/viewSessionButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="View Details"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
-                
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/rescheduleButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="8dp"
-                android:text="Reschedule"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
-        </LinearLayout>
+            android:layout_marginTop="8dp">
 
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Date"
+                    android:textSize="12sp"
+                    android:textColor="?android:textColorSecondary" />
+
+                <TextView
+                    android:id="@+id/sessionDate"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="May 15, 2025"
+                    android:textSize="14sp"
+                    android:textColor="?android:textColorPrimary" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Time"
+                    android:textSize="12sp"
+                    android:textColor="?android:textColorSecondary" />
+
+                <TextView
+                    android:id="@+id/sessionTime"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="2:00 PM - 3:30 PM"
+                    android:textSize="14sp"
+                    android:textColor="?android:textColorPrimary" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="end">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Status"
+                    android:textSize="12sp"
+                    android:textColor="?android:textColorSecondary" />
+
+                <TextView
+                    android:id="@+id/sessionStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Scheduled"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/primary_blue" />
+            </LinearLayout>
+        </LinearLayout>
     </LinearLayout>
 
 </com.google.android.material.card.MaterialCardView> 

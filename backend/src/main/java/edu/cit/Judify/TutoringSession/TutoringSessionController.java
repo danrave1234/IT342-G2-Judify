@@ -1,5 +1,24 @@
 package edu.cit.Judify.TutoringSession;
 
+import java.util.Date;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import edu.cit.Judify.TutoringSession.DTO.TutoringSessionDTO;
 import edu.cit.Judify.TutoringSession.DTO.TutoringSessionDTOMapper;
 import edu.cit.Judify.User.UserEntity;
@@ -10,15 +29,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.Date;
-import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/tutoring-sessions")
@@ -45,9 +55,67 @@ public class TutoringSessionController {
     @PostMapping("/createSession")
     public ResponseEntity<TutoringSessionDTO> createSession(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Session data to create", required = true)
-            @RequestBody TutoringSessionDTO sessionDTO) {
-        TutoringSessionEntity session = sessionDTOMapper.toEntity(sessionDTO);
-        return ResponseEntity.ok(sessionDTOMapper.toDTO(sessionService.createSession(session)));
+            @RequestBody TutoringSessionDTO sessionDTO,
+            @Parameter(hidden = true) @org.springframework.security.core.annotation.AuthenticationPrincipal 
+            org.springframework.security.core.userdetails.UserDetails userDetails) {
+        
+        // Log incoming data
+        System.out.println("Creating session with DTO: " + sessionDTO);
+        System.out.println("Authentication: " + (userDetails != null ? userDetails.getUsername() : "No authentication"));
+        
+        // Check if studentId is already set in the DTO
+        if (sessionDTO.getStudentId() == null) {
+            // Try to set from authentication if available
+            if (userDetails != null) {
+                // Extract the user ID from the authenticated user
+                String username = userDetails.getUsername();
+                System.out.println("Authenticated username: " + username);
+                
+                // Get the user by username and set as student ID
+                UserEntity student = sessionService.findUserByUsername(username);
+                System.out.println("Found student: " + (student != null ? student.getUserId() : "null"));
+                
+                if (student != null) {
+                    sessionDTO.setStudentId(student.getUserId());
+                    System.out.println("Set student ID in DTO: " + student.getUserId());
+                } else {
+                    System.out.println("Student not found for username: " + username);
+                    return ResponseEntity.badRequest().body(null);
+                }
+            } else {
+                System.out.println("No authentication found and no student ID provided in request.");
+                return ResponseEntity.status(org.springframework.http.HttpStatus.BAD_REQUEST)
+                    .body(null);
+            }
+        } else {
+            System.out.println("Student ID was provided in the request: " + sessionDTO.getStudentId());
+        }
+        
+        try {
+            // Validate that required fields are present
+            if (sessionDTO.getStudentId() == null) {
+                System.out.println("Student ID is missing");
+                return ResponseEntity.badRequest().body(null);
+            }
+            
+            if (sessionDTO.getTutorId() == null) {
+                System.out.println("Tutor ID is missing");
+                return ResponseEntity.badRequest().body(null);
+            }
+            
+            TutoringSessionEntity session = sessionDTOMapper.toEntity(sessionDTO);
+            System.out.println("Converted DTO to entity, student ID: " + (session.getStudent() != null ? session.getStudent().getUserId() : "null"));
+            
+            TutoringSessionEntity savedSession = sessionService.createSession(session);
+            System.out.println("Session saved successfully with ID: " + savedSession.getSessionId());
+            
+            return ResponseEntity.ok(sessionDTOMapper.toDTO(savedSession));
+        } catch (Exception e) {
+            System.out.println("Error creating session: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(null);
+        }
     }
 
     @Operation(summary = "Get session by ID", description = "Returns a tutoring session by its ID")

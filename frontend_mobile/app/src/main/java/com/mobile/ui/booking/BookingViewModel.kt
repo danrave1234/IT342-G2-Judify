@@ -389,7 +389,7 @@ class BookingViewModel(
                 )
 
                 result.fold(
-                    onSuccess = { session ->
+                    onSuccess = { _ ->
                         _bookingState.value = _bookingState.value?.copy(
                             isLoading = false,
                             bookingComplete = true
@@ -400,7 +400,7 @@ class BookingViewModel(
                         // Fall back to the old method if the API call fails
                         try {
                             // Create booking object for the legacy API
-                            val booking = Booking(
+                            val legacyBooking = Booking(
                                 id = UUID.randomUUID().toString(),
                                 learnerId = learnerId,
                                 tutorId = tutorId.toString(),
@@ -415,7 +415,7 @@ class BookingViewModel(
                             )
 
                             // Attempt to create the booking
-                            val fallbackResult = repository.createBooking(booking)
+                            val fallbackResult = repository.createBooking(legacyBooking)
                             fallbackResult.fold(
                                 onSuccess = {
                                     _bookingState.value = _bookingState.value?.copy(
@@ -464,16 +464,8 @@ class BookingViewModel(
             return
         }
 
-        val booking = Booking(
-            id = UUID.randomUUID().toString(),
-            learnerId = learnerId,
-            tutorId = schedule.tutorId,
-            scheduleId = schedule.id,
-            status = "pending",
-            createdAt = Date()
-        )
-
-        // ... rest of the booking logic ...
+        // TODO: Implement booking logic
+        _loading.value = false
     }
 }
 

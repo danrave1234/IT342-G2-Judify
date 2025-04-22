@@ -17,6 +17,7 @@ object PreferenceUtils {
     private const val KEY_USER_CONTACT_DETAILS = "userContactDetails"
     private const val KEY_USER_USERNAME = "userUsername"
     private const val KEY_USER_BIO = "userBio"
+    private const val KEY_USER_ID = "userId"
     private const val KEY_REMEMBER_ME = "rememberMe"
     private const val KEY_HAS_SEEN_ONBOARDING = "hasSeenOnboarding"
 
@@ -44,6 +45,15 @@ object PreferenceUtils {
         editor.putString(KEY_USER_LAST_NAME, lastName)
         editor.putString(KEY_USER_EMAIL, email)
         editor.putString(KEY_USER_ROLE, role)
+        editor.apply()
+    }
+
+    /**
+     * Save user ID to shared preferences
+     */
+    fun saveUserId(context: Context, userId: Long) {
+        val editor = getPreferences(context).edit()
+        editor.putLong(KEY_USER_ID, userId)
         editor.apply()
     }
 
@@ -96,6 +106,14 @@ object PreferenceUtils {
      */
     fun getUserRole(context: Context): String? {
         return getPreferences(context).getString(KEY_USER_ROLE, null)
+    }
+
+    /**
+     * Get user ID
+     */
+    fun getUserId(context: Context): Long? {
+        val id = getPreferences(context).getLong(KEY_USER_ID, -1L)
+        return if (id == -1L) null else id
     }
 
     /**

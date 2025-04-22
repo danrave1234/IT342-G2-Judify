@@ -1,6 +1,9 @@
 package edu.cit.Judify.TutoringSession;
 
-import edu.cit.Judify.User.UserEntity;
+import java.util.Date;
+import java.util.List;
+import java.util.Optional;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -9,24 +12,64 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Date;
-import java.util.List;
-import java.util.Optional;
+import edu.cit.Judify.User.UserEntity;
+import edu.cit.Judify.User.UserRepository;
 
 @Service
 public class TutoringSessionService {
 
     private final TutoringSessionRepository sessionRepository;
+    private final UserRepository userRepository;
 
     @Autowired
-    public TutoringSessionService(TutoringSessionRepository sessionRepository) {
+    public TutoringSessionService(TutoringSessionRepository sessionRepository, UserRepository userRepository) {
         this.sessionRepository = sessionRepository;
+        this.userRepository = userRepository;
     }
 
+    /**
+     * Find a user by username
+     * @param username the username to search for
+     * @return the user entity if found, or null if not found
+     */
+    public UserEntity findUserByUsername(String username) {
+        return userRepository.findByUsername(username).orElse(null);
+    }
+
+    /**
+     * Create a new tutoring session
+     * @param session the session to create
+     * @return the created session
+     */
     @Transactional
     public TutoringSessionEntity createSession(TutoringSessionEntity session) {
+        System.out.println("TutoringSessionService.createSession - Starting session creation");
+        
         // Add validation logic here if needed
-        return sessionRepository.save(session);
+        // Ensure student is not null
+        if (session.getStudent() == null) {
+            System.out.println("TutoringSessionService.createSession - Student is null, throwing exception");
+            throw new IllegalArgumentException("Student cannot be null when creating a tutoring session");
+        }
+        
+        System.out.println("TutoringSessionService.createSession - Student ID: " + session.getStudent().getUserId());
+        
+        if (session.getTutor() == null) {
+            System.out.println("TutoringSessionService.createSession - Tutor is null, throwing exception");
+            throw new IllegalArgumentException("Tutor cannot be null when creating a tutoring session");
+        }
+        
+        System.out.println("TutoringSessionService.createSession - Tutor ID: " + session.getTutor().getUserId());
+        
+        try {
+            TutoringSessionEntity savedSession = sessionRepository.save(session);
+            System.out.println("TutoringSessionService.createSession - Session saved successfully with ID: " + savedSession.getSessionId());
+            return savedSession;
+        } catch (Exception e) {
+            System.out.println("TutoringSessionService.createSession - Error saving session: " + e.getMessage());
+            e.printStackTrace();
+            throw e; // Re-throw to let @Transactional handle rollback
+        }
     }
 
     public Optional<TutoringSessionEntity> getSessionById(Long id) {

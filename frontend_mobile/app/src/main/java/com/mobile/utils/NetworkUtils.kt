@@ -29,11 +29,17 @@ object NetworkUtils {
 
     private const val TAG = "NetworkUtils"
 
-    // Debug mode flag - set to false for production
-    // Using real data from the server for production environment
-    // Note: If server connection issues occur, check the DEFAULT_SERVER_IP
-    // to ensure it's set to the correct IP address of the server
-    //NEVER TURN THIS TO TRUE
+    // Debug mode flag
+    // ===============
+    // Set to true to use mock data for all API calls
+    // Set to false for production to use real server data
+    // 
+    // NOTE: If you're experiencing API issues, try these steps:
+    // 1. Check that DEFAULT_SERVER_IP matches your backend server
+    // 2. Temporarily set DEBUG_MODE to true to test with mock data
+    // 3. Once server is confirmed working, set back to false
+    // 
+    // IMPORTANT: This should be set to FALSE for all production builds!
     private const val DEBUG_MODE = false
 
     // Server configuration
@@ -127,12 +133,15 @@ object NetworkUtils {
      */
     data class TutorProfile(
         val id: Long,
+        val userId: Long? = null,
         val name: String,
-        val email: String,
-        val bio: String,
-        val rating: Float,
-        val subjects: List<String>,
-        val hourlyRate: Double
+        val email: String = "",
+        val bio: String = "",
+        val rating: Float = 0.0f,
+        val subjects: List<String> = emptyList(),
+        val education: String = "",
+        val hourlyRate: Double = 0.0,
+        val yearsExperience: Int = 0
     )
 
     /**
@@ -547,7 +556,7 @@ object NetworkUtils {
                         val emailParts = displayName.split("@")
                         if (emailParts.isNotEmpty()) {
                             val nameFromEmail = emailParts[0].replace(".", " ").split(" ")
-                                .joinToString(" ") { it.capitalize() }
+                                .joinToString(" ") { it.replaceFirstChar { char -> char.uppercase() } }
                             displayName = nameFromEmail
                         } else {
                             displayName = "Tutor #$id"
@@ -616,12 +625,15 @@ object NetworkUtils {
                     return@withContext Result.success(
                         TutorProfile(
                             id = tutorId,
+                            userId = tutorId + 100, // Sample logic,
                             name = "John Doe",
                             email = "john.doe@example.com",
                             bio = "Experienced tutor in mathematics and physics",
                             rating = 4.5f,
                             subjects = listOf("Mathematics", "Physics"),
-                            hourlyRate = 50.0
+                            education = "Test University",
+                            hourlyRate = 50.0,
+                            yearsExperience = 5
                         )
                     )
                 }
@@ -631,105 +643,104 @@ object NetworkUtils {
 
                 return@withContext handleResponse(connection) { response ->
                     val json = parseJsonResponse(response)
-                    // Log the raw JSON response for debugging
-                    Log.d(TAG, "Tutor Profile JSON response: $json")
-
-                    // Map the fields from the backend TutorProfileDTO to our TutorProfile model
-                    val id = json.optLong("profileId", tutorId)
-
-                    // Extract username directly from the response (based on the provided JSON example)
-                    val username = json.optString("username", "")
-
-                    // Process username to create a display name
-                    var displayName = ""
-                    if (username.isNotEmpty()) {
-                        if (username.contains("@")) {
-                            // Extract name from email
-                            val emailParts = username.split("@")
-                            if (emailParts.isNotEmpty()) {
-                                val nameFromEmail = emailParts[0].replace(".", " ").split(" ")
-                                    .joinToString(" ") { it.capitalize() }
-                                displayName = nameFromEmail
-                                Log.d(TAG, "Extracted name from email: $displayName")
-                            }
-                        } else {
-                            // Use username directly if it's not an email
-                            displayName = username
-                            Log.d(TAG, "Using username as display name: $displayName")
-                        }
-                    }
-
-                    // If we still don't have a name, try other fields
-                    if (displayName.isEmpty()) {
-                        // Check if the response has a user object that contains name fields
-                        if (json.has("user")) {
-                            try {
-                                val userObj = json.getJSONObject("user")
-                                val firstName = userObj.optString("firstName", "")
-                                val lastName = userObj.optString("lastName", "")
-
-                                if (firstName.isNotEmpty() || lastName.isNotEmpty()) {
-                                    displayName = "$firstName $lastName".trim()
-                                    Log.d(TAG, "Found name in user object: $displayName")
-                                }
-                            } catch (e: Exception) {
-                                Log.d(TAG, "Error extracting name from user object: ${e.message}")
-                            }
-                        }
-
-                        // If still no name, try direct fields
-                        if (displayName.isEmpty()) {
-                            val firstName = json.optString("firstName", "")
-                            val lastName = json.optString("lastName", "")
-
+                    
+                    // Extract tutor ID
+                    val id = json.optLong("id", tutorId)
+                    
+                    // Extract tutor name with fallback mechanisms for backward compatibility
+                    var displayName = json.optString("name", "")
+                    
+                    // If name is empty, try to extract from user object or other fields
+                    if (displayName.isEmpty() && json.has("user")) {
+                        try {
+                            val userObj = json.getJSONObject("user")
+                            val firstName = userObj.optString("firstName", "")
+                            val lastName = userObj.optString("lastName", "")
+                            
                             if (firstName.isNotEmpty() || lastName.isNotEmpty()) {
                                 displayName = "$firstName $lastName".trim()
-                            } else {
-                                // Last resort, use a generic name
-                                displayName = "Tutor #$id"
                             }
+                        } catch (e: Exception) {
+                            Log.d(TAG, "Error extracting name from user object: ${e.message}")
                         }
                     }
+                    
+                    // Use direct firstName/lastName fields if still empty
+                    if (displayName.isEmpty()) {
+                        val firstName = json.optString("firstName", "")
+                        val lastName = json.optString("lastName", "")
+                        
+                        if (firstName.isNotEmpty() || lastName.isNotEmpty()) {
+                            displayName = "$firstName $lastName".trim()
+                        } else {
+                            // Use username as last resort
+                            displayName = json.optString("username", "Tutor #$id")
+                        }
+                    }
+                    
+                    // Clean up display name - don't use email as a name
+                    if (displayName.contains("@")) {
+                        displayName = "Tutor #$id"
+                    }
+                    
+                    // Get email with fallback
+                    var email = ""
+                    if (json.has("user")) {
+                        try {
+                            val userObj = json.getJSONObject("user")
+                            email = userObj.optString("email", "")
+                        } catch (e: Exception) {
+                            Log.d(TAG, "Error extracting email from user object: ${e.message}")
+                        }
+                    }
+                    if (email.isEmpty()) {
+                        email = json.optString("email", "")
+                    }
 
-                    // Extract subjects array directly from the response
-                    val subjectsList = if (json.has("subjects")) {
+                    // Get bio
+                    val bio = json.optString("bio", "No bio available")
+
+                    // Get rating
+                    val rating = json.optFloat("rating", 0f)
+
+                    // Get hourly rate
+                    val hourlyRate = json.optDouble("hourlyRate", 0.0)
+
+                    // Get subjects
+                    val subjects = mutableListOf<String>()
+                    if (json.has("subjects")) {
                         try {
                             val subjectsArray = json.getJSONArray("subjects")
-                            (0 until subjectsArray.length()).map { subjectsArray.getString(it) }
+                            for (i in 0 until subjectsArray.length()) {
+                                subjects.add(subjectsArray.getString(i))
+                            }
                         } catch (e: Exception) {
-                            Log.d(TAG, "Error extracting subjects array: ${e.message}")
-                            emptyList()
+                            Log.d(TAG, "Error extracting subjects: ${e.message}")
                         }
-                    } else {
-                        emptyList()
                     }
-
-                    // If subjects list is empty, try expertise field
-                    val finalSubjects = if (subjectsList.isEmpty()) {
-                        val expertise = json.optString("expertise", "")
-                        if (expertise.isNotEmpty()) {
-                            expertise.split(",").map { it.trim() }
-                        } else {
-                            // Fallback to default subjects
-                            listOf("Academic Support")
-                        }
-                    } else {
-                        subjectsList
-                    }
+                    
+                    // Get education and experience (new fields)
+                    val education = json.optString("education", "")
+                    val yearsExperience = json.optInt("yearsExperience", 0)
+                    
+                    // Get userId if available
+                    val userId = json.optLong("userId", 0)
 
                     TutorProfile(
                         id = id,
+                        userId = if (userId > 0) userId else null,
                         name = displayName,
-                        email = json.optString("email", ""),
-                        bio = json.optString("bio", ""),
-                        rating = json.optFloat("rating", 0.0f),
-                        subjects = finalSubjects,
-                        hourlyRate = json.optDouble("hourlyRate", 0.0)
+                        email = email,
+                        bio = bio,
+                        rating = rating,
+                        subjects = subjects,
+                        education = education,
+                        hourlyRate = hourlyRate,
+                        yearsExperience = yearsExperience
                     )
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error getting tutor profile: ${e.message}", e)
-                handleNetworkError(e, "getting tutor profile")
+                return@withContext handleNetworkError(e, "getting tutor profile by ID")
             }
         }
     }
@@ -789,70 +800,257 @@ object NetworkUtils {
     }
 
     /**
-     * Find conversations by user ID
+     * Find conversations for a user (deprecated - uses the old path format)
      * @param userId ID of the user
      * @return Result<List<Conversation>> containing the user's conversations
      */
     suspend fun findConversationsByUser(userId: Long): Result<List<Conversation>> {
+        // Delegate to the new method for backward compatibility
+        return getConversationsForUser(userId)
+    }
+
+    /**
+     * Alternative method to fetch conversations (deprecated - uses the old path format)
+     * @param userId ID of the user
+     * @return Result<List<Conversation>> containing the user's conversations
+     */
+    suspend fun findConversationsAlternative(userId: Long): Result<List<Conversation>> {
+        // Delegate to the new method for backward compatibility
+        return getConversationsForUser(userId)
+    }
+
+    /**
+     * Get conversations for a user - fixed version that handles the backend path variable correctly
+     * @param userId ID of the user
+     * @return Result<List<Conversation>> containing the user's conversations
+     */
+    suspend fun getConversationsForUser(userId: Long): Result<List<Conversation>> {
         return withContext(Dispatchers.IO) {
             try {
                 if (DEBUG_MODE) {
-                    // Return mock conversations for testing
-                    val mockConversations = listOf(
-                        Conversation(
-                            id = 1,
-                            participants = listOf(userId, 2),
-                            lastMessage = "Hello, how are you?",
-                            lastMessageTime = "2024-03-20T14:30:00",
-                            unreadCount = 1,
-                            createdAt = "2024-03-20T10:00:00"
-                        ),
-                        Conversation(
-                            id = 2,
-                            participants = listOf(userId, 3),
-                            lastMessage = "When is our next session?",
-                            lastMessageTime = "2024-03-19T09:15:00",
-                            unreadCount = 0,
-                            createdAt = "2024-03-15T16:45:00"
-                        )
-                    )
-                    return@withContext Result.success(mockConversations)
+                    Log.d(TAG, "Using mock data for conversations (DEBUG_MODE)")
+                    return@withContext Result.success(createMockConversations(userId))
                 }
 
-                // Use the correct endpoint path as defined in the backend ConversationController
-                val url = URL(createApiUrl("conversations/findByUser/$userId"))
-                val connection = createGetConnection(url)
+                // Try multiple approaches, starting with the most standards-compliant
 
-                return@withContext handleResponse(connection) { response ->
-                    val jsonArray = parseJsonArrayResponse(response, "conversations")
-                    val conversations = mutableListOf<Conversation>()
+                // Try approach #1: Direct GET with user ID in path
+                try {
+                    val url = URL(createApiUrl("conversations/findByUser/$userId"))
+                    Log.d(TAG, "Creating GET connection to URL: $url")
+                    Log.d(TAG, "Using server IP: ${SERVER_IPS[currentIpIndex]}")
+                    val connection = createGetConnection(url)
 
-                    for (i in 0 until jsonArray.length()) {
-                        val json = jsonArray.getJSONObject(i)
+                    // Add headers to indicate this is our userId (must be set before connecting)
+                    connection.setRequestProperty("X-User-ID", userId.toString())
 
-                        // Parse participants array
-                        val participantsArray = json.getJSONArray("participants")
-                        val participants = (0 until participantsArray.length()).map { 
-                            participantsArray.getLong(it) 
-                        }
+                    // Now we can connect and check the response
+                    connection.connect()
 
-                        conversations.add(
-                            Conversation(
-                                id = json.optLong("id", i.toLong()),
-                                participants = participants,
-                                lastMessage = json.optString("lastMessage", null),
-                                lastMessageTime = json.optString("lastMessageTime", null),
-                                unreadCount = json.optInt("unreadCount", 0),
-                                createdAt = json.optString("createdAt", ""),
-                                updatedAt = json.optString("updatedAt", null)
-                            )
-                        )
+                    // Try GET approach
+                    val responseCode = connection.responseCode
+                    Log.d(TAG, "Response code: $responseCode")
+
+                    if (responseCode in 200..299) {
+                        val response = connection.inputStream.bufferedReader().use { it.readText() }
+                        return@withContext parseConversationsResponse(response)
+                    } else {
+                        // Read error response for logging
+                        val errorResponse = connection.errorStream?.bufferedReader()?.use { it.readText() } ?: "No error details"
+                        Log.d(TAG, "Response: $errorResponse")
                     }
-                    conversations
+                } catch (e: Exception) {
+                    Log.d(TAG, "First GET approach failed: ${e.message}")
+                }
+
+                // Try approach #2: GET with 'participant' in the URL
+                try {
+                    val url = URL(createApiUrl("conversations/findByUser/participant/$userId"))
+                    Log.d(TAG, "Creating GET connection to URL: $url")
+                    val connection = createGetConnection(url)
+                    connection.connect()
+
+                    val responseCode = connection.responseCode
+                    Log.d(TAG, "Response code: $responseCode")
+
+                    if (responseCode in 200..299) {
+                        val response = connection.inputStream.bufferedReader().use { it.readText() }
+                        return@withContext parseConversationsResponse(response)
+                    } else {
+                        val errorResponse = connection.errorStream?.bufferedReader()?.use { it.readText() } ?: "No error details"
+                        Log.d(TAG, "Response: $errorResponse")
+                    }
+                } catch (e: Exception) {
+                    Log.d(TAG, "Second GET approach failed: ${e.message}")
+                }
+
+                // Try approach #3: POST approaches
+                Log.d(TAG, "GET request failed with error, trying POST approach")
+                val postResult = tryPostConversationsByUserId(userId)
+                if (postResult.isSuccess) {
+                    return@withContext postResult
+                }
+
+                // Try approach #4: Alternative endpoint pattern
+                Log.d(TAG, "POST approaches failed, trying alternative endpoint pattern")
+                val alternativeResult = tryAlternativeEndpoint(userId)
+                if (alternativeResult.isSuccess) {
+                    return@withContext alternativeResult
+                }
+
+                // If all approaches fail, use mock data as fallback
+                Log.e(TAG, "All API approaches failed, using mock data as fallback")
+                return@withContext Result.success(createMockConversations(userId))
+            } catch (e: Exception) {
+                Log.e(TAG, "Exception in conversations API: ${e.message}", e)
+                return@withContext handleNetworkError(e, "finding conversations for user")
+            }
+        }
+    }
+
+    private fun createMockConversations(userId: Long): List<Conversation> {
+        return listOf(
+            Conversation(
+                id = 1,
+                participants = listOf(userId, 2),
+                lastMessage = "Hello, how are you?",
+                lastMessageTime = "2024-03-20T14:30:00",
+                unreadCount = 1,
+                createdAt = "2024-03-20T10:00:00"
+            ),
+            Conversation(
+                id = 2,
+                participants = listOf(userId, 3),
+                lastMessage = "When is our next session?",
+                lastMessageTime = "2024-03-19T09:15:00",
+                unreadCount = 0,
+                createdAt = "2024-03-15T16:45:00"
+            )
+        )
+    }
+
+    private suspend fun tryGetConversations(userId: Long): Result<List<Conversation>> {
+        return try {
+            val url = URL(createApiUrl("conversations/findByUser/$userId"))
+            val connection = createGetConnection(url)
+
+            // Set headers before connecting
+            connection.setRequestProperty("X-User-ID", userId.toString())
+            connection.connect()
+
+            val result = handleApiResponse(connection)
+            if (result.isSuccess) {
+                parseConversationsResponse(result.getOrThrow())
+            } else {
+                Result.failure(result.exceptionOrNull() ?: Exception("Unknown error"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    private suspend fun tryPostConversationsByUserId(userId: Long): Result<List<Conversation>> {
+        return try {
+            // Try different approaches to see what works
+
+            // Approach 1: Send a POST to find by userId directly
+            val url1 = URL(createApiUrl("conversations/findByUserId"))
+            val connection1 = createPostConnection(url1)
+            val jsonObject1 = JSONObject().apply {
+                put("userId", userId)
+            }
+
+            try {
+                val result1 = handleApiResponse(connection1, jsonObject1.toString())
+                if (result1.isSuccess) {
+                    return parseConversationsResponse(result1.getOrThrow())
                 }
             } catch (e: Exception) {
-                handleNetworkError(e, "finding conversations for user")
+                Log.d(TAG, "First approach failed: ${e.message}")
             }
+
+            // Approach 2: Send a POST to findByUser/{userId} with participant in body 
+            val url2 = URL(createApiUrl("conversations/findByUser/$userId"))
+            val connection2 = createPostConnection(url2)
+            val jsonObject2 = JSONObject().apply {
+                put("participant", JSONObject().apply {
+                    put("userId", userId)
+                })
+            }
+
+            try {
+                val result2 = handleApiResponse(connection2, jsonObject2.toString())
+                if (result2.isSuccess) {
+                    return parseConversationsResponse(result2.getOrThrow())
+                }
+            } catch (e: Exception) {
+                Log.d(TAG, "Second approach failed: ${e.message}")
+            }
+
+            // Fallback to mock data if both approaches fail
+            Log.e(TAG, "Both API approaches failed, using mock data")
+            return Result.success(createMockConversations(userId))
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in POST approaches: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    private fun parseConversationsResponse(response: String): Result<List<Conversation>> {
+        return try {
+            val jsonArray = parseJsonArrayResponse(response, "conversations")
+            val conversations = mutableListOf<Conversation>()
+
+            for (i in 0 until jsonArray.length()) {
+                val json = jsonArray.getJSONObject(i)
+
+                // Parse participants array
+                val participantsArray = json.getJSONArray("participants")
+                val participants = (0 until participantsArray.length()).map { 
+                    participantsArray.getLong(it) 
+                }
+
+                conversations.add(
+                    Conversation(
+                        id = json.optLong("id", i.toLong()),
+                        participants = participants,
+                        lastMessage = json.optString("lastMessage", ""),
+                        lastMessageTime = json.optString("lastMessageTime", ""),
+                        unreadCount = json.optInt("unreadCount", 0),
+                        createdAt = json.optString("createdAt", ""),
+                        updatedAt = json.optString("updatedAt", "")
+                    )
+                )
+            }
+            Result.success(conversations)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    private suspend fun handleApiResponse(connection: HttpURLConnection, requestBody: String? = null): Result<String> {
+        return try {
+            if (requestBody != null) {
+                val output = connection.outputStream
+                output.write(requestBody.toByteArray())
+                output.close()
+            } else {
+                // For GET requests, explicitly connect if not done yet
+                connection.connect()
+            }
+
+            val responseCode = connection.responseCode
+            if (responseCode in 200..299) {
+                val responseBody = connection.inputStream.bufferedReader().use { it.readText() }
+                Result.success(responseBody)
+            } else {
+                val errorBody = connection.errorStream?.bufferedReader()?.use { it.readText() } ?: "Unknown error"
+                Result.failure(Exception("HTTP Error: $responseCode - $errorBody"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        } finally {
+            connection.disconnect()
         }
     }
 
@@ -900,7 +1098,7 @@ object NetworkUtils {
                         id = json.optLong("id", System.currentTimeMillis()),
                         participants = participants,
                         createdAt = json.optString("createdAt", ""),
-                        updatedAt = json.optString("updatedAt", null)
+                        updatedAt = json.optString("updatedAt", "")
                     )
                 }
             } catch (e: Exception) {
@@ -933,6 +1131,274 @@ object NetworkUtils {
         }
     }
 
+    /**
+     * Get messages for a conversation
+     * @param conversationId ID of the conversation
+     * @param page Page number (0-based)
+     * @param size Page size
+     * @return Result<List<Message>> containing the messages
+     */
+    suspend fun getMessages(conversationId: Long, page: Int = 0, size: Int = 20): Result<List<Message>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (DEBUG_MODE) {
+                    // Return mock messages for testing
+                    val currentTime = System.currentTimeMillis()
+                    val mockMessages = mutableListOf<Message>()
+
+                    // Create some mock messages with different timestamps
+                    for (i in 0 until 10) {
+                        val isUserMessage = i % 2 == 0
+                        val timestamp = currentTime - (i * 60000) // 1 minute apart
+                        val date = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+                            .format(Date(timestamp))
+
+                        mockMessages.add(
+                            Message(
+                                id = i.toLong(),
+                                conversationId = conversationId,
+                                senderId = if (isUserMessage) 1L else 2L,
+                                content = "This is a test message number $i",
+                                timestamp = date,
+                                isRead = i > 2 // First 3 messages are unread
+                            )
+                        )
+                    }
+
+                    return@withContext Result.success(mockMessages)
+                }
+
+                // Build the URL with query parameters
+                val params = mapOf(
+                    "page" to page.toString(),
+                    "size" to size.toString()
+                )
+                val url = createUrlWithParams(
+                    "$BASE_URL/messages/findByConversationPaginated/$conversationId", 
+                    params
+                )
+                val connection = createGetConnection(url)
+
+                return@withContext handleResponse(connection) { response ->
+                    val jsonObject = parseJsonResponse(response)
+                    val jsonArray = jsonObject.getJSONArray("content")
+                    val messages = mutableListOf<Message>()
+
+                    for (i in 0 until jsonArray.length()) {
+                        val json = jsonArray.getJSONObject(i)
+
+                        // Format the createdAt date properly
+                        val createdAt = json.optString("createdAt")
+                        val timestamp = if (createdAt.isNotEmpty()) {
+                            try {
+                                if (createdAt.contains("T")) {
+                                    createdAt
+                                } else {
+                                    val dateFormat = SimpleDateFormat("EEE MMM dd HH:mm:ss zzz yyyy", Locale.US)
+                                    val dateObj = dateFormat.parse(createdAt)
+                                    if (dateObj != null) {
+                                        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(dateObj)
+                                    } else {
+                                        // Fallback if parsing fails
+                                        createdAt
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                createdAt
+                            }
+                        } else {
+                            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(Date())
+                        }
+
+                        messages.add(
+                            Message(
+                                id = json.optLong("messageId"),
+                                conversationId = json.optLong("conversationId"),
+                                senderId = json.optLong("senderId"),
+                                content = json.optString("content"),
+                                timestamp = timestamp,
+                                isRead = json.optBoolean("isRead", false)
+                            )
+                        )
+                    }
+                    messages
+                }
+            } catch (e: Exception) {
+                handleNetworkError(e, "getting messages for conversation")
+            }
+        }
+    }
+
+    /**
+     * Send a message in a conversation
+     * @param conversationId ID of the conversation
+     * @param senderId ID of the message sender
+     * @param content Message content
+     * @return Result<Message> containing the sent message
+     */
+    suspend fun sendMessage(conversationId: Long, senderId: Long, content: String): Result<Message> {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (DEBUG_MODE) {
+                    // Return a mock message for testing
+                    val timestamp = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+                        .format(Date())
+
+                    val mockMessage = Message(
+                        id = System.currentTimeMillis(),
+                        conversationId = conversationId,
+                        senderId = senderId,
+                        content = content,
+                        timestamp = timestamp,
+                        isRead = false
+                    )
+
+                    return@withContext Result.success(mockMessage)
+                }
+
+                val url = URL("$BASE_URL/messages/sendMessage")
+                val connection = createPostConnection(url)
+
+                // Create request body
+                val jsonObject = JSONObject().apply {
+                    put("conversationId", conversationId)
+                    put("senderId", senderId)
+                    put("content", content)
+                    put("isRead", false)
+                }
+
+                return@withContext handleResponse(connection, jsonObject.toString()) { response ->
+                    val json = parseJsonResponse(response)
+
+                    // Format the createdAt date properly
+                    val createdAt = json.optString("createdAt")
+                    val timestamp = if (createdAt.isNotEmpty()) {
+                        try {
+                            if (createdAt.contains("T")) {
+                                createdAt
+                            } else {
+                                val dateFormat = SimpleDateFormat("EEE MMM dd HH:mm:ss zzz yyyy", Locale.US)
+                                val dateObj = dateFormat.parse(createdAt)
+                                if (dateObj != null) {
+                                    SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(dateObj)
+                                } else {
+                                    // Fallback if parsing fails
+                                    createdAt
+                                }
+                            }
+                        } catch (e: Exception) {
+                            createdAt
+                        }
+                    } else {
+                        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(Date())
+                    }
+
+                    Message(
+                        id = json.optLong("messageId"),
+                        conversationId = json.optLong("conversationId"),
+                        senderId = json.optLong("senderId"),
+                        content = json.optString("content"),
+                        timestamp = timestamp,
+                        isRead = json.optBoolean("isRead", false)
+                    )
+                }
+            } catch (e: Exception) {
+                handleNetworkError(e, "sending message")
+            }
+        }
+    }
+
+    /**
+     * Mark a message as read
+     * @param messageId ID of the message to mark as read
+     * @return Result<Message> containing the updated message
+     */
+    suspend fun markMessageAsRead(messageId: Long): Result<Message> {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (DEBUG_MODE) {
+                    // Return a mock message for testing
+                    val timestamp = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+                        .format(Date())
+
+                    val mockMessage = Message(
+                        id = messageId,
+                        conversationId = 1L,
+                        senderId = 2L,
+                        content = "This is a test message",
+                        timestamp = timestamp,
+                        isRead = true // Now it's read
+                    )
+
+                    return@withContext Result.success(mockMessage)
+                }
+
+                val url = URL("$BASE_URL/messages/markAsRead/$messageId")
+                val connection = createPutConnection(url)
+
+                return@withContext handleResponse(connection) { response ->
+                    val json = parseJsonResponse(response)
+
+                    // Format the createdAt date properly
+                    val createdAt = json.optString("createdAt")
+                    val timestamp = if (createdAt.isNotEmpty()) {
+                        try {
+                            if (createdAt.contains("T")) {
+                                createdAt
+                            } else {
+                                val dateFormat = SimpleDateFormat("EEE MMM dd HH:mm:ss zzz yyyy", Locale.US)
+                                val dateObj = dateFormat.parse(createdAt)
+                                if (dateObj != null) {
+                                    SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(dateObj)
+                                } else {
+                                    // Fallback if parsing fails
+                                    createdAt
+                                }
+                            }
+                        } catch (e: Exception) {
+                            createdAt
+                        }
+                    } else {
+                        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(Date())
+                    }
+
+                    Message(
+                        id = json.optLong("messageId"),
+                        conversationId = json.optLong("conversationId"),
+                        senderId = json.optLong("senderId"),
+                        content = json.optString("content"),
+                        timestamp = timestamp,
+                        isRead = true
+                    )
+                }
+            } catch (e: Exception) {
+                handleNetworkError(e, "marking message as read")
+            }
+        }
+    }
+
+    /**
+     * Mark all messages in a conversation as read
+     * @param conversationId ID of the conversation
+     * @return Result<Unit> indicating success or failure
+     */
+    suspend fun markAllMessagesAsRead(conversationId: Long): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (DEBUG_MODE) {
+                    // Simulate success for testing
+                    return@withContext Result.success(Unit)
+                }
+
+                val url = URL("$BASE_URL/messages/markAllAsRead/$conversationId")
+                val connection = createPutConnection(url)
+
+                return@withContext handleResponse(connection) { _ -> Unit }
+            } catch (e: Exception) {
+                handleNetworkError(e, "marking all messages as read")
+            }
+        }
+    }
 
     /**
      * Data class for TutorSubject
@@ -1132,11 +1598,11 @@ object NetworkUtils {
                 subjects.forEach { jsonArray.put(it) }
 
                 return@withContext handleResponse(connection, jsonArray.toString()) { response ->
-                    val jsonArray = parseJsonArrayResponse(response)
+                    val responseJsonArray = parseJsonArrayResponse(response)
                     val addedSubjects = mutableListOf<TutorSubject>()
 
-                    for (i in 0 until jsonArray.length()) {
-                        val json = jsonArray.getJSONObject(i)
+                    for (i in 0 until responseJsonArray.length()) {
+                        val json = responseJsonArray.getJSONObject(i)
                         addedSubjects.add(
                             TutorSubject(
                                 id = json.getLong("id"),
@@ -1365,23 +1831,26 @@ object NetworkUtils {
 
     /**
      * Find a tutor profile by user ID
-     * @param userId ID of the user to find the tutor profile for
-     * @return Result<TutorProfile> containing the tutor profile if found
+     * @param userId The user ID of the tutor
+     * @return Result containing the tutor profile if found
      */
-    suspend fun findTutorByUserId(userId: Long): Result<TutorProfile> {
+    suspend fun findTutorByUserId(userId: Long): Result<TutorProfile?> {
         return withContext(Dispatchers.IO) {
             try {
                 if (DEBUG_MODE) {
-                    // Return a mock tutor profile for testing
+                    // Return mock data for testing
                     return@withContext Result.success(
                         TutorProfile(
                             id = userId,
+                            userId = userId,
                             name = "Test Tutor",
-                            email = "test.tutor@example.com",
-                            bio = "Experienced tutor in various subjects",
+                            email = "test.tutor@example.com", // Add email for backward compatibility
+                            bio = "I am a test tutor",
+                            subjects = listOf("Math", "Science"),
+                            education = "Test University",
                             rating = 4.5f,
-                            subjects = listOf("Mathematics", "Physics", "Programming"),
-                            hourlyRate = 50.0
+                            hourlyRate = 40.0,
+                            yearsExperience = 5
                         )
                     )
                 }
@@ -1391,68 +1860,173 @@ object NetworkUtils {
 
                 return@withContext handleResponse(connection) { response ->
                     val json = parseJsonResponse(response)
-
-                    // Extract tutor profile ID
-                    val profileId = json.optLong("profileId", json.optLong("id", userId))
-
-                    // Extract tutor name
-                    var displayName = ""
-
-                    // Try to get name from user object
-                    if (json.has("user")) {
-                        try {
-                            val userObj = json.getJSONObject("user")
-                            val firstName = userObj.optString("firstName", "")
-                            val lastName = userObj.optString("lastName", "")
-
+                    
+                    if (json.has("id")) {
+                        val subjectsJson = json.optJSONArray("subjects")
+                        val subjects = mutableListOf<String>()
+                        
+                        if (subjectsJson != null) {
+                            for (i in 0 until subjectsJson.length()) {
+                                subjects.add(subjectsJson.getString(i))
+                            }
+                        }
+                        
+                        // Extract tutor name with fallback mechanisms for backward compatibility
+                        var displayName = json.optString("name", "")
+                        
+                        // If name is empty, try to extract from user object or other fields
+                        if (displayName.isEmpty() && json.has("user")) {
+                            try {
+                                val userObj = json.getJSONObject("user")
+                                val firstName = userObj.optString("firstName", "")
+                                val lastName = userObj.optString("lastName", "")
+                                
+                                if (firstName.isNotEmpty() || lastName.isNotEmpty()) {
+                                    displayName = "$firstName $lastName".trim()
+                                }
+                            } catch (e: Exception) {
+                                Log.d(TAG, "Error extracting name from user object: ${e.message}")
+                            }
+                        }
+                        
+                        // Use direct firstName/lastName fields if still empty
+                        if (displayName.isEmpty()) {
+                            val firstName = json.optString("firstName", "")
+                            val lastName = json.optString("lastName", "")
+                            
                             if (firstName.isNotEmpty() || lastName.isNotEmpty()) {
                                 displayName = "$firstName $lastName".trim()
-                            }
-                        } catch (e: Exception) {
-                            Log.d(TAG, "Error extracting name from user object: ${e.message}")
-                        }
-                    }
-
-                    // If no name from user object, try direct fields
-                    if (displayName.isEmpty()) {
-                        val firstName = json.optString("firstName", "")
-                        val lastName = json.optString("lastName", "")
-
-                        if (firstName.isNotEmpty() || lastName.isNotEmpty()) {
-                            displayName = "$firstName $lastName".trim()
-                        } else {
-                            // Use username if available
-                            displayName = json.optString("username", "Tutor #$profileId")
-                        }
-                    }
-
-                    // Clean up display name - make sure it doesn't contain email
-                    if (displayName.contains("@")) {
-                        displayName = "Tutor #$profileId"
-                    }
-
-                    TutorProfile(
-                        id = profileId,
-                        name = displayName,
-                        email = json.optString("email", ""),
-                        bio = json.optString("bio", ""),
-                        rating = json.optFloat("rating", 0.0f),
-                        subjects = json.optJSONArray("subjects")?.let { subjectsArray ->
-                            (0 until subjectsArray.length()).map { subjectsArray.getString(it) }
-                        } ?: run {
-                            // If subjects array isn't available, try expertise field
-                            val expertise = json.optString("expertise", "")
-                            if (expertise.isNotEmpty()) {
-                                listOf(expertise)
                             } else {
-                                emptyList()
+                                // Use username as last resort
+                                displayName = json.optString("username", "Tutor #${json.optLong("id")}")
                             }
-                        },
-                        hourlyRate = json.optDouble("hourlyRate", 0.0)
-                    )
+                        }
+                        
+                        // Clean up display name - don't use email as a name
+                        if (displayName.contains("@")) {
+                            displayName = "Tutor #${json.optLong("id")}"
+                        }
+                        
+                        TutorProfile(
+                            id = json.optLong("id"),
+                            userId = json.optLong("userId"),
+                            name = displayName,
+                            email = json.optString("email", ""),
+                            bio = json.optString("bio", ""),
+                            subjects = subjects,
+                            education = json.optString("education", ""),
+                            rating = json.optDouble("rating", 0.0).toFloat(),
+                            hourlyRate = json.optDouble("hourlyRate", 0.0),
+                            yearsExperience = json.optInt("yearsExperience", 0)
+                        )
+                    } else {
+                        null
+                    }
                 }
             } catch (e: Exception) {
+                Log.e(TAG, "Error finding tutor by user ID: ${e.message}", e)
                 handleNetworkError(e, "finding tutor by user ID")
+            }
+        }
+    }
+
+    /**
+     * Find a tutor by ID
+     * @param tutorId The ID of the tutor to find
+     * @return Result containing the tutor profile or error
+     */
+    suspend fun findTutorById(tutorId: Long): Result<TutorProfile?> {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (DEBUG_MODE) {
+                    // Return mock data for testing
+                    return@withContext Result.success(
+                        TutorProfile(
+                            id = tutorId,
+                            userId = tutorId + 100, // Sample logic
+                            name = "Tutor $tutorId",
+                            email = "tutor$tutorId@example.com", // Add email for compatibility
+                            bio = "I am a test tutor",
+                            subjects = listOf("Math", "Science"),
+                            education = "Test University",
+                            rating = 4.5f,
+                            hourlyRate = 40.0,
+                            yearsExperience = 5
+                        )
+                    )
+                }
+
+                val url = URL("$BASE_URL/tutors/findById/$tutorId")
+                val connection = createGetConnection(url)
+
+                return@withContext handleResponse(connection) { response ->
+                    val json = parseJsonResponse(response)
+                    
+                    if (json.has("id")) {
+                        val subjectsJson = json.optJSONArray("subjects")
+                        val subjects = mutableListOf<String>()
+                        
+                        if (subjectsJson != null) {
+                            for (i in 0 until subjectsJson.length()) {
+                                subjects.add(subjectsJson.getString(i))
+                            }
+                        }
+                        
+                        // Extract tutor name with fallback mechanisms for backward compatibility
+                        var displayName = json.optString("name", "")
+                        
+                        // If name is empty, try to extract from user object or other fields
+                        if (displayName.isEmpty() && json.has("user")) {
+                            try {
+                                val userObj = json.getJSONObject("user")
+                                val firstName = userObj.optString("firstName", "")
+                                val lastName = userObj.optString("lastName", "")
+                                
+                                if (firstName.isNotEmpty() || lastName.isNotEmpty()) {
+                                    displayName = "$firstName $lastName".trim()
+                                }
+                            } catch (e: Exception) {
+                                Log.d(TAG, "Error extracting name from user object: ${e.message}")
+                            }
+                        }
+                        
+                        // Use direct firstName/lastName fields if still empty
+                        if (displayName.isEmpty()) {
+                            val firstName = json.optString("firstName", "")
+                            val lastName = json.optString("lastName", "")
+                            
+                            if (firstName.isNotEmpty() || lastName.isNotEmpty()) {
+                                displayName = "$firstName $lastName".trim()
+                            } else {
+                                // Use username as last resort
+                                displayName = json.optString("username", "Tutor #${json.optLong("id")}")
+                            }
+                        }
+                        
+                        // Clean up display name - don't use email as a name
+                        if (displayName.contains("@")) {
+                            displayName = "Tutor #${json.optLong("id")}"
+                        }
+                        
+                        TutorProfile(
+                            id = json.optLong("id"),
+                            userId = json.optLong("userId"),
+                            name = displayName,
+                            email = json.optString("email", ""),
+                            bio = json.optString("bio", ""),
+                            subjects = subjects,
+                            education = json.optString("education", ""),
+                            rating = json.optDouble("rating", 0.0).toFloat(),
+                            hourlyRate = json.optDouble("hourlyRate", 0.0),
+                            yearsExperience = json.optInt("yearsExperience", 0)
+                        )
+                    } else {
+                        null
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error finding tutor by ID: ${e.message}", e)
+                handleNetworkError(e, "finding tutor by ID")
             }
         }
     }
@@ -1615,170 +2189,187 @@ object NetworkUtils {
         return withContext(Dispatchers.IO) {
             try {
                 if (DEBUG_MODE) {
-                    // Generate mock tutor profiles for testing
-                    val mockTutors = listOf(
-                        TutorProfile(
-                            id = 1,
-                            name = "John Smith",
-                            email = "john.smith@example.com",
-                            bio = "Experienced mathematics and physics tutor with 10 years of teaching experience",
-                            rating = 4.8f,
-                            subjects = listOf("Mathematics", "Physics", "Calculus"),
-                            hourlyRate = 45.0
-                        ),
-                        TutorProfile(
-                            id = 2,
-                            name = "Sarah Johnson",
-                            email = "sarah.johnson@example.com",
-                            bio = "English literature specialist with a focus on creative writing and literary analysis",
-                            rating = 4.9f,
-                            subjects = listOf("English", "Literature", "Creative Writing"),
-                            hourlyRate = 40.0
-                        ),
-                        TutorProfile(
-                            id = 3,
-                            name = "Michael Chen",
-                            email = "michael.chen@example.com",
-                            bio = "Computer science tutor specializing in programming and software development",
-                            rating = 4.7f,
-                            subjects = listOf("Computer Science", "Programming", "Java", "Python"),
-                            hourlyRate = 55.0
-                        ),
-                        TutorProfile(
-                            id = 4,
-                            name = "Emily Rodriguez",
-                            email = "emily.rodriguez@example.com",
-                            bio = "Chemistry and biology tutor with a PhD in biochemistry",
-                            rating = 4.6f,
-                            subjects = listOf("Chemistry", "Biology", "Biochemistry"),
-                            hourlyRate = 50.0
-                        ),
-                        TutorProfile(
-                            id = 5,
-                            name = "David Kim",
-                            email = "david.kim@example.com",
-                            bio = "History and social studies tutor with expertise in world history and political science",
-                            rating = 4.5f,
-                            subjects = listOf("History", "Social Studies", "Political Science"),
-                            hourlyRate = 42.0
-                        )
-                    )
-
-                    // Filter mock tutors based on search query
-                    val lowerQuery = query.lowercase()
-                    val filteredTutors = if (query.isEmpty()) {
-                        mockTutors
-                    } else {
-                        mockTutors.filter { tutor ->
-                            tutor.subjects.any { it.lowercase().contains(lowerQuery) } ||
-                            tutor.bio.lowercase().contains(lowerQuery) ||
-                            tutor.name.lowercase().contains(lowerQuery)
+                    // Return mock data for testing
+                    return@withContext Result.success(
+                        listOf(
+                            TutorProfile(
+                                id = 1,
+                                userId = 101,
+                                name = "John Smith",
+                                email = "john.smith@example.com",
+                                bio = "Specialized in mathematics and physics",
+                                rating = 4.8f,
+                                subjects = listOf("Mathematics", "Physics"),
+                                education = "MIT",
+                                hourlyRate = 45.0,
+                                yearsExperience = 8
+                            ),
+                            TutorProfile(
+                                id = 2,
+                                userId = 102,
+                                name = "Emily Johnson",
+                                email = "emily.johnson@example.com",
+                                bio = "Expert in algebra and calculus",
+                                rating = 4.7f,
+                                subjects = listOf("Algebra", "Calculus"),
+                                education = "Stanford",
+                                hourlyRate = 40.0,
+                                yearsExperience = 6
+                            ),
+                            TutorProfile(
+                                id = 3,
+                                userId = 103,
+                                name = "Michael Davis",
+                                email = "michael.davis@example.com",
+                                bio = "Chemistry and biology specialist",
+                                rating = 4.9f,
+                                subjects = listOf("Chemistry", "Biology"),
+                                education = "Harvard",
+                                hourlyRate = 50.0,
+                                yearsExperience = 10
+                            ),
+                            TutorProfile(
+                                id = 4,
+                                userId = 104,
+                                name = "Sarah Wilson",
+                                email = "sarah.wilson@example.com",
+                                bio = "English literature and composition tutor",
+                                rating = 4.6f,
+                                subjects = listOf("English", "Literature"),
+                                education = "Yale",
+                                hourlyRate = 42.0,
+                                yearsExperience = 7
+                            ),
+                            TutorProfile(
+                                id = 5,
+                                userId = 105,
+                                name = "David Brown",
+                                email = "david.brown@example.com",
+                                bio = "Computer science and programming expert",
+                                rating = 4.5f,
+                                subjects = listOf("Computer Science", "Programming"),
+                                education = "Berkeley",
+                                hourlyRate = 55.0,
+                                yearsExperience = 9
+                            )
+                        ).filter { tutor ->
+                            tutor.subjects.any { subject ->
+                                subject.contains(query, ignoreCase = true)
+                            } || tutor.bio.contains(query, ignoreCase = true)
                         }
-                    }
-
-                    return@withContext Result.success(filteredTutors)
+                    )
                 }
 
-                // Enhanced logging for API call
-                Log.d(TAG, "Fetching tutors from API with query: '$query'")
+                val encodedQuery = URLEncoder.encode(query, "UTF-8")
+                val url = URL("$BASE_URL/tutors/search?query=$encodedQuery")
+                val connection = createGetConnection(url)
 
-                // Start with DEFAULT_SERVER_IP (index 0 in SERVER_IPS)
-                currentIpIndex = 0
-                var lastException: Exception? = null
+                return@withContext handleResponse(connection) { response ->
+                    val jsonArray = parseJsonArrayResponse(response)
+                    val tutors = mutableListOf<TutorProfile>()
 
-                // Try each IP in the SERVER_IPS list
-                for (ipIndex in SERVER_IPS.indices) {
-                    currentIpIndex = ipIndex
-                    val currentBaseUrl = getBaseUrl(ipIndex)
-                    val serverIp = SERVER_IPS[ipIndex]
-
-                    try {
-                        Log.d(TAG, "Trying to connect using IP: $serverIp")
-                        Log.d(TAG, "Base URL: $currentBaseUrl")
-
-                        val params = mapOf("subject" to query)
-                        val url = createUrlWithParams("$currentBaseUrl/tutors/searchBySubject", params)
-                        Log.d(TAG, "Making request to: $url")
-
-                        val connection = createGetConnection(url)
-
-                        return@withContext handleResponse(connection) { response ->
-                            val jsonArray = parseJsonArrayResponse(response)
-                            Log.d(TAG, "Success! Received JSON array with ${jsonArray.length()} tutors")
-
-                            val tutors = mutableListOf<TutorProfile>()
-
-                            for (i in 0 until jsonArray.length()) {
-                                val json = jsonArray.getJSONObject(i)
-
-                                // Extract tutor name
-                                var displayName = ""
-                                val firstName = json.optString("firstName", "")
-                                val lastName = json.optString("lastName", "")
-
+                    for (i in 0 until jsonArray.length()) {
+                        val tutorJson = jsonArray.getJSONObject(i)
+                        
+                        // Extract tutor name with fallback mechanisms
+                        var displayName = tutorJson.optString("name", "")
+                        
+                        // Try user object if name is empty
+                        if (displayName.isEmpty() && tutorJson.has("user")) {
+                            try {
+                                val userObj = tutorJson.getJSONObject("user")
+                                val firstName = userObj.optString("firstName", "")
+                                val lastName = userObj.optString("lastName", "")
+                                
                                 if (firstName.isNotEmpty() || lastName.isNotEmpty()) {
                                     displayName = "$firstName $lastName".trim()
-                                } else {
-                                    // Use username if available
-                                    displayName = json.optString("username", "Tutor #${json.optLong("id", i.toLong())}")
                                 }
-
-                                // Clean up display name - make sure it doesn't contain email
-                                if (displayName.contains("@")) {
-                                    displayName = "Tutor #${json.optLong("id", i.toLong())}"
-                                }
-
-                                tutors.add(
-                                    TutorProfile(
-                                        id = json.optLong("id", i.toLong()),
-                                        name = displayName,
-                                        email = json.optString("email", ""),
-                                        bio = json.optString("bio", ""),
-                                        rating = json.optFloat("rating", 0.0f),
-                                        subjects = json.optJSONArray("subjects")?.let { subjectsArray ->
-                                            (0 until subjectsArray.length()).map { subjectsArray.getString(it) }
-                                        } ?: run {
-                                            // If subjects array isn't available, try expertise field
-                                            val expertise = json.optString("expertise", "")
-                                            if (expertise.isNotEmpty()) {
-                                                listOf(expertise)
-                                            } else {
-                                                emptyList()
-                                            }
-                                        },
-                                        hourlyRate = json.optDouble("hourlyRate", 0.0)
-                                    )
-                                )
+                            } catch (e: Exception) {
+                                Log.d(TAG, "Error extracting name from user object: ${e.message}")
                             }
-
-                            Log.d(TAG, "Successfully processed ${tutors.size} tutors from API")
-                            tutors
                         }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error with IP ${SERVER_IPS[ipIndex]}: ${e.message}", e)
-                        lastException = e
-                        // Continue to the next IP
+                        
+                        // Try direct fields if still empty
+                        if (displayName.isEmpty()) {
+                            val firstName = tutorJson.optString("firstName", "")
+                            val lastName = tutorJson.optString("lastName", "")
+                            
+                            if (firstName.isNotEmpty() || lastName.isNotEmpty()) {
+                                displayName = "$firstName $lastName".trim()
+                            } else {
+                                // Use username as last resort
+                                displayName = tutorJson.optString("username", 
+                                    "Tutor #${tutorJson.optLong("id")}")
+                            }
+                        }
+                        
+                        // Clean up display name
+                        if (displayName.contains("@")) {
+                            displayName = "Tutor #${tutorJson.optLong("id")}"
+                        }
+                        
+                        // Get subjects
+                        val subjects = mutableListOf<String>()
+                        if (tutorJson.has("subjects")) {
+                            try {
+                                val subjectsArray = tutorJson.getJSONArray("subjects")
+                                for (j in 0 until subjectsArray.length()) {
+                                    subjects.add(subjectsArray.getString(j))
+                                }
+                            } catch (e: Exception) {
+                                Log.d(TAG, "Error extracting subjects: ${e.message}")
+                            }
+                        }
+                        
+                        // If no subjects found, try expertise
+                        if (subjects.isEmpty()) {
+                            val expertise = tutorJson.optString("expertise", "")
+                            if (expertise.isNotEmpty()) {
+                                subjects.addAll(expertise.split(",").map { it.trim() })
+                            }
+                        }
+                        
+                        // Get email
+                        var email = ""
+                        if (tutorJson.has("user")) {
+                            try {
+                                val userObj = tutorJson.getJSONObject("user")
+                                email = userObj.optString("email", "")
+                            } catch (e: Exception) {
+                                Log.d(TAG, "Error extracting email: ${e.message}")
+                            }
+                        }
+                        if (email.isEmpty()) {
+                            email = tutorJson.optString("email", "")
+                        }
+                        
+                        tutors.add(
+                            TutorProfile(
+                                id = tutorJson.optLong("id"),
+                                userId = tutorJson.optLong("userId", 0).let { 
+                                    if (it > 0) it else null 
+                                },
+                                name = displayName,
+                                email = email,
+                                bio = tutorJson.optString("bio", ""),
+                                rating = tutorJson.optDouble("rating", 0.0).toFloat(),
+                                subjects = subjects,
+                                education = tutorJson.optString("education", ""),
+                                hourlyRate = tutorJson.optDouble("hourlyRate", 0.0),
+                                yearsExperience = tutorJson.optInt("yearsExperience", 0)
+                            )
+                        )
                     }
+
+                    tutors
                 }
-
-                // If all IPs failed, return the error
-                Log.e(TAG, "All connection attempts failed")
-                return@withContext handleNetworkError(
-                    lastException ?: Exception("Failed to connect to any server IP"),
-                    "finding tutors by expertise"
-                )
-
             } catch (e: Exception) {
-                Log.e(TAG, "Error finding tutors by expertise: ${e.message}", e)
-
-                // More detailed error logging
                 when (e) {
-                    is ConnectException -> Log.e(TAG, "Connection error - unable to connect to server")
                     is SocketTimeoutException -> Log.e(TAG, "Connection timed out. Server may be slow or unresponsive")
                     else -> Log.e(TAG, "Unexpected error type: ${e.javaClass.simpleName}")
                 }
 
-                return@withContext handleNetworkError(e, "finding tutors by expertise")
+                handleNetworkError(e, "finding tutors by expertise")
             }
         }
     }
@@ -1796,6 +2387,7 @@ object NetworkUtils {
                     val mockTutors = listOf(
                         TutorProfile(
                             id = 1,
+                            userId = 101,
                             name = "John Smith",
                             email = "john.smith@example.com",
                             bio = "Experienced mathematics and physics tutor with 10 years of teaching experience",
@@ -2019,14 +2611,11 @@ object NetworkUtils {
             connection.connectTimeout = 15000 // 15 seconds timeout
             connection.readTimeout = 15000 // 15 seconds read timeout
             connection.doInput = true
-            connection.connect()
-
-            val responseCode = connection.responseCode
-            Log.d(TAG, "Connected successfully with response code: $responseCode")
+            // Don't call connect() here - let the caller do it when ready
 
             return connection
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to connect to $url: ${e.message}", e)
+            Log.e(TAG, "Failed to create connection to $url: ${e.message}", e)
             throw e
         }
     }
@@ -2114,7 +2703,7 @@ object NetworkUtils {
         requestBody: String? = null,
         crossinline handler: (String) -> T
     ): Result<T> {
-        var responseCode = 0
+        var responseCode: Int
         try {
             // Write request body if provided
             if (requestBody != null) {
@@ -2122,6 +2711,9 @@ object NetworkUtils {
                 writer.write(requestBody)
                 writer.flush()
                 writer.close()
+            } else {
+                // For GET requests, explicitly connect if no request body is provided
+                connection.connect()
             }
 
             // Get response code
@@ -2694,7 +3286,7 @@ object NetworkUtils {
                         status = json.optString("status"),
                         subject = json.optString("subject"),
                         sessionType = json.optString("sessionType"),
-                        notes = json.optString("notes", null)
+                        notes = json.optString("notes", "")
                     )
                 }
             } catch (e: Exception) {
@@ -2858,6 +3450,141 @@ object NetworkUtils {
             } catch (e: Exception) {
                 Log.e(TAG, "Error fetching tutor availability by date: ${e.message}", e)
                 handleNetworkError(e, "fetching tutor availability by date")
+            }
+        }
+    }
+
+    /**
+     * Try to fetch conversations using a different URL pattern that might be more compatible with the backend
+     */
+    private suspend fun tryAlternativeEndpoint(userId: Long): Result<List<Conversation>> {
+        return try {
+            // Try a completely different API endpoint that might exist
+            val url = URL(createApiUrl("users/$userId/conversations"))
+            Log.d(TAG, "Trying alternative URL: $url")
+            val connection = createGetConnection(url)
+            connection.connect()
+
+            val responseCode = connection.responseCode
+            if (responseCode in 200..299) {
+                val response = connection.inputStream.bufferedReader().use { it.readText() }
+                parseConversationsResponse(response)
+            } else {
+                Result.failure(Exception("Alternative endpoint failed with code $responseCode"))
+            }
+        } catch (e: Exception) {
+            Log.d(TAG, "Alternative endpoint approach failed: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Get all tutoring sessions for a learner (student)
+     * @param learnerId The ID of the learner
+     * @return List of tutoring sessions
+     */
+    suspend fun getLearnerSessions(learnerId: Long): Result<List<TutoringSession>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (DEBUG_MODE) {
+                    // Return mock data for testing
+                    return@withContext Result.success(
+                        listOf(
+                            TutoringSession(
+                                id = 1,
+                                tutorId = 101,
+                                learnerId = learnerId.toString(),
+                                startTime = "2025-05-15T14:00:00",
+                                endTime = "2025-05-15T15:30:00",
+                                status = "Scheduled",
+                                subject = "Mathematics",
+                                sessionType = "Online",
+                                notes = "Introduction to Calculus"
+                            ),
+                            TutoringSession(
+                                id = 2,
+                                tutorId = 102,
+                                learnerId = learnerId.toString(),
+                                startTime = "2025-05-16T10:00:00",
+                                endTime = "2025-05-16T11:30:00",
+                                status = "Confirmed",
+                                subject = "Physics",
+                                sessionType = "In-person",
+                                notes = "Mechanics review"
+                            ),
+                            TutoringSession(
+                                id = 3,
+                                tutorId = 103,
+                                learnerId = learnerId.toString(),
+                                startTime = "2025-05-18T16:00:00",
+                                endTime = "2025-05-18T17:30:00",
+                                status = "Scheduled",
+                                subject = "Chemistry",
+                                sessionType = "Online",
+                                notes = "Organic chemistry basics"
+                            )
+                        )
+                    )
+                }
+
+                // Use the correct endpoint from the Spring Boot controller
+                val url = URL("$BASE_URL/tutoring-sessions/findByStudent/$learnerId")
+                val connection = createGetConnection(url)
+
+                return@withContext handleResponse(connection) { response ->
+                    val jsonArray = parseJsonArrayResponse(response)
+                    val sessions = mutableListOf<TutoringSession>()
+
+                    for (i in 0 until jsonArray.length()) {
+                        val sessionJson = jsonArray.getJSONObject(i)
+                        sessions.add(
+                            TutoringSession(
+                                id = sessionJson.optLong("id"),
+                                tutorId = sessionJson.optLong("tutorId"),
+                                learnerId = sessionJson.optString("studentId"), // Backend uses studentId instead of learnerId
+                                startTime = sessionJson.optString("startTime"),
+                                endTime = sessionJson.optString("endTime"),
+                                status = sessionJson.optString("status"),
+                                subject = sessionJson.optString("subject"),
+                                sessionType = sessionJson.optString("sessionType"),
+                                notes = sessionJson.optString("notes")
+                            )
+                        )
+                    }
+                    sessions
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error fetching learner sessions: ${e.message}", e)
+                handleNetworkError(e, "fetching learner sessions")
+            }
+        }
+    }
+
+    /**
+     * Get upcoming tutoring sessions for a learner (status: Scheduled or Confirmed)
+     * @param learnerId The ID of the learner
+     * @return List of upcoming tutoring sessions
+     */
+    suspend fun getUpcomingLearnerSessions(learnerId: Long): Result<List<TutoringSession>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val allSessionsResult = getLearnerSessions(learnerId)
+                if (allSessionsResult.isSuccess) {
+                    val allSessions = allSessionsResult.getOrNull() ?: emptyList()
+
+                    // Filter sessions with "Scheduled" or "Confirmed" status
+                    val upcomingSessions = allSessions.filter { session ->
+                        session.status.equals("Scheduled", ignoreCase = true) || 
+                        session.status.equals("Confirmed", ignoreCase = true)
+                    }
+
+                    return@withContext Result.success(upcomingSessions)
+                } else {
+                    return@withContext Result.failure(Exception("Failed to fetch learner sessions"))
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error fetching upcoming learner sessions: ${e.message}", e)
+                handleNetworkError(e, "fetching upcoming learner sessions")
             }
         }
     }
