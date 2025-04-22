@@ -6,6 +6,8 @@ import axios from 'axios';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { FaCalendarAlt, FaSync, FaExclamationTriangle } from 'react-icons/fa';
+import { useSelector } from 'react-redux';
+import { tutorAvailabilityApi } from '../../api/api';
 
 const Availability = () => {
   const { user } = useUser();
@@ -126,18 +128,11 @@ const Availability = () => {
   const fetchAvailabilities = async () => {
     setLoading(true);
     try {
-      // Fetch tutor availabilities from the API
-      const response = await fetch(`/tutor-availability/tutor/${user.userId}`);
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch availabilities');
-      }
-
-      const data = await response.json();
-      setAvailabilities(data);
-    } catch (err) {
-      console.error('Error fetching availabilities:', err);
-      setError('Failed to fetch availabilities. Please try again.');
+      const response = await tutorAvailabilityApi.getAvailabilities(user.userId);
+      setAvailabilities(response.data);
+    } catch (error) {
+      console.error('Error fetching availabilities', error);
+      toast.error('Failed to load availabilities');
     } finally {
       setLoading(false);
     }
@@ -153,78 +148,49 @@ const Availability = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSaving(true);
-
-    // Validate time range
-    if (newAvailability.startTime >= newAvailability.endTime) {
-      setError('End time must be after start time');
-      setSaving(false);
+    
+    if (!newAvailability.dayOfWeek || !newAvailability.startTime || !newAvailability.endTime) {
+      toast.error('Please fill in all fields');
       return;
     }
-
+    
+    if (newAvailability.startTime >= newAvailability.endTime) {
+      toast.error('End time must be after start time');
+      return;
+    }
+    
+    const availabilityData = {
+      dayOfWeek: newAvailability.dayOfWeek,
+      startTime: newAvailability.startTime,
+      endTime: newAvailability.endTime,
+      tutorId: user.userId
+    };
+    
     try {
-      // Create availability data with tutor ID
-      const availabilityData = {
-        ...newAvailability,
-        tutor: {
-          userId: user.userId
-        }
-      };
-
-      // Send POST request to create new availability
-      const response = await fetch('/tutor-availability', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(availabilityData)
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create availability');
-      }
-
-      // Get the created availability from response
-      const createdAvailability = await response.json();
-
-      // Add the new availability to the list
-      setAvailabilities(prev => [...prev, createdAvailability]);
-
-      // Reset form
+      const response = await tutorAvailabilityApi.createAvailability(availabilityData);
+      setAvailabilities([...availabilities, response.data]);
+      toast.success('Availability added successfully');
       setNewAvailability({
         dayOfWeek: 'Monday',
         startTime: '09:00',
         endTime: '17:00',
         recurring: true
       });
-
       setShowAddForm(false);
     } catch (error) {
-      console.error('Error creating availability:', error);
-      setError('Failed to add availability. Please try again.');
-    } finally {
-      setSaving(false);
+      console.error('Error adding availability', error);
+      toast.error('Failed to add availability');
     }
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this availability?')) {
-      try {
-        // Send DELETE request to delete availability
-        const response = await fetch(`/tutor-availability/${id}`, {
-          method: 'DELETE'
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to delete availability');
-        }
-
-        // Remove the deleted availability from the list
-        setAvailabilities(prev => prev.filter(a => a.availabilityId !== id));
-      } catch (error) {
-        console.error('Error deleting availability:', error);
-        setError('Failed to delete availability. Please try again.');
-      }
+    try {
+      await tutorAvailabilityApi.deleteAvailability(id);
+      setAvailabilities(availabilities.filter(avail => avail.id !== id));
+      toast.success('Availability deleted successfully');
+    } catch (error) {
+      console.error('Error deleting availability', error);
+      toast.error('Failed to delete availability');
     }
   };
 

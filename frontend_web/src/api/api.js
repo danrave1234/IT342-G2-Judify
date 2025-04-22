@@ -273,11 +273,27 @@ export const notificationApi = {
 
 // Tutor Availability API endpoints
 export const tutorAvailabilityApi = {
-  getAvailabilities: (tutorId) => API.get(`/tutor-availability/tutor/${tutorId}`),
-  createAvailability: (availabilityData) => API.post('/tutor-availability', availabilityData),
+  getAvailabilities: (tutorId) => API.get(`/tutor-availability/findByTutor/${tutorId}`),
+  createAvailability: (availabilityData) => API.post('/tutor-availability/createAvailability', availabilityData),
   updateAvailability: (availabilityId, availabilityData) => 
-    API.put(`/tutor-availability/${availabilityId}`, availabilityData),
-  deleteAvailability: (availabilityId) => API.delete(`/tutor-availability/${availabilityId}`),
+    API.put(`/tutor-availability/update/${availabilityId}`, availabilityData),
+  deleteAvailability: (availabilityId) => API.delete(`/tutor-availability/delete/${availabilityId}`),
+};
+
+// Google Calendar API endpoints
+export const calendarApi = {
+  checkConnection: (userId) => API.get(`/calendar/check-connection`, { params: { userId } }),
+  connect: (userId) => API.get(`/calendar/connect`, { params: { userId } }),
+  getEvents: (userId, date) => API.get(`/calendar/events`, { params: { userId, date } }),
+  getAvailableSlots: (tutorId, date, durationMinutes = 60) => 
+    API.get(`/calendar/available-slots`, { params: { tutorId, date, durationMinutes } }),
+  checkAvailability: (tutorId, date, startTime, endTime) => 
+    API.get(`/calendar/check-availability`, { params: { tutorId, date, startTime, endTime } }),
+  createEvent: (sessionId) => API.post(`/calendar/create-event`, null, { params: { sessionId } }),
+  updateEvent: (sessionId, eventId) => 
+    API.put(`/calendar/update-event`, null, { params: { sessionId, eventId } }),
+  deleteEvent: (userId, eventId) => 
+    API.delete(`/calendar/delete-event`, { params: { userId, eventId } }),
 };
 
 // Student Profiles API endpoints

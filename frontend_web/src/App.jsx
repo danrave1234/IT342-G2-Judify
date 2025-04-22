@@ -30,7 +30,8 @@ import Pricing from './pages/Pricing';
 // Student pages
 import StudentDashboard from './pages/student/Dashboard';
 import StudentSessions from './pages/student/Sessions';
-import SessionDetails from './pages/student/SessionDetails';
+import SessionDetail from './pages/student/SessionDetail';
+import SessionReview from './pages/student/SessionReview';
 import BookSession from './pages/student/BookSession';
 import StudentPayments from './pages/student/Payments';
 
@@ -91,7 +92,8 @@ function App() {
                         <Route path="/student/find-tutors" element={<StudentRoute><FindTutors /></StudentRoute>} />
                         <Route path="/student/tutors/:tutorId" element={<StudentRoute><TutorDetails /></StudentRoute>} />
                         <Route path="/student/sessions" element={<StudentRoute><StudentSessions /></StudentRoute>} />
-                        <Route path="/student/sessions/:sessionId" element={<StudentRoute><SessionDetails /></StudentRoute>} />
+                        <Route path="/student/sessions/:sessionId" element={<StudentRoute><SessionDetail /></StudentRoute>} />
+                        <Route path="/student/review/session/:sessionId" element={<StudentRoute><SessionReview /></StudentRoute>} />
                         <Route path="/student/book/:tutorId" element={<StudentRoute><BookSession /></StudentRoute>} />
                         <Route path="/student/messages" element={<StudentRoute><Messages /></StudentRoute>} />
                         <Route path="/student/payments" element={<StudentRoute><StudentPayments /></StudentRoute>} />
