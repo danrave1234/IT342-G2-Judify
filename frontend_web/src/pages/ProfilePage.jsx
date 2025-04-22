@@ -21,15 +21,15 @@ const ProfilePage = () => {
   const { user, uploadProfilePicture, loading: userLoading } = useUser();
   const { profile: studentProfile, loading: studentLoading, error: studentError, updateProfile: updateStudentProfile, refreshProfile: refreshStudentProfile } = useStudentProfile();
   const { tutorProfile, loading: tutorLoading, updateProfile: updateTutorProfile } = useTutorProfile();
-  
+
   const [activeTab, setActiveTab] = useState('view');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [interests, setInterests] = useState([]);
   const [newInterest, setNewInterest] = useState('');
   const [uploadingProfile, setUploadingProfile] = useState(false);
-  
+
   const { register, handleSubmit, setValue, formState: { errors }, reset } = useForm();
-  
+
   const isTutor = user?.role === 'TUTOR';
   const profile = isTutor ? tutorProfile : studentProfile;
   const loading = isTutor ? tutorLoading : studentLoading || userLoading;
@@ -58,7 +58,7 @@ const ProfilePage = () => {
             longitude: profile.location?.longitude || ''
           }
         });
-        
+
         // Set interests
         if (profile.interests && Array.isArray(profile.interests)) {
           setInterests(profile.interests);
@@ -79,18 +79,20 @@ const ProfilePage = () => {
       toast.error('Unable to update profile - user information missing');
       return;
     }
-    
+
     setIsSubmitting(true);
-    
+
     try {
       if (isTutor) {
         const profileData = {
           ...data,
-          userId: user.userId
+          userId: user.userId,
+          // Include profile picture if available
+          profilePicture: user.profileImage || user.profilePicture
         };
-        
+
         const result = await updateTutorProfile(profileData);
-        
+
         if (result.success) {
           toast.success('Tutor profile updated successfully');
           setActiveTab('view');
@@ -101,11 +103,13 @@ const ProfilePage = () => {
         const profileData = {
           ...data,
           interests,
-          userId: user.userId
+          userId: user.userId,
+          // Include profile picture if available
+          profilePicture: user.profileImage || user.profilePicture
         };
-        
+
         const result = await updateStudentProfile(profileData);
-        
+
         if (result.success) {
           toast.success('Profile updated successfully');
           setActiveTab('view');
@@ -173,20 +177,20 @@ const ProfilePage = () => {
   const handleProfilePictureUpload = async (e) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      
+
       // Validate file type
       const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif'];
       if (!validTypes.includes(file.type)) {
         toast.error('Please select a valid image file (JPEG, PNG, or GIF)');
         return;
       }
-      
+
       // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
         toast.error('Image size should be less than 5MB');
         return;
       }
-      
+
       try {
         setUploadingProfile(true);
         const result = await uploadProfilePicture(file);
@@ -214,7 +218,7 @@ const ProfilePage = () => {
       </div>
     );
   }
-  
+
   if (loading) {
     return (
       <div className="max-w-6xl mx-auto p-6">
@@ -237,7 +241,7 @@ const ProfilePage = () => {
           {/* Simple Background Instead of Cover Photo */}
           <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-indigo-700">
           </div>
-          
+
           <div className="absolute bottom-0 left-0 w-full h-24 bg-gradient-to-t from-black opacity-40"></div>
           <div className="relative z-10 px-6 py-4 flex justify-between items-end w-full">
             <div className="flex items-center">
@@ -258,7 +262,7 @@ const ProfilePage = () => {
                     <FaUser className="text-gray-500 text-4xl" />
                   </div>
                 )}
-                
+
                 {/* Profile Picture Upload Button - Only visible in edit mode */}
                 {activeTab === 'edit' && (
                   <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
@@ -349,7 +353,7 @@ const ProfilePage = () => {
                 </h2>
                 <p className="text-gray-700 whitespace-pre-line">{profile?.bio || 'No bio provided'}</p>
               </div>
-              
+
               {isTutor ? (
                 /* Tutor Specific Info */
                 <>
@@ -359,7 +363,7 @@ const ProfilePage = () => {
                     </h2>
                     <p className="text-gray-700">{profile?.expertise || 'No expertise specified'}</p>
                   </div>
-                  
+
                   <div>
                     <h2 className="text-xl font-bold text-gray-800 mb-2 flex items-center">
                       <FaStar className="mr-2 text-blue-600" /> Rating
@@ -380,14 +384,14 @@ const ProfilePage = () => {
                       <span className="text-gray-700">{profile?.rating || 0} ({profile?.totalReviews || 0} reviews)</span>
                     </div>
                   </div>
-                  
+
                   <div>
                     <h2 className="text-xl font-bold text-gray-800 mb-2 flex items-center">
                       <FaSchool className="mr-2 text-blue-600" /> Hourly Rate
                     </h2>
                     <p className="text-gray-700">${profile?.hourlyRate || 0}/hour</p>
                   </div>
-                  
+
                   <div>
                     <h2 className="text-xl font-bold text-gray-800 mb-2 flex items-center">
                       <FaGraduationCap className="mr-2 text-blue-600" /> Subjects
@@ -423,7 +427,7 @@ const ProfilePage = () => {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div>
                     <h2 className="text-xl font-bold text-gray-800 mb-2 flex items-center">
                       <FaMapMarkerAlt className="mr-2 text-blue-600" /> Location
@@ -444,7 +448,7 @@ const ProfilePage = () => {
                       )}
                     </div>
                   </div>
-                  
+
                   <div>
                     <h2 className="text-xl font-bold text-gray-800 mb-2 flex items-center">
                       <FaHeart className="mr-2 text-blue-600" /> Interests
@@ -492,7 +496,7 @@ const ProfilePage = () => {
                       placeholder="Your areas of expertise"
                     />
                   </div>
-                  
+
                   <div>
                     <label htmlFor="hourlyRate" className="block text-sm font-medium text-gray-700 mb-1">Hourly Rate ($)</label>
                     <input

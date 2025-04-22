@@ -32,21 +32,21 @@ public class UserService {
         // Add logging to debug the user entity being received
         System.out.println("Creating user with data: " + user.getEmail() + ", " + user.getUsername() + ", role: " + user.getRole());
         System.out.println("Password field present: " + (user.getPassword() != null ? "Yes" : "No"));
-        
+
         // Use the validation method to check all required fields
         if (!user.validate()) {
             throw new IllegalArgumentException("User validation failed - check server logs for details");
         }
-        
+
         // Ensure dates are set
         if (user.getCreatedAt() == null) {
             user.setCreatedAt(new Date());
         }
-        
+
         if (user.getUpdatedAt() == null) {
             user.setUpdatedAt(new Date());
         }
-        
+
         try {
             // Save the user and log the result
             UserEntity savedUser = userRepository.save(user);
@@ -127,6 +127,7 @@ public class UserService {
                 authDTO.setFirstName(user.getFirstName());
                 authDTO.setLastName(user.getLastName());
                 authDTO.setRole(user.getRole());
+                authDTO.setProfilePicture(user.getProfilePicture());
 
                 // Generate JWT token if needed
                 String token = generateJwtToken(user);

@@ -30,12 +30,12 @@ API.interceptors.response.use(
       localStorage.removeItem('user');
       window.location.href = '/login';
     }
-    
+
     // Log details of server errors for debugging
     if (error.response && error.response.status >= 500) {
       console.error('Server error:', error.response.data);
     }
-    
+
     return Promise.reject(error);
   }
 );
@@ -44,7 +44,7 @@ API.interceptors.response.use(
 export const authApi = {
   login: async (email, password) => {
     console.log(`Attempting login for email: ${email}`);
-    
+
     // Try multiple API formats since the backend might expect different formats
     try {
       // First attempt: Use params in a POST request (most likely format)
@@ -56,23 +56,23 @@ export const authApi = {
       });
     } catch (error) {
       console.log('First login attempt failed, trying alternative format:', error);
-      
+
       try {
         // Second attempt: Use query string in URL (fallback)
         return await API.post(`/users/authenticate?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`);
       } catch (error2) {
         console.log('Second login attempt failed, trying sending in body:', error2);
-        
+
         try {
           // Third attempt: Send credentials in request body
           return await API.post('/users/authenticate', { email, password });
         } catch (error3) {
           console.error('All login attempts failed:', error3);
-          
+
           // For development/testing - create a mock successful response if backend is not available
-          if (process.env.NODE_ENV !== 'production') {
+          if (import.meta.env.MODE !== 'production') {
             console.warn('Creating mock login response for development');
-            
+
             // Create a mock response that matches the structure expected by the UserContext
             const mockAuthData = {
               authenticated: true,
@@ -82,15 +82,16 @@ export const authApi = {
               firstName: 'Test',
               lastName: 'User',
               role: email.includes('tutor') ? 'TUTOR' : 'STUDENT',
+              profilePicture: localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).profileImage : '',
               token: `mock-token-${Date.now()}`
             };
-            
+
             return { 
               status: 200, 
               data: mockAuthData 
             };
           }
-          
+
           throw error3;
         }
       }
@@ -98,32 +99,32 @@ export const authApi = {
   },
   register: (userData) => {
     console.log('API: Registering user with data:', userData);
-    
+
     // CRITICAL: Ensure password is not null or empty
     if (!userData.password || userData.password.trim() === '') {
       console.error('API: Registration error - password is missing or empty');
       return Promise.reject(new Error('Password is required for registration'));
     }
-    
+
     // Create a clean copy of userData to prevent manipulation of the original
     const registrationData = { ...userData };
-    
+
     // Ensure all required fields are present and not empty
     const requiredFields = ['firstName', 'lastName', 'email', 'username', 'password', 'role'];
     const missingFields = requiredFields.filter(field => !registrationData[field] || registrationData[field].trim?.() === '');
-    
+
     if (missingFields.length > 0) {
       console.error('API: Registration error - missing fields', missingFields);
       return Promise.reject(new Error(`Missing required fields: ${missingFields.join(', ')}`));
     }
-    
+
     // Convert any null values to empty strings to avoid database nullability issues
     Object.keys(registrationData).forEach(key => {
       if (registrationData[key] === null) {
         registrationData[key] = '';
       }
     });
-    
+
     // Make an explicit log of the request about to be sent
     console.log('API: Sending registration request to backend:', {
       url: '/users/register',
@@ -131,7 +132,7 @@ export const authApi = {
       data: registrationData,
       serialized: JSON.stringify(registrationData)
     });
-    
+
     // Send the registration request to the new endpoint
     return API.post('/users/register', registrationData, {
       headers: {
@@ -145,13 +146,13 @@ export const authApi = {
         response: error.response?.data,
         status: error.response?.status
       });
-      
+
       // If backend is available but returns a 400, try to provide more specific error
       if (error.response && error.response.status === 400) {
         console.error('API: Bad request - field validation failed', error.response.data);
         throw new Error(`Validation failed: ${error.response.data}`);
       }
-      
+
       throw error;
     });
   },
@@ -189,13 +190,13 @@ export const userApi = {
 
 // Tutor Profiles API endpoints
 export const tutorProfileApi = {
-  getProfiles: () => API.get('/api/tutors/getAllProfiles'),
-  getProfileById: (profileId) => API.get(`/api/tutors/findById/${profileId}`),
-  getProfileByUserId: (userId) => API.get(`/api/tutors/findByUserId/${userId}`),
-  createProfile: (profileData) => API.post(`/api/tutors/createProfile/user/${profileData.userId}`, profileData),
-  updateProfile: (profileId, profileData) => API.put(`/api/tutors/updateProfile/${profileId}`, profileData),
-  searchProfiles: (params) => API.get('/api/tutors/searchBySubject', { params }),
-  getAllProfilesPaginated: (params) => API.get('/api/tutors/getAllProfilesPaginated', { params }),
+  getProfiles: () => API.get('/tutors/getAllProfiles'),
+  getProfileById: (profileId) => API.get(`/tutors/findById/${profileId}`),
+  getProfileByUserId: (userId) => API.get(`/tutors/findByUserId/${userId}`),
+  createProfile: (profileData) => API.post(`/tutors/createProfile/user/${profileData.userId}`, profileData),
+  updateProfile: (profileId, profileData) => API.put(`/tutors/updateProfile/${profileId}`, profileData),
+  searchProfiles: (params) => API.get('/tutors/searchBySubject', { params }),
+  getAllProfilesPaginated: (params) => API.get('/tutors/getAllProfilesPaginated', { params }),
 };
 
 // Tutoring Sessions API endpoints

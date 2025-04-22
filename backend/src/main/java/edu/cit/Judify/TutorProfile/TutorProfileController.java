@@ -54,11 +54,11 @@ public class TutorProfileController {
     public ResponseEntity<Page<TutorProfileDTO>> getAllTutorProfilesPaginated(
             @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Page size") @RequestParam(defaultValue = "10") int size,
-            @Parameter(description = "Filter by expertise (optional)") @RequestParam(required = false) String expertise,
+            @Parameter(description = "Filter by expertise (renamed to 'Course' in the frontend)") @RequestParam(required = false) String expertise,
             @Parameter(description = "Filter by minimum hourly rate (optional)") @RequestParam(required = false) Double minRate,
             @Parameter(description = "Filter by maximum hourly rate (optional)") @RequestParam(required = false) Double maxRate,
             @Parameter(description = "Filter by minimum rating (optional)") @RequestParam(required = false) Double minRating) {
-        
+
         Page<TutorProfileDTO> tutors = tutorProfileService.getAllTutorProfilesPaginated(
                 page, size, expertise, minRate, maxRate, minRating);
         return ResponseEntity.ok(tutors);
@@ -109,7 +109,7 @@ public class TutorProfileController {
         try {
             // Set the userId in the DTO
             tutorProfileDTO.setUserId(userId);
-            
+
             TutorProfileDTO createdProfile = tutorProfileService.createTutorProfile(tutorProfileDTO);
             return new ResponseEntity<>(createdProfile, HttpStatus.CREATED);
         } catch (EntityNotFoundException e) {
@@ -190,7 +190,7 @@ public class TutorProfileController {
         try {
             // First check if the profile exists
             tutorProfileService.getTutorProfileById(tutorProfileId);
-            
+
             List<TutorSubjectDTO> subjects = tutorSubjectService.getSubjectsByTutorProfileId(tutorProfileId);
             return ResponseEntity.ok(subjects);
         } catch (EntityNotFoundException e) {
@@ -211,7 +211,7 @@ public class TutorProfileController {
         try {
             // First check if the profile exists
             tutorProfileService.getTutorProfileById(tutorProfileId);
-            
+
             List<TutorSubjectDTO> addedSubjects = tutorSubjectService.addSubjectsForTutor(tutorProfileId, subjects);
             return new ResponseEntity<>(addedSubjects, HttpStatus.CREATED);
         } catch (EntityNotFoundException e) {
@@ -230,7 +230,7 @@ public class TutorProfileController {
         try {
             // First check if the profile exists
             tutorProfileService.getTutorProfileById(tutorProfileId);
-            
+
             tutorSubjectService.deleteAllSubjectsForTutor(tutorProfileId);
             return ResponseEntity.noContent().build();
         } catch (EntityNotFoundException e) {

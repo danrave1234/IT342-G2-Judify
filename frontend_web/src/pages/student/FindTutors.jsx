@@ -23,7 +23,7 @@ const FindTutors = () => {
   const [userLocation, setUserLocation] = useState(null);
   const [subjects, setSubjects] = useState([]);
 
-  // Mock data for subjects
+  // Static list of subject options for the filter dropdown
   const subjectOptions = [
     'All Subjects', 'Mathematics', 'Physics', 'Chemistry', 
     'Biology', 'Computer Science', 'English', 'History'
@@ -60,7 +60,7 @@ const FindTutors = () => {
     setLoadingTutors(true);
     try {
       console.log('Fetching tutors with search query:', searchQuery);
-      
+
       // Prepare search parameters
       const params = {
         query: searchQuery,
@@ -69,10 +69,10 @@ const FindTutors = () => {
         maxRate: priceRange.max ? parseFloat(priceRange.max) : null,
         subject: selectedSubject !== 'All Subjects' && selectedSubject !== '' ? selectedSubject : null
       };
-      
+
       // Search for tutors using the context function
       const result = await searchTutors(params);
-      
+
       if (result && result.success) {
         console.log('Fetched tutors:', result.results);
         setTutors(result.results);
@@ -80,20 +80,18 @@ const FindTutors = () => {
       } else {
         console.error('Error fetching tutors:', result?.message);
         toast.error(result?.message || 'Failed to load tutors');
-        
-        // Use mock data if API fails
-        const mockTutors = generateMockTutors();
-        setTutors(mockTutors);
-        setFilteredTutors(mockTutors);
+
+        // No mock data, just show empty state
+        setTutors([]);
+        setFilteredTutors([]);
       }
     } catch (error) {
       console.error('Error in fetchTutors:', error);
-      toast.error('Failed to load tutors, using sample data');
-      
-      // Use mock data if API fails
-      const mockTutors = generateMockTutors();
-      setTutors(mockTutors);
-      setFilteredTutors(mockTutors);
+      toast.error('Failed to load tutors');
+
+      // No mock data, just show empty state
+      setTutors([]);
+      setFilteredTutors([]);
     } finally {
       setLoadingTutors(false);
     }
@@ -101,9 +99,9 @@ const FindTutors = () => {
 
   const applyFilters = () => {
     if (!tutors.length) return;
-    
+
     let filtered = [...tutors];
-    
+
     // Subject filter
     if (selectedSubject && selectedSubject !== 'All Subjects') {
       filtered = filtered.filter(tutor => 
@@ -113,12 +111,12 @@ const FindTutors = () => {
         })
       );
     }
-    
+
     // Rating filter (already applied in search, but filter client-side too for immediate feedback)
     if (minRating > 0) {
       filtered = filtered.filter(tutor => (tutor.rating || 0) >= minRating);
     }
-    
+
     // Price range filter (already applied in search, but filter client-side too)
     if (priceRange.min) {
       filtered = filtered.filter(tutor => (tutor.hourlyRate || 0) >= parseFloat(priceRange.min));
@@ -126,7 +124,7 @@ const FindTutors = () => {
     if (priceRange.max) {
       filtered = filtered.filter(tutor => (tutor.hourlyRate || 0) <= parseFloat(priceRange.max));
     }
-    
+
     // Session type filter
     if (sessionType !== 'all') {
       if (sessionType === 'online') {
@@ -135,14 +133,12 @@ const FindTutors = () => {
         filtered = filtered.filter(tutor => tutor.isInPersonAvailable || tutor.inPersonAvailable);
       }
     }
-    
-    // Available now filter - mock implementation
-    if (availableNow) {
-      // In a real implementation, this would check availability time slots
-      // For mock, just filter randomly to show the feature working
-      filtered = filtered.filter(tutor => tutor.profileId % 2 === 0);
-    }
-    
+
+    // Available now filter - disabled until real implementation is available
+    // if (availableNow) {
+    //   // This would check availability time slots from the backend
+    // }
+
     setFilteredTutors(filtered);
   };
 
@@ -184,6 +180,40 @@ const FindTutors = () => {
     navigate(`/student/tutors/${tutorId}`);
   };
 
+  const handleBookSessionClick = (tutorId, tutor) => {
+    // Log detailed information about the tutor for debugging
+    console.log('Tutor data for booking:', {
+      tutorId,
+      profileId: tutor.profileId,
+      userId: tutor.userId,
+      fullName: `${tutor.firstName || tutor.user?.firstName} ${tutor.lastName || tutor.user?.lastName}`
+    });
+
+    if (!tutorId) {
+      toast.error('Cannot book session: Missing tutor ID');
+      return;
+    }
+
+    // Prefer profileId if available, otherwise use userId
+    const idToUse = tutor.profileId || tutor.userId;
+    console.log(`Navigating to book session with ${tutor.profileId ? 'profileId' : 'userId'}: ${idToUse}`);
+
+    // Store some basic tutor info in localStorage to help with error recovery
+    try {
+      const tutorInfo = {
+        id: idToUse,
+        name: `${tutor.firstName || tutor.user?.firstName} ${tutor.lastName || tutor.user?.lastName}`,
+        profilePicture: tutor.profilePicture || tutor.user?.profilePicture || 'https://via.placeholder.com/150',
+        subjects: tutor.subjects || []
+      };
+      localStorage.setItem('lastViewedTutor', JSON.stringify(tutorInfo));
+    } catch (error) {
+      console.error('Failed to store tutor info in localStorage:', error);
+    }
+
+    navigate(`/student/book/${idToUse}`);
+  };
+
   const handleSearchInputChange = (e) => {
     setSearchQuery(e.target.value);
   };
@@ -193,106 +223,6 @@ const FindTutors = () => {
     fetchTutors();
   };
 
-  const generateMockTutors = () => {
-    return [
-      {
-        profileId: 1,
-        userId: 1,
-        firstName: 'Sarah',
-        lastName: 'Johnson',
-        profilePicture: 'https://randomuser.me/api/portraits/women/44.jpg',
-        bio: 'Experienced math tutor with 5+ years of teaching experience',
-        expertise: 'Mathematics Expert',
-        subjects: ['Calculus', 'Algebra', 'Statistics'],
-        hourlyRate: 45,
-        rating: 4.9,
-        totalReviews: 120,
-        location: { city: 'Boston', state: 'MA', distance: 2 },
-        isOnlineAvailable: true,
-        isInPersonAvailable: true
-      },
-      {
-        profileId: 2,
-        userId: 2,
-        firstName: 'Michael',
-        lastName: 'Chen',
-        profilePicture: 'https://randomuser.me/api/portraits/men/22.jpg',
-        bio: 'Physics PhD student offering advanced tutoring',
-        expertise: 'Physics Tutor',
-        subjects: ['Physics', 'Mathematics'],
-        hourlyRate: 50,
-        rating: 4.7,
-        totalReviews: 85,
-        location: { city: 'Online', state: '', distance: null },
-        isOnlineAvailable: true,
-        isInPersonAvailable: false
-      },
-      {
-        profileId: 3,
-        userId: 3,
-        firstName: 'Emily',
-        lastName: 'Rodriguez',
-        profilePicture: 'https://randomuser.me/api/portraits/women/66.jpg',
-        bio: 'Chemistry specialist with experience teaching all levels',
-        expertise: 'Chemistry Expert',
-        subjects: ['Chemistry', 'Organic Chemistry', 'Biochemistry'],
-        hourlyRate: 55,
-        rating: 4.8,
-        totalReviews: 95,
-        location: { city: 'Miami', state: 'FL', distance: 5 },
-        isOnlineAvailable: true,
-        isInPersonAvailable: true
-      },
-      {
-        profileId: 4,
-        userId: 4,
-        firstName: 'David',
-        lastName: 'Wilson',
-        profilePicture: 'https://randomuser.me/api/portraits/men/32.jpg',
-        bio: 'Computer Science instructor focusing on programming and algorithms',
-        expertise: 'Computer Science Tutor',
-        subjects: ['Java', 'Python', 'Data Structures'],
-        hourlyRate: 60,
-        rating: 4.9,
-        totalReviews: 110,
-        location: { city: 'Chicago', state: 'IL', distance: 3 },
-        isOnlineAvailable: true,
-        isInPersonAvailable: true
-      },
-      {
-        profileId: 5,
-        userId: 5,
-        firstName: 'Jessica',
-        lastName: 'Brown',
-        profilePicture: 'https://randomuser.me/api/portraits/women/28.jpg',
-        bio: 'English literature specialist with focus on essay writing',
-        expertise: 'English Tutor',
-        subjects: ['English Literature', 'Essay Writing', 'Grammar'],
-        hourlyRate: 40,
-        rating: 4.6,
-        totalReviews: 75,
-        location: { city: 'Online', state: '', distance: null },
-        isOnlineAvailable: true,
-        isInPersonAvailable: false
-      },
-      {
-        profileId: 6,
-        userId: 6,
-        firstName: 'James',
-        lastName: 'Taylor',
-        profilePicture: 'https://randomuser.me/api/portraits/men/52.jpg',
-        bio: 'History teacher with specialized knowledge in American and European history',
-        expertise: 'History Expert',
-        subjects: ['US History', 'European History', 'World History'],
-        hourlyRate: 45,
-        rating: 4.7,
-        totalReviews: 65,
-        location: { city: 'Dallas', state: 'TX', distance: 8 },
-        isOnlineAvailable: true,
-        isInPersonAvailable: true
-      }
-    ];
-  };
 
   const renderGridView = () => {
     return (
@@ -336,7 +266,7 @@ const FindTutors = () => {
                   </p>
                 </div>
               </div>
-              
+
               <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 mb-2">
                 <FaMapMarkerAlt className="mr-1" />
                 {tutor.location?.city || tutor.city ? (
@@ -348,12 +278,12 @@ const FindTutors = () => {
                   <span>Location not specified</span>
                 )}
               </div>
-              
+
               <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 mb-3">
                 <FaDollarSign className="mr-1" />
                 <span>${tutor.hourlyRate || 0}/hour</span>
               </div>
-              
+
               <div className="flex items-center mb-3 text-sm text-gray-500 dark:text-gray-400">
                 {(tutor.isOnlineAvailable || tutor.onlineAvailable) && (
                   <div className="flex items-center mr-3">
@@ -368,7 +298,7 @@ const FindTutors = () => {
                   </div>
                 )}
               </div>
-              
+
               <div className="flex flex-wrap gap-1 mb-4">
                 {(tutor.subjects || []).slice(0, 3).map((subject, index) => (
                   <span key={index} className="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full">
@@ -381,13 +311,21 @@ const FindTutors = () => {
                   </span>
                 )}
               </div>
-              
-              <button
-                onClick={() => handleViewProfileClick(tutor.profileId || tutor.userId)} 
-                className="w-full bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded transition duration-200"
-              >
-                View Profile
-              </button>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleViewProfileClick(tutor.profileId || tutor.userId)} 
+                  className="flex-1 bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded transition duration-200"
+                >
+                  View Profile
+                </button>
+                <button
+                  onClick={() => handleBookSessionClick(tutor.profileId || tutor.userId, tutor)} 
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded transition duration-200"
+                >
+                  Book Session
+                </button>
+              </div>
             </div>
           </div>
         ))}
@@ -420,7 +358,7 @@ const FindTutors = () => {
                   </div>
                 )}
               </div>
-              
+
               <div className="flex-1">
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start">
                   <div>
@@ -433,7 +371,7 @@ const FindTutors = () => {
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
                       {tutor.expertise || tutor.username || tutor.user?.username}
                     </p>
-                    
+
                     <div className="flex items-center mb-2">
                       <FaStar className="text-yellow-400 mr-1" />
                       <span>{tutor.rating || 'New'}</span>
@@ -441,10 +379,10 @@ const FindTutors = () => {
                       <span>{tutor.totalReviews || 0} reviews</span>
                     </div>
                   </div>
-                  
+
                   <div className="mt-2 sm:mt-0 sm:text-right">
                     <p className="text-lg font-semibold">${tutor.hourlyRate || 0}/hour</p>
-                    
+
                     <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 justify-start sm:justify-end">
                       <FaMapMarkerAlt className="mr-1" />
                       {tutor.location?.city || tutor.city ? (
@@ -458,7 +396,7 @@ const FindTutors = () => {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="flex flex-wrap gap-1 my-2">
                   {(tutor.subjects || []).map((subject, index) => (
                     <span key={index} className="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full">
@@ -471,11 +409,11 @@ const FindTutors = () => {
                     </span>
                   )}
                 </div>
-                
+
                 <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-3">
                   {tutor.bio || tutor.biography || 'No bio available'}
                 </p>
-                
+
                 <div className="flex items-center justify-between mt-2">
                   <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
                     {(tutor.isOnlineAvailable || tutor.onlineAvailable) && (
@@ -491,13 +429,21 @@ const FindTutors = () => {
                       </div>
                     )}
                   </div>
-                  
-                  <button
-                    onClick={() => handleViewProfileClick(tutor.profileId || tutor.userId)} 
-                    className="bg-primary-600 hover:bg-primary-700 text-white font-medium py-1.5 px-4 rounded transition duration-200"
-                  >
-                    View Profile
-                  </button>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleViewProfileClick(tutor.profileId || tutor.userId)} 
+                      className="bg-primary-600 hover:bg-primary-700 text-white font-medium py-1.5 px-4 rounded transition duration-200"
+                    >
+                      View Profile
+                    </button>
+                    <button
+                      onClick={() => handleBookSessionClick(tutor.profileId || tutor.userId, tutor)} 
+                      className="bg-green-600 hover:bg-green-700 text-white font-medium py-1.5 px-4 rounded transition duration-200"
+                    >
+                      Book Session
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -515,7 +461,7 @@ const FindTutors = () => {
           Browse our selection of qualified tutors and find the perfect match for your learning needs
         </p>
       </div>
-      
+
       <div className="flex flex-col md:flex-row gap-6">
         {/* Filters Panel */}
         <div className={`${showFilters ? 'block' : 'hidden md:block'} w-full md:w-64 lg:w-72 bg-white dark:bg-dark-800 p-4 rounded-lg shadow mb-4 md:mb-0`}>
@@ -528,7 +474,7 @@ const FindTutors = () => {
               Reset
             </button>
           </div>
-          
+
           <div className="space-y-4">
             {/* Subject Filter */}
             <div>
@@ -545,7 +491,7 @@ const FindTutors = () => {
                 ))}
               </select>
             </div>
-            
+
             {/* Rating Filter */}
             <div>
               <label className="block text-sm font-medium mb-1">Minimum Rating</label>
@@ -561,7 +507,7 @@ const FindTutors = () => {
                 ))}
               </div>
             </div>
-            
+
             {/* Price Range Filter */}
             <div>
               <label className="block text-sm font-medium mb-1">Price Range ($/hr)</label>
@@ -583,7 +529,7 @@ const FindTutors = () => {
                 />
               </div>
             </div>
-            
+
             {/* Session Type Filter */}
             <div>
               <label className="block text-sm font-medium mb-1">Session Type</label>
@@ -620,7 +566,7 @@ const FindTutors = () => {
                 </div>
               </div>
             </div>
-            
+
             {/* Available Now Filter */}
             <div className="flex items-center">
               <input
@@ -634,7 +580,7 @@ const FindTutors = () => {
             </div>
           </div>
         </div>
-        
+
         {/* Main Content */}
         <div className="flex-1">
           {/* Search and Controls */}
@@ -660,7 +606,7 @@ const FindTutors = () => {
                   </button>
                 </form>
               </div>
-              
+
               <div className="flex md:self-start gap-2">
                 <button
                   onClick={() => setShowFilters(!showFilters)}
@@ -669,7 +615,7 @@ const FindTutors = () => {
                   <FaFilter className="mr-1" /> 
                   {showFilters ? 'Hide' : 'Show'} Filters
                 </button>
-                
+
                 <div className="flex items-center bg-gray-100 dark:bg-dark-700 rounded">
                   <button
                     onClick={() => setViewMode('grid')}
@@ -687,7 +633,7 @@ const FindTutors = () => {
               </div>
             </div>
           </div>
-          
+
           {/* Tutors List */}
           <div className="bg-gray-50 dark:bg-dark-900 p-4 rounded-lg">
             {loadingTutors ? (

@@ -39,15 +39,15 @@ export const StudentProfileProvider = ({ children }) => {
       const profileData = response.data;
 
       console.log('Profile data loaded successfully:', profileData);
-      
+
       setProfile(profileData);
       setProfileExists(true);
       setLastRefresh(now);
-      
+
       return { success: true, profile: profileData };
     } catch (err) {
       console.error('Error loading student profile:', err);
-      
+
       if (err.response?.status === 404) {
         // Profile doesn't exist yet - this is normal for new users
         console.log('No existing profile found - profile needs to be created');
@@ -55,15 +55,15 @@ export const StudentProfileProvider = ({ children }) => {
         setProfile(null);
         return { success: false, message: 'Profile not found', profile: null };
       }
-      
+
       const message = err.response?.data?.message || 'Failed to load profile';
       setError(message);
-      
+
       // Don't show toast for 404 errors (expected for new users)
       if (err.response?.status !== 404) {
         toast.error(`Failed to load profile: ${message}`);
       }
-      
+
       return { success: false, message, profile: null };
     } finally {
       setLoading(false);
@@ -101,7 +101,7 @@ export const StudentProfileProvider = ({ children }) => {
       };
 
       console.log(`Updating student profile for user ID: ${user.userId}`);
-      
+
       let response;
       try {
         if (profileExists) {
@@ -126,15 +126,25 @@ export const StudentProfileProvider = ({ children }) => {
       const updatedProfile = response.data;
       setProfile(updatedProfile);
       setLastRefresh(Date.now());
-      
+
+      // Also update the user's profile picture in localStorage if it's included in the profile data
+      if (profileData.profilePicture) {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          const userData = JSON.parse(storedUser);
+          userData.profileImage = profileData.profilePicture;
+          localStorage.setItem('user', JSON.stringify(userData));
+        }
+      }
+
       return { success: true, profile: updatedProfile };
     } catch (err) {
       console.error('Error updating student profile:', err);
-      
+
       const message = err.response?.data?.message || 'Failed to update profile';
       setError(message);
       toast.error(`Failed to update profile: ${message}`);
-      
+
       return { success: false, message };
     } finally {
       setLoading(false);

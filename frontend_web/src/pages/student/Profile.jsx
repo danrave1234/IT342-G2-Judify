@@ -7,11 +7,11 @@ import { useStudentProfile } from '../../context/StudentProfileContext';
 
 const Profile = () => {
   const { user } = useUser();
-  const { profile, loading, error, profileExists, updateProfile, refreshProfile } = useStudentProfile();
+  const { profile, loading, error, updateProfile, refreshProfile } = useStudentProfile();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [interests, setInterests] = useState([]);
   const [newInterest, setNewInterest] = useState('');
-  const { register, handleSubmit, setValue, formState: { errors }, reset } = useForm();
+  const { register, handleSubmit, setValue, reset } = useForm();
 
   // Set form values when profile data loads
   useEffect(() => {
@@ -74,7 +74,7 @@ const Profile = () => {
       await refreshProfile();
       toast.success('Profile refreshed');
     } catch (error) {
-      toast.error('Failed to refresh profile');
+      console.error('Error refreshing profile:', error);
     }
   };
 

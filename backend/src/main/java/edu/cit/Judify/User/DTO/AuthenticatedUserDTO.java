@@ -10,6 +10,7 @@ public class AuthenticatedUserDTO {
     private String firstName;
     private String lastName;
     private UserRole role;
+    private String profilePicture;
     private String token;
     private boolean isAuthenticated;
 
@@ -64,6 +65,14 @@ public class AuthenticatedUserDTO {
 
     public void setRole(UserRole role) {
         this.role = role;
+    }
+
+    public String getProfilePicture() {
+        return profilePicture;
+    }
+
+    public void setProfilePicture(String profilePicture) {
+        this.profilePicture = profilePicture;
     }
 
     public String getToken() {

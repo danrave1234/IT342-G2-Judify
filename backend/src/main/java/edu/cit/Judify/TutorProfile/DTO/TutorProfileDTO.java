@@ -8,7 +8,7 @@ public class TutorProfileDTO {
     private Long userId;
     private String username;
     private String bio;
-    private String expertise;
+    private String expertise; // Renamed to "course" in the frontend
     private Double hourlyRate;
     private Set<String> subjects;
     private Double rating;

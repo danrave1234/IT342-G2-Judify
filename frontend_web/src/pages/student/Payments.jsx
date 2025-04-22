@@ -1,19 +1,42 @@
 import { useState, useEffect } from 'react';
 import { usePayment } from '../../context/PaymentContext';
-import { useUser } from '../../context/UserContext';
-import { FaDownload, FaFileInvoice, FaDollarSign, FaCalendarAlt, FaHistory } from 'react-icons/fa';
+import { FaDownload, FaFileInvoice, FaDollarSign, FaHistory } from 'react-icons/fa';
 import { format } from 'date-fns';
+import { useLocation } from 'react-router-dom';
 
 const Payments = () => {
-  const { user } = useUser();
+  const location = useLocation();
+  // We'll use window.location.href instead of navigate for simplicity
   const { transactions, loading, error, fetchUserTransactions, processPayment } = usePayment();
-  const [activeTab, setActiveTab] = useState('history');
+
+  // Get tab from URL query parameter
+  const queryParams = new URLSearchParams(location.search);
+  const tabParam = queryParams.get('tab');
+
+  const [activeTab, setActiveTab] = useState(tabParam === 'payment' ? 'payment' : 'history');
   const [filterStatus, setFilterStatus] = useState('all');
   const [cardNumber, setCardNumber] = useState('4242 4242 4242 4242');
   const [expiryDate, setExpiryDate] = useState('12/25');
   const [cvv, setCvv] = useState('123');
   const [amount, setAmount] = useState(130);
   const [paymentResult, setPaymentResult] = useState(null);
+  const [pendingSession, setPendingSession] = useState(null);
+
+  // Load pending session from localStorage when component mounts
+  useEffect(() => {
+    const sessionData = localStorage.getItem('pendingSessionPayment');
+    if (sessionData) {
+      try {
+        const parsedData = JSON.parse(sessionData);
+        setPendingSession(parsedData);
+        if (parsedData.price) {
+          setAmount(parsedData.price);
+        }
+      } catch (err) {
+        console.error('Error parsing pending session data:', err);
+      }
+    }
+  }, []);
 
   const filteredTransactions = transactions?.filter(transaction => {
     if (filterStatus === 'all') return true;
@@ -27,23 +50,31 @@ const Payments = () => {
   const formatDate = (dateString) => {
     try {
       return format(new Date(dateString), 'MMM dd, yyyy');
-    } catch (e) {
+    } catch {
+      // Catch any errors without using the error parameter
       return 'Invalid date';
     }
   };
 
   const handleProcessPayment = async (e) => {
     e.preventDefault();
-    
+
     try {
       // Process the payment using the mock function
       const result = await processPayment({
         amount: parseFloat(amount),
-        description: 'Tutoring Session Payment',
-        tutorId: 2, // Mock tutor ID
+        description: pendingSession ? `${pendingSession.subject} Tutoring Session` : 'Tutoring Session Payment',
+        tutorId: pendingSession?.tutorId || 2,
+        sessionId: pendingSession?.sessionId
       });
-      
+
       setPaymentResult(result);
+
+      // Clear the pending session from localStorage after successful payment
+      if (pendingSession) {
+        localStorage.removeItem('pendingSessionPayment');
+      }
+
       setActiveTab('success');
     } catch (err) {
       console.error('Payment processing failed:', err);
@@ -142,7 +173,7 @@ const Payments = () => {
   const renderPaymentForm = () => (
     <div className="bg-white dark:bg-dark-800 rounded-lg shadow-md p-6">
       <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-6">Payment Processing</h2>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div>
           <form onSubmit={handleProcessPayment}>
@@ -159,7 +190,7 @@ const Payments = () => {
                 required
               />
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
                 <label className="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">
@@ -188,7 +219,7 @@ const Payments = () => {
                 />
               </div>
             </div>
-            
+
             <div className="mb-6">
               <label className="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">
                 Amount
@@ -208,7 +239,7 @@ const Payments = () => {
                 />
               </div>
             </div>
-            
+
             <button
               type="submit"
               className="w-full bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-md transition-colors"
@@ -217,30 +248,83 @@ const Payments = () => {
             </button>
           </form>
         </div>
-        
+
         <div className="bg-gray-50 dark:bg-dark-700 p-6 rounded-lg">
           <h3 className="text-lg font-medium text-gray-800 dark:text-white mb-4">Payment Summary</h3>
-          
-          <div className="space-y-3">
-            <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">Tutoring Session (2 hours)</span>
-              <span className="text-gray-900 dark:text-white">$120.00</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">Platform Fee</span>
-              <span className="text-gray-900 dark:text-white">$10.00</span>
-            </div>
-            <div className="border-t border-gray-200 dark:border-dark-600 pt-2 mt-2">
-              <div className="flex justify-between font-medium">
-                <span className="text-gray-900 dark:text-white">Total</span>
-                <span className="text-gray-900 dark:text-white">$130.00</span>
+
+          {pendingSession ? (
+            <div>
+              <div className="mb-4 p-3 bg-white dark:bg-dark-800 rounded-lg">
+                <h4 className="font-medium text-gray-900 dark:text-white mb-2">
+                  {pendingSession.subject} Session
+                </h4>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                  with {pendingSession.tutorName}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-500">
+                  {formatDate(pendingSession.startTime)} • {new Date(pendingSession.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} • {pendingSession.duration} {pendingSession.duration === 1 ? 'hour' : 'hours'}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                  {pendingSession.isOnline ? 'Online Session' : 'In-person Session'}
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">
+                    Tutoring Session ({pendingSession.duration} {pendingSession.duration === 1 ? 'hour' : 'hours'})
+                  </span>
+                  <span className="text-gray-900 dark:text-white">
+                    ${(pendingSession.price * 0.9).toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">Platform Fee</span>
+                  <span className="text-gray-900 dark:text-white">
+                    ${(pendingSession.price * 0.1).toFixed(2)}
+                  </span>
+                </div>
+                <div className="border-t border-gray-200 dark:border-dark-600 pt-2 mt-2">
+                  <div className="flex justify-between font-medium">
+                    <span className="text-gray-900 dark:text-white">Total</span>
+                    <span className="text-gray-900 dark:text-white">${pendingSession.price.toFixed(2)}</span>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-400">Tutoring Session (2 hours)</span>
+                <span className="text-gray-900 dark:text-white">$120.00</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-400">Platform Fee</span>
+                <span className="text-gray-900 dark:text-white">$10.00</span>
+              </div>
+              <div className="border-t border-gray-200 dark:border-dark-600 pt-2 mt-2">
+                <div className="flex justify-between font-medium">
+                  <span className="text-gray-900 dark:text-white">Total</span>
+                  <span className="text-gray-900 dark:text-white">${amount.toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
+
+  // Store session details for success message
+  const [sessionDetails] = useState(() => {
+    try {
+      const data = localStorage.getItem('pendingSessionPayment');
+      return data ? JSON.parse(data) : null;
+    } catch (err) {
+      console.error('Error parsing session details:', err);
+      return null;
+    }
+  });
 
   const renderSuccessMessage = () => (
     <div className="bg-white dark:bg-dark-800 rounded-lg shadow-md p-6 text-center">
@@ -249,10 +333,10 @@ const Payments = () => {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
         </svg>
       </div>
-      
+
       <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-4">Payment Successful!</h2>
       <p className="text-gray-600 dark:text-gray-400 mb-6">Your transaction has been completed successfully</p>
-      
+
       <div className="max-w-md mx-auto">
         <div className="bg-gray-50 dark:bg-dark-700 rounded-lg p-6 mb-6">
           <div className="grid grid-cols-2 gap-4 text-sm">
@@ -274,21 +358,40 @@ const Payments = () => {
             </div>
           </div>
         </div>
-        
+
         <div className="bg-gray-50 dark:bg-dark-700 rounded-lg p-6 mb-8">
           <div className="flex items-center mb-3">
             <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-dark-600 mr-3"></div>
             <div>
-              <p className="font-medium text-gray-900 dark:text-white">Advanced Mathematics Session</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">with Prof. Michael Chen</p>
-              <p className="text-xs text-gray-400 dark:text-gray-500">March 18, 2025 • 2:00 PM EST • 90 minutes</p>
+              {sessionDetails ? (
+                <>
+                  <p className="font-medium text-gray-900 dark:text-white">{sessionDetails.subject} Session</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">with {sessionDetails.tutorName}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">
+                    {formatDate(sessionDetails.startTime)} • {new Date(sessionDetails.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} • {sessionDetails.duration} {sessionDetails.duration === 1 ? 'hour' : 'hours'}
+                  </p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    {sessionDetails.isOnline ? 'Online Session' : 'In-person Session'}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="font-medium text-gray-900 dark:text-white">Advanced Mathematics Session</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">with Prof. Michael Chen</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">March 18, 2025 • 2:00 PM EST • 90 minutes</p>
+                </>
+              )}
             </div>
           </div>
         </div>
-        
+
         <div className="flex space-x-4">
           <button 
-            onClick={() => setActiveTab('history')}
+            onClick={() => {
+              setActiveTab('history');
+              // Navigate to student dashboard or sessions page
+              window.location.href = '/student/dashboard';
+            }}
             className="flex-1 bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-md transition-colors"
           >
             Back to Home
@@ -300,11 +403,11 @@ const Payments = () => {
             Payments & Transactions
           </button>
         </div>
-        
+
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-6">
           Need help? <a href="#" className="text-primary-600 dark:text-primary-500">Contact Support</a> or read our <a href="#" className="text-primary-600 dark:text-primary-500">FAQs</a>
         </p>
-        
+
         <p className="text-xs text-gray-400 dark:text-gray-500 mt-6">
           A confirmation email has been sent to your registered email address
         </p>
@@ -318,7 +421,7 @@ const Payments = () => {
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Payment & Transactions</h1>
         <p className="text-gray-600 dark:text-gray-400 mt-1">Manage your payments and view transaction history</p>
       </div>
-      
+
       {activeTab !== 'success' && (
         <div className="mb-6">
           <div className="flex space-x-4 border-b border-gray-200 dark:border-dark-700">
@@ -351,7 +454,7 @@ const Payments = () => {
           </div>
         </div>
       )}
-      
+
       {activeTab === 'history' && renderTransactionHistory()}
       {activeTab === 'payment' && renderPaymentForm()}
       {activeTab === 'success' && renderSuccessMessage()}

@@ -9,7 +9,7 @@ import {
   FaClock,
   FaDollarSign,
   FaChevronLeft,
-  FaCheck
+  FaUser
 } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import DatePicker from 'react-datepicker';
@@ -49,6 +49,22 @@ const TutorDetails = () => {
 
     const fetchTutorDetails = async () => {
       try {
+        // Store basic tutor info in localStorage for potential use in BookSession
+        const storeTutorInfo = (tutorData) => {
+          try {
+            const tutorInfo = {
+              id: id,
+              name: `${tutorData.firstName || tutorData.user?.firstName} ${tutorData.lastName || tutorData.user?.lastName}`,
+              profilePicture: tutorData.profilePicture || tutorData.user?.profilePicture || 'https://via.placeholder.com/150',
+              subjects: tutorData.subjects || []
+            };
+            localStorage.setItem('lastViewedTutor', JSON.stringify(tutorInfo));
+            console.log('Stored tutor info in localStorage:', tutorInfo);
+          } catch (storageError) {
+            console.error('Failed to store tutor info in localStorage:', storageError);
+          }
+        };
+
         const token = localStorage.getItem('judify_token');
         const config = {
           headers: {
@@ -56,14 +72,61 @@ const TutorDetails = () => {
           },
         };
 
+        // Try to use the API methods from api.js if available
+        try {
+          // Import the API methods dynamically to avoid changing the component structure
+          const { tutorProfileApi } = await import('../../api/api');
+
+          // First try to fetch by profile ID
+          try {
+            const tutorResponse = await tutorProfileApi.getProfileById(id);
+            const tutorData = tutorResponse.data;
+            setTutor(tutorData);
+            storeTutorInfo(tutorData);
+
+            // Fetch reviews using the original method
+            const reviewsRes = await axios.get(`/api/tutors/${id}/reviews`, config);
+            setReviews(reviewsRes.data);
+
+            setLoading(false);
+            return;
+          } catch (profileIdError) {
+            console.log('Error fetching by profileId:', profileIdError.message);
+
+            // If that fails, try to fetch by user ID
+            try {
+              const tutorResponse = await tutorProfileApi.getProfileByUserId(id);
+              const tutorData = tutorResponse.data;
+              setTutor(tutorData);
+              storeTutorInfo(tutorData);
+
+              // Fetch reviews using the original method
+              const reviewsRes = await axios.get(`/api/tutors/${id}/reviews`, config);
+              setReviews(reviewsRes.data);
+
+              setLoading(false);
+              return;
+            } catch (userIdError) {
+              console.log('Error fetching by userId:', userIdError.message);
+              // Fall back to the original method
+            }
+          }
+        } catch (importError) {
+          console.error('Error importing API methods:', importError);
+          // Fall back to the original method
+        }
+
+        // Original method as fallback
         const tutorRes = await axios.get(`/api/tutors/${id}`, config);
         setTutor(tutorRes.data);
-        
+        storeTutorInfo(tutorRes.data);
+
         const reviewsRes = await axios.get(`/api/tutors/${id}/reviews`, config);
         setReviews(reviewsRes.data);
-        
+
         setLoading(false);
       } catch (error) {
+        console.error('Failed to load tutor details:', error);
         toast.error('Failed to load tutor details');
         setLoading(false);
       }
@@ -86,32 +149,32 @@ const TutorDetails = () => {
 
   useEffect(() => {
     if (!tutor || !selectedDate) return;
-    
+
     // Get available time slots based on tutor's availability
     const dayOfWeek = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'][selectedDate.getDay()];
-    
+
     const availableSlots = [];
-    
+
     // Find matching availability for selected day
     const dayAvailability = tutor.availabilities?.filter(a => a.dayOfWeek === dayOfWeek) || [];
-    
+
     // Generate 1-hour slots within each availability window
     dayAvailability.forEach(availability => {
       const [startHour, startMinute] = availability.startTime.split(':').map(Number);
       const [endHour, endMinute] = availability.endTime.split(':').map(Number);
-      
+
       const startTime = new Date(selectedDate);
       startTime.setHours(startHour, startMinute, 0, 0);
-      
+
       const endTime = new Date(selectedDate);
       endTime.setHours(endHour, endMinute, 0, 0);
-      
+
       // Create 1-hour slots
       const currentTime = new Date(startTime);
       while (currentTime < endTime) {
         const slotEndTime = new Date(currentTime);
         slotEndTime.setHours(currentTime.getHours() + 1);
-        
+
         // Don't add slots that extend beyond availability end time
         if (slotEndTime <= endTime) {
           availableSlots.push({
@@ -119,12 +182,12 @@ const TutorDetails = () => {
             end: slotEndTime
           });
         }
-        
+
         // Move to next hour
         currentTime.setHours(currentTime.getHours() + 1);
       }
     });
-    
+
     setAvailableTimeSlots(availableSlots);
     setSelectedTimeSlot(null);
   }, [tutor, selectedDate]);
@@ -156,7 +219,8 @@ const TutorDetails = () => {
       await axios.post('/api/sessions', sessionData, config);
       toast.success('Session request sent!');
       setSelectedTimeSlot(null);
-    } catch (error) {
+    } catch (bookingError) {
+      console.error('Error booking session:', bookingError);
       toast.error('Failed to book session. Please try again.');
     } finally {
       setSubmitting(false);
@@ -194,13 +258,21 @@ const TutorDetails = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="text-center py-12 bg-gray-50 rounded-lg">
           <h3 className="text-lg font-medium text-gray-900 mb-2">Tutor not found</h3>
-          <p className="text-gray-500 mb-4">The tutor you're looking for does not exist or has been removed.</p>
-          <Link
-            to="/student/find-tutors"
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-          >
-            <FaChevronLeft className="mr-2" /> Back to Search
-          </Link>
+          <p className="text-gray-500 mb-4">The tutor you&apos;re looking for does not exist or has been removed.</p>
+          <div className="flex justify-center space-x-4">
+            <Link
+              to="/student/find-tutors"
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+            >
+              <FaChevronLeft className="mr-2" /> Back to Search
+            </Link>
+            <button 
+              onClick={() => window.history.back()} 
+              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+            >
+              Go Back
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -240,7 +312,7 @@ const TutorDetails = () => {
                   {tutor.user?.firstName} {tutor.user?.lastName}
                 </h1>
                 <p className="text-xl text-gray-600 mt-1">{tutor.title}</p>
-                
+
                 <div className="flex items-center mt-2">
                   {[...Array(5)].map((_, i) => (
                     <FaStar
@@ -256,20 +328,20 @@ const TutorDetails = () => {
                     {tutor.averageRating?.toFixed(1) || 'New'} ({tutor.reviewCount || 0} reviews)
                   </span>
                 </div>
-                
+
                 <div className="flex flex-wrap items-center mt-3 text-gray-600">
                   <div className="flex items-center mr-6 mb-2">
                     <FaDollarSign className="mr-1" />
                     <span className="font-medium">${tutor.hourlyRate}/hour</span>
                   </div>
-                  
+
                   {tutor.isOnlineAvailable && (
                     <div className="flex items-center mr-6 mb-2">
                       <FaVideo className="text-blue-500 mr-1" />
                       <span>Online Available</span>
                     </div>
                   )}
-                  
+
                   {tutor.isInPersonAvailable && tutor.location && (
                     <div className="flex items-center mb-2">
                       <FaMapMarkerAlt className="text-red-500 mr-1" />
@@ -283,7 +355,7 @@ const TutorDetails = () => {
               </div>
             </div>
           </div>
-          
+
           {/* Subjects & Expertise */}
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <h2 className="text-lg font-semibold text-gray-800 mb-4">Subjects & Expertise</h2>
@@ -298,13 +370,13 @@ const TutorDetails = () => {
               ))}
             </div>
           </div>
-          
+
           {/* About */}
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <h2 className="text-lg font-semibold text-gray-800 mb-4">About</h2>
             <p className="text-gray-600 whitespace-pre-line">{tutor.bio}</p>
           </div>
-          
+
           {/* Education & Experience */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div className="bg-white rounded-lg shadow-md p-6">
@@ -316,7 +388,7 @@ const TutorDetails = () => {
               <p className="text-gray-600 whitespace-pre-line">{tutor.experience}</p>
             </div>
           </div>
-          
+
           {/* Reviews */}
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <h2 className="text-lg font-semibold text-gray-800 mb-4">
@@ -366,12 +438,12 @@ const TutorDetails = () => {
             )}
           </div>
         </div>
-        
+
         {/* Booking Sidebar */}
         <div className="lg:col-span-1">
           <div className="bg-white rounded-lg shadow-md p-6 sticky top-6">
             <h2 className="text-lg font-semibold text-gray-800 mb-4">Book a Session</h2>
-            
+
             {/* Date Selection */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -385,7 +457,7 @@ const TutorDetails = () => {
                 dateFormat="MMMM d, yyyy"
               />
             </div>
-            
+
             {/* Time Slot Selection */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -413,7 +485,7 @@ const TutorDetails = () => {
                 </div>
               )}
             </div>
-            
+
             {/* Session Type Selection */}
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">Session Type</label>
@@ -451,7 +523,7 @@ const TutorDetails = () => {
                 </p>
               )}
             </div>
-            
+
             {/* Pricing */}
             <div className="border-t border-gray-200 pt-4 mb-6">
               <div className="flex justify-between">
@@ -459,7 +531,7 @@ const TutorDetails = () => {
                 <span className="text-gray-900 font-medium">${tutor.hourlyRate}</span>
               </div>
             </div>
-            
+
             {/* Book Button */}
             <button
               type="button"

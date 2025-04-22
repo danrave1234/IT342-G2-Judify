@@ -13,8 +13,10 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Arrays;
@@ -54,7 +56,7 @@ public class UserController {
         System.out.println("Role: " + user.getRole());
         System.out.println("Password null check: " + (user.getPassword() == null ? "Password is NULL" : "Password is present"));
         System.out.println("Password empty check: " + (user.getPassword() != null && user.getPassword().trim().isEmpty() ? "Password is EMPTY" : "Password has content"));
-        
+
         try {
             UserEntity createdUser = userService.createUser(user);
             return ResponseEntity.ok(userDTOMapper.toDTO(createdUser));
@@ -181,13 +183,13 @@ public class UserController {
             System.out.println("Username: " + userRequest.getUsername());
             System.out.println("Password field present: " + (userRequest.getPassword() != null));
             System.out.println("Role: " + userRequest.getRole());
-            
+
             // Validate the user data
             boolean isValid = userRequest.validate();
             if (!isValid) {
                 return ResponseEntity.badRequest().body("User validation failed - see server logs for details");
             }
-            
+
             // Create the user
             UserEntity createdUser = userService.createUser(userRequest);
             return ResponseEntity.ok(userDTOMapper.toDTO(createdUser));
@@ -206,7 +208,7 @@ public class UserController {
     public ResponseEntity<?> registerUser(@RequestBody Map<String, Object> requestBody) {
         try {
             System.out.println("Registration request received: " + requestBody);
-            
+
             // Extract values from the request
             String username = (String) requestBody.get("username");
             String email = (String) requestBody.get("email");
@@ -214,14 +216,14 @@ public class UserController {
             String firstName = (String) requestBody.get("firstName");
             String lastName = (String) requestBody.get("lastName");
             String roleStr = (String) requestBody.get("role");
-            
+
             // Validate required fields
             if (username == null || email == null || password == null || 
                 firstName == null || lastName == null || roleStr == null) {
                 return ResponseEntity.badRequest()
                     .body("Missing required fields. All fields (username, email, password, firstName, lastName, role) are required.");
             }
-            
+
             // Create the user entity
             UserEntity user = new UserEntity();
             user.setUsername(username);
@@ -229,7 +231,7 @@ public class UserController {
             user.setPassword(password);
             user.setFirstName(firstName);
             user.setLastName(lastName);
-            
+
             // Convert string role to enum
             try {
                 UserRole role = UserRole.valueOf(roleStr);
@@ -238,26 +240,73 @@ public class UserController {
                 return ResponseEntity.badRequest()
                     .body("Invalid role value. Must be one of: " + Arrays.toString(UserRole.values()));
             }
-            
+
             // Set optional fields if present
             if (requestBody.containsKey("profilePicture")) {
                 user.setProfilePicture((String) requestBody.get("profilePicture"));
             }
-            
+
             if (requestBody.containsKey("contactDetails")) {
                 user.setContactDetails((String) requestBody.get("contactDetails"));
             }
-            
+
             // Set timestamps
             Date now = new Date();
             user.setCreatedAt(now);
             user.setUpdatedAt(now);
-            
+
             // Create the user
             UserEntity createdUser = userService.createUser(user);
             return ResponseEntity.ok(userDTOMapper.toDTO(createdUser));
         } catch (Exception e) {
             System.err.println("Error in user registration: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(500).body("Server error: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Upload profile picture for a user
+     */
+    @Operation(summary = "Upload profile picture", description = "Uploads a profile picture for a user")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Profile picture successfully uploaded"),
+        @ApiResponse(responseCode = "404", description = "User not found")
+    })
+    @PostMapping("/{userId}/profile-picture")
+    public ResponseEntity<?> uploadProfilePicture(
+            @Parameter(description = "User ID") @PathVariable Long userId,
+            @Parameter(description = "Profile picture file") @RequestParam("file") MultipartFile file) {
+        try {
+            // Check if user exists
+            return userService.getUserById(userId)
+                    .map(user -> {
+                        try {
+                            // Convert the file to Base64 string
+                            String base64Image = "data:" + file.getContentType() + ";base64," + 
+                                                java.util.Base64.getEncoder().encodeToString(file.getBytes());
+
+                            // Update user's profile picture
+                            user.setProfilePicture(base64Image);
+                            user.setUpdatedAt(new Date());
+                            UserEntity updatedUser = userService.updateUser(userId, user);
+
+                            // Create response with both profilePicture and profileImage fields for frontend compatibility
+                            Map<String, Object> response = new HashMap<>();
+                            response.put("profilePicture", base64Image);
+                            response.put("profileImage", base64Image);
+                            response.put("message", "Profile picture updated successfully");
+
+                            return ResponseEntity.ok(response);
+                        } catch (Exception e) {
+                            System.err.println("Error processing profile picture: " + e.getMessage());
+                            e.printStackTrace();
+                            return ResponseEntity.status(500).body("Error processing profile picture: " + e.getMessage());
+                        }
+                    })
+                    .orElse(ResponseEntity.notFound().build());
+        } catch (Exception e) {
+            System.err.println("Error uploading profile picture: " + e.getMessage());
             e.printStackTrace();
             return ResponseEntity.status(500).body("Server error: " + e.getMessage());
         }
