@@ -10,7 +10,7 @@ public class TutorProfileDTO {
     private String firstName;
     private String lastName;
     private String bio;
-    private String expertise;
+    private String expertise; // Renamed to "course" in the frontend
     private Double hourlyRate;
     private Set<String> subjects;
     private Double rating;
@@ -137,3 +137,4 @@ public class TutorProfileDTO {
         this.longitude = longitude;
     }
 }
+

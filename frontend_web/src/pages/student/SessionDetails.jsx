@@ -24,7 +24,7 @@ const SessionDetails = () => {
     const result = await getSessionById(sessionId);
     if (result.success) {
       setSession(result.session);
-      
+
       // Check if session has a review
       try {
         const reviewResponse = await reviewApi.getReviews({ sessionId });
@@ -180,12 +180,18 @@ const SessionDetails = () => {
               />
               <div>
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white">Tutor Name</h3>
-                <Link 
-                  to={`/tutors/${session.tutorId}`}
-                  className="text-primary-600 dark:text-primary-500 text-sm"
-                >
-                  View Profile
-                </Link>
+                {session.tutorId ? (
+                  <Link 
+                    to={`/tutors/${session.tutorId}`}
+                    className="text-primary-600 dark:text-primary-500 text-sm"
+                  >
+                    View Profile
+                  </Link>
+                ) : (
+                  <span className="text-gray-400 dark:text-gray-600 text-sm">
+                    Profile not available
+                  </span>
+                )}
               </div>
             </div>
 
@@ -223,7 +229,7 @@ const SessionDetails = () => {
               Join Meeting
             </a>
           )}
-          {!isPast && (
+          {!isPast && session.tutorId && (
             <Link
               to={`/student/messages`}
               state={{ tutorId: session.tutorId }}

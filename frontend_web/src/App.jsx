@@ -8,6 +8,8 @@ import { TutorProfileProvider } from './context/TutorProfileContext';
 import { SessionProvider } from './context/SessionContext';
 import { MessageProvider } from './context/MessageContext';
 import { NotificationProvider } from './context/NotificationContext';
+import { StudentProfileProvider } from './context/StudentProfileContext';
+import { PaymentProvider } from './context/PaymentContext';
 
 // Layouts
 import AuthLayout from './components/layout/AuthLayout';
@@ -27,21 +29,23 @@ import Pricing from './pages/Pricing';
 
 // Student pages
 import StudentDashboard from './pages/student/Dashboard';
-import StudentProfile from './pages/student/Profile';
 import StudentSessions from './pages/student/Sessions';
-import SessionDetails from './pages/student/SessionDetails';
+import SessionDetail from './pages/student/SessionDetail';
+import SessionReview from './pages/student/SessionReview';
 import BookSession from './pages/student/BookSession';
+import StudentPayments from './pages/student/Payments';
 
 // Tutor pages
 import TutorDashboard from './pages/tutor/Dashboard';
-import TutorProfile from './pages/tutor/Profile';
 import TutorSessions from './pages/tutor/Sessions';
 import TutorSessionDetails from './pages/tutor/SessionDetails';
 import TutorAvailability from './pages/tutor/Availability';
+import TutorPayments from './pages/tutor/Payments';
 
 // Common pages
 import Messages from './pages/Messages';
 import NotFound from './pages/NotFound';
+import ProfilePage from './pages/ProfilePage';
 
 // Guards
 import PrivateRoute from './components/guards/PrivateRoute';
@@ -56,45 +60,59 @@ function App() {
           <SessionProvider>
             <MessageProvider>
               <NotificationProvider>
-                <ToastContainer position="top-right" autoClose={3000} />
-                <Routes>
-                  {/* Public Routes */}
-                  <Route path="/" element={<LandingPage />} />
-                  <Route path="/how-it-works" element={<HowItWorks />} />
-                  <Route path="/find-tutors" element={<FindTutors />} />
-                  <Route path="/tutors/:tutorId" element={<TutorDetails />} />
-                  <Route path="/pricing" element={<Pricing />} />
-                  
-                  {/* Auth Routes */}
-                  <Route element={<AuthLayout />}>
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/register" element={<Register />} />
-                    <Route path="/forgot-password" element={<ForgotPassword />} />
-                  </Route>
-                  
-                  {/* Student Routes */}
-                  <Route element={<PrivateRoute><StudentRoute><MainLayout /></StudentRoute></PrivateRoute>}>
-                    <Route path="/student" element={<StudentDashboard />} />
-                    <Route path="/student/profile" element={<StudentProfile />} />
-                    <Route path="/student/sessions" element={<StudentSessions />} />
-                    <Route path="/student/sessions/:sessionId" element={<SessionDetails />} />
-                    <Route path="/student/book/:tutorId" element={<BookSession />} />
-                    <Route path="/student/messages" element={<Messages />} />
-                  </Route>
-                  
-                  {/* Tutor Routes */}
-                  <Route element={<PrivateRoute><TutorRoute><MainLayout /></TutorRoute></PrivateRoute>}>
-                    <Route path="/tutor" element={<TutorDashboard />} />
-                    <Route path="/tutor/profile" element={<TutorProfile />} />
-                    <Route path="/tutor/sessions" element={<TutorSessions />} />
-                    <Route path="/tutor/sessions/:sessionId" element={<TutorSessionDetails />} />
-                    <Route path="/tutor/availability" element={<TutorAvailability />} />
-                    <Route path="/tutor/messages" element={<Messages />} />
-                  </Route>
-                  
-                  {/* 404 Route */}
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
+                <StudentProfileProvider>
+                  <PaymentProvider>
+                    <ToastContainer position="top-right" autoClose={3000} />
+                    <Routes>
+                      {/* Public Routes */}
+                      <Route path="/" element={<LandingPage />} />
+                      <Route path="/how-it-works" element={<HowItWorks />} />
+                      <Route path="/find-tutors" element={<FindTutors />} />
+                      <Route path="/tutors/:tutorId" element={<TutorDetails />} />
+                      <Route path="/pricing" element={<Pricing />} />
+                      
+                      {/* Auth Routes */}
+                      <Route element={<AuthLayout />}>
+                        <Route path="/auth/login" element={<Login />} />
+                        <Route path="/login" element={<Login />} />
+                        <Route path="/auth/register" element={<Register />} />
+                        <Route path="/register" element={<Register />} />
+                        <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+                        <Route path="/forgot-password" element={<ForgotPassword />} />
+                      </Route>
+                      
+                      {/* Protected Layout for all authenticated routes */}
+                      <Route element={<PrivateRoute><MainLayout /></PrivateRoute>}>
+                        {/* Common Routes */}
+                        <Route path="/profile" element={<ProfilePage />} />
+                        
+                        {/* Student Routes */}
+                        <Route path="/student" element={<StudentRoute><StudentDashboard /></StudentRoute>} />
+                        <Route path="/student/profile" element={<StudentRoute><ProfilePage /></StudentRoute>} />
+                        <Route path="/student/find-tutors" element={<StudentRoute><FindTutors /></StudentRoute>} />
+                        <Route path="/student/tutors/:tutorId" element={<StudentRoute><TutorDetails /></StudentRoute>} />
+                        <Route path="/student/sessions" element={<StudentRoute><StudentSessions /></StudentRoute>} />
+                        <Route path="/student/sessions/:sessionId" element={<StudentRoute><SessionDetail /></StudentRoute>} />
+                        <Route path="/student/review/session/:sessionId" element={<StudentRoute><SessionReview /></StudentRoute>} />
+                        <Route path="/student/book/:tutorId" element={<StudentRoute><BookSession /></StudentRoute>} />
+                        <Route path="/student/messages" element={<StudentRoute><Messages /></StudentRoute>} />
+                        <Route path="/student/payments" element={<StudentRoute><StudentPayments /></StudentRoute>} />
+                        
+                        {/* Tutor Routes */}
+                        <Route path="/tutor" element={<TutorRoute><TutorDashboard /></TutorRoute>} />
+                        <Route path="/tutor/profile" element={<TutorRoute><ProfilePage /></TutorRoute>} />
+                        <Route path="/tutor/sessions" element={<TutorRoute><TutorSessions /></TutorRoute>} />
+                        <Route path="/tutor/sessions/:sessionId" element={<TutorRoute><TutorSessionDetails /></TutorRoute>} />
+                        <Route path="/tutor/availability" element={<TutorRoute><TutorAvailability /></TutorRoute>} />
+                        <Route path="/tutor/messages" element={<TutorRoute><Messages /></TutorRoute>} />
+                        <Route path="/tutor/payments" element={<TutorRoute><TutorPayments /></TutorRoute>} />
+                      </Route>
+                      
+                      {/* 404 Route */}
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </PaymentProvider>
+                </StudentProfileProvider>
               </NotificationProvider>
             </MessageProvider>
           </SessionProvider>

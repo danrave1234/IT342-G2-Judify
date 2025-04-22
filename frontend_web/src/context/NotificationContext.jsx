@@ -16,7 +16,12 @@ export const NotificationProvider = ({ children }) => {
   // Load notifications when user changes
   useEffect(() => {
     if (user) {
-      loadNotifications();
+      loadNotifications().catch(err => {
+        console.error("Error loading notifications:", err);
+        // Set empty notifications but don't block app flow
+        setNotifications([]);
+        setUnreadCount(0);
+      });
     } else {
       setNotifications([]);
       setUnreadCount(0);
@@ -24,24 +29,60 @@ export const NotificationProvider = ({ children }) => {
   }, [user]);
 
   const loadNotifications = async (params = { page: 0, size: 10 }) => {
-    if (!user) return { success: false, message: 'No user logged in', notifications: [] };
+    // Ensure user exists and has a userId
+    if (!user) {
+      console.warn("Cannot load notifications: user is not logged in");
+      return { success: false, message: 'No user logged in', notifications: [] };
+    }
+    
+    if (!user.userId) {
+      console.warn("Cannot load notifications: user ID is missing");
+      return { success: false, message: 'User ID is missing', notifications: [] };
+    }
     
     setLoading(true);
     setError(null);
     
     try {
+      console.log(`Loading notifications for user ID: ${user.userId} with params:`, params);
+      
       const response = await notificationApi.getNotifications(user.userId, params);
-      setNotifications(response.data.content);
+      
+      // Check if the response has expected structure
+      const notificationsData = response.data?.content || response.data || [];
+      
+      console.log(`Retrieved ${Array.isArray(notificationsData) ? notificationsData.length : 0} notifications`);
+      
+      // Ensure we always have an array
+      const safeNotifications = Array.isArray(notificationsData) ? notificationsData : [];
+      setNotifications(safeNotifications);
       
       // Calculate unread count
-      const unread = response.data.content.filter(n => !n.isRead).length;
+      const unread = safeNotifications.filter(n => !n.isRead).length;
       setUnreadCount(unread);
       
-      return { success: true, notifications: response.data.content, totalPages: response.data.totalPages };
+      return { 
+        success: true, 
+        notifications: safeNotifications, 
+        totalPages: response.data?.totalPages || 1,
+        totalElements: response.data?.totalElements || safeNotifications.length
+      };
     } catch (err) {
+      console.error("Failed to load notifications:", err);
+      console.error("Error details:", err.response?.data);
+      
+      // Don't block application flow on notification errors
+      setNotifications([]);
+      setUnreadCount(0);
+      
       const message = err.response?.data?.message || 'Failed to load notifications';
       setError(message);
-      return { success: false, message, notifications: [] };
+      
+      return { 
+        success: false, 
+        message, 
+        notifications: [] 
+      };
     } finally {
       setLoading(false);
     }
