@@ -92,7 +92,7 @@
             android:orientation="horizontal"
             android:padding="16dp"
             android:background="?attr/colorSurface"
-            app:layout_scrollFlags="noScroll">
+            app:layout_scrollFlags="scroll">
 
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/searchInputLayout"
@@ -124,7 +124,7 @@
 
         <!-- Top Mentors Section - This will be pinned -->
         <LinearLayout
-            android:id="@+id/topMentorsSection"
+            android:id="@+id/topTutorsSection"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
@@ -133,7 +133,7 @@
             android:paddingEnd="16dp"
             android:paddingTop="8dp"
             android:paddingBottom="8dp"
-            app:layout_scrollFlags="noScroll">
+            app:layout_scrollFlags="scroll">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -144,13 +144,13 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Top Mentors"
+                    android:text="Tutors"
                     android:textSize="18sp"
                     android:textStyle="bold"
                     android:textColor="?android:textColorPrimary" />
 
                 <TextView
-                    android:id="@+id/seeAllMentors"
+                    android:id="@+id/seeAllTutors"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="See All"
@@ -165,241 +165,35 @@
                 android:scrollbars="none">
 
                 <LinearLayout
+                    android:id="@+id/topTutorsContainer"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal">
 
-                    <!-- Mentor 1 -->
-                    <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:gravity="center"
-                        android:layout_marginEnd="16dp">
+                    <!-- Tutors will be dynamically added here -->
 
-                        <de.hdodenhof.circleimageview.CircleImageView
-                            android:layout_width="60dp"
-                            android:layout_height="60dp"
-                            android:src="@drawable/mentor_jacob" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Jacob"
-                            android:textSize="14sp"
-                            android:textColor="?android:textColorPrimary"
-                            android:layout_marginTop="4dp" />
-                    </LinearLayout>
-
-                    <!-- Mentor 2 -->
-                    <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:gravity="center"
-                        android:layout_marginEnd="16dp">
-
-                        <de.hdodenhof.circleimageview.CircleImageView
-                            android:layout_width="60dp"
-                            android:layout_height="60dp"
-                            android:src="@drawable/mentor_claire" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Claire"
-                            android:textSize="14sp"
-                            android:textColor="?android:textColorPrimary"
-                            android:layout_marginTop="4dp" />
-                    </LinearLayout>
-
-                    <!-- Mentor 3 -->
-                    <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:gravity="center"
-                        android:layout_marginEnd="16dp">
-
-                        <de.hdodenhof.circleimageview.CircleImageView
-                            android:layout_width="60dp"
-                            android:layout_height="60dp"
-                            android:src="@drawable/mentor_priscilla" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Priscilla"
-                            android:textSize="14sp"
-                            android:textColor="?android:textColorPrimary"
-                            android:layout_marginTop="4dp" />
-                    </LinearLayout>
-
-                    <!-- Mentor 4 -->
-                    <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:gravity="center"
-                        android:layout_marginEnd="16dp">
-
-                        <de.hdodenhof.circleimageview.CircleImageView
-                            android:layout_width="60dp"
-                            android:layout_height="60dp"
-                            android:src="@drawable/mentor_wade" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Wade"
-                            android:textSize="14sp"
-                            android:textColor="?android:textColorPrimary"
-                            android:layout_marginTop="4dp" />
-                    </LinearLayout>
-
-                    <!-- Mentor 5 -->
-                    <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:gravity="center">
-
-                        <de.hdodenhof.circleimageview.CircleImageView
-                            android:layout_width="60dp"
-                            android:layout_height="60dp"
-                            android:src="@drawable/mentor_kathryn" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Kathryn"
-                            android:textSize="14sp"
-                            android:textColor="?android:textColorPrimary"
-                            android:layout_marginTop="4dp" />
-                    </LinearLayout>
                 </LinearLayout>
             </HorizontalScrollView>
         </LinearLayout>
-
-        <!-- Popular Categories - This will be pinned -->
-        <LinearLayout
-            android:id="@+id/categoriesSection"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:background="@color/white"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
-            android:paddingTop="8dp"
-            android:paddingBottom="8dp"
-            app:layout_scrollFlags="noScroll">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal">
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Most Popular Courses"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:textColor="#000000" />
-
-                <TextView
-                    android:id="@+id/seeAllCategories"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="See All"
-                    android:textSize="14sp"
-                    android:textColor="@color/primary_blue" />
-            </LinearLayout>
-
-            <HorizontalScrollView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:scrollbars="none">
-
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal">
-
-                    <!-- Category 1 -->
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="All"
-                        android:textSize="14sp"
-                        android:textColor="#FFFFFF"
-                        android:background="@drawable/category_selected_background"
-                        android:paddingStart="16dp"
-                        android:paddingEnd="16dp"
-                        android:paddingTop="8dp"
-                        android:paddingBottom="8dp"
-                        android:layout_marginEnd="8dp" />
-
-                    <!-- Category 2 -->
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="3D Design"
-                        android:textSize="14sp"
-                        android:textColor="#000000"
-                        android:background="@drawable/category_background"
-                        android:paddingStart="16dp"
-                        android:paddingEnd="16dp"
-                        android:paddingTop="8dp"
-                        android:paddingBottom="8dp"
-                        android:layout_marginEnd="8dp" />
-
-                    <!-- Category 3 -->
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Business"
-                        android:textSize="14sp"
-                        android:textColor="#000000"
-                        android:background="@drawable/category_background"
-                        android:paddingStart="16dp"
-                        android:paddingEnd="16dp"
-                        android:paddingTop="8dp"
-                        android:paddingBottom="8dp"
-                        android:layout_marginEnd="8dp" />
-
-                    <!-- Category 4 -->
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="UI/UX"
-                        android:textSize="14sp"
-                        android:textColor="#000000"
-                        android:background="@drawable/category_background"
-                        android:paddingStart="16dp"
-                        android:paddingEnd="16dp"
-                        android:paddingTop="8dp"
-                        android:paddingBottom="8dp" />
-                </LinearLayout>
-            </HorizontalScrollView>
-        </LinearLayout>
-
-        <!-- Shadow for the sticky header -->
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="4dp"
-            android:background="@drawable/shadow_gradient"
-            app:layout_scrollFlags="noScroll" />
 
     </com.google.android.material.appbar.AppBarLayout>
 
-    <!-- Main Content -->
+    <!-- Shadow for the sticky header -->
+    <View
+        android:id="@+id/dashboardShadowDivider"
+        android:layout_width="match_parent"
+        android:layout_height="4dp"
+        android:background="@drawable/shadow_gradient"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior" />
+
+    <!-- Scrollable Content -->
     <androidx.core.widget.NestedScrollView
+        android:id="@+id/dashboardScrollView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="?android:colorBackground"
+        android:clipToPadding="false"
+        android:paddingBottom="56dp"
+        android:fillViewport="true"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
         <LinearLayout
@@ -477,213 +271,27 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:paddingLeft="16dp"
+                android:paddingTop="16dp"
+                android:paddingRight="16dp"
+                android:paddingBottom="32dp">
 
-                <!-- Course 1 -->
-                <androidx.cardview.widget.CardView
+                <!-- All Courses RecyclerView -->
+                <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="16dp"
-                    app:cardCornerRadius="12dp"
-                    app:cardElevation="2dp">
+                    android:text="All Courses"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="?android:textColorPrimary"
+                    android:layout_marginBottom="8dp" />
 
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical">
-
-                        <ImageView
-                            android:layout_width="match_parent"
-                            android:layout_height="140dp"
-                            android:scaleType="centerCrop"
-                            android:src="@drawable/course_3d_design" />
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="vertical"
-                            android:padding="12dp">
-
-                            <TextView
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:text="3D Design Illustration"
-                                android:textSize="16sp"
-                                android:textStyle="bold"
-                                android:textColor="#000000" />
-
-                            <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:orientation="horizontal"
-                                android:layout_marginTop="8dp">
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="$48"
-                                    android:textSize="16sp"
-                                    android:textStyle="bold"
-                                    android:textColor="#000000" />
-
-                                <TextView
-                                    android:layout_width="0dp"
-                                    android:layout_height="wrap_content"
-                                    android:layout_weight="1"
-                                    android:text="4.8"
-                                    android:textSize="14sp"
-                                    android:drawableStart="@drawable/ic_star"
-                                    android:drawablePadding="4dp"
-                                    android:gravity="end" />
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="(1,289 students)"
-                                    android:textSize="12sp"
-                                    android:textColor="#888888"
-                                    android:layout_marginStart="4dp" />
-                            </LinearLayout>
-                        </LinearLayout>
-                    </LinearLayout>
-                </androidx.cardview.widget.CardView>
-
-                <!-- Course 2 -->
-                <androidx.cardview.widget.CardView
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/allCoursesRecyclerView"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="16dp"
-                    app:cardCornerRadius="12dp"
-                    app:cardElevation="2dp">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical">
-
-                        <ImageView
-                            android:layout_width="match_parent"
-                            android:layout_height="140dp"
-                            android:scaleType="centerCrop"
-                            android:src="@drawable/course_entrepreneurship" />
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="vertical"
-                            android:padding="12dp">
-
-                            <TextView
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:text="Digital Entrepreneurship"
-                                android:textSize="16sp"
-                                android:textStyle="bold"
-                                android:textColor="#000000" />
-
-                            <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:orientation="horizontal"
-                                android:layout_marginTop="8dp">
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="$39"
-                                    android:textSize="16sp"
-                                    android:textStyle="bold"
-                                    android:textColor="#000000" />
-
-                                <TextView
-                                    android:layout_width="0dp"
-                                    android:layout_height="wrap_content"
-                                    android:layout_weight="1"
-                                    android:text="4.5"
-                                    android:textSize="14sp"
-                                    android:drawableStart="@drawable/ic_star"
-                                    android:drawablePadding="4dp"
-                                    android:gravity="end" />
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="(1,482 students)"
-                                    android:textSize="12sp"
-                                    android:textColor="#888888"
-                                    android:layout_marginStart="4dp" />
-                            </LinearLayout>
-                        </LinearLayout>
-                    </LinearLayout>
-                </androidx.cardview.widget.CardView>
-
-                <!-- Course 3 -->
-                <androidx.cardview.widget.CardView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    app:cardCornerRadius="12dp"
-                    app:cardElevation="2dp">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical">
-
-                        <ImageView
-                            android:layout_width="match_parent"
-                            android:layout_height="140dp"
-                            android:scaleType="centerCrop"
-                            android:src="@drawable/course_ux_persona" />
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="vertical"
-                            android:padding="12dp">
-
-                            <TextView
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:text="Learn UX User Persona"
-                                android:textSize="16sp"
-                                android:textStyle="bold"
-                                android:textColor="#000000" />
-
-                            <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:orientation="horizontal"
-                                android:layout_marginTop="8dp">
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="$42"
-                                    android:textSize="16sp"
-                                    android:textStyle="bold"
-                                    android:textColor="#000000" />
-
-                                <TextView
-                                    android:layout_width="0dp"
-                                    android:layout_height="wrap_content"
-                                    android:layout_weight="1"
-                                    android:text="4.7"
-                                    android:textSize="14sp"
-                                    android:drawableStart="@drawable/ic_star"
-                                    android:drawablePadding="4dp"
-                                    android:gravity="end" />
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="(7,938 students)"
-                                    android:textSize="12sp"
-                                    android:textColor="#888888"
-                                    android:layout_marginStart="4dp" />
-                            </LinearLayout>
-                        </LinearLayout>
-                    </LinearLayout>
-                </androidx.cardview.widget.CardView>
+                    android:clipToPadding="false"
+                    android:nestedScrollingEnabled="false" />
             </LinearLayout>
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
@@ -694,8 +302,8 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:visibility="gone"
-        android:background="@color/white"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior" />
+        android:paddingBottom="56dp"
+        android:background="?android:colorBackground" />
 
     <!-- Bottom Navigation -->
     <com.google.android.material.bottomnavigation.BottomNavigationView
@@ -703,11 +311,13 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
-        android:background="?attr/colorSurface"
-        app:menu="@menu/bottom_nav_menu"
+        android:background="?android:attr/windowBackground"
+        app:elevation="8dp"
         app:labelVisibilityMode="labeled"
-        app:itemIconTint="@color/bottom_nav_color"
-        app:itemTextColor="@color/bottom_nav_color"
-        app:elevation="8dp" />
+        app:itemTextAppearanceActive="@style/BottomNavigationView.ActiveItemText"
+        app:itemTextAppearanceInactive="@style/BottomNavigationView.InactiveItemText"
+        app:itemIconTint="@color/bottom_nav_item_color"
+        app:itemTextColor="@color/bottom_nav_item_color"
+        app:menu="@menu/bottom_nav_menu" />
 
-</androidx.coordinatorlayout.widget.CoordinatorLayout> 
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

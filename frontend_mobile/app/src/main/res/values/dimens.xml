@@ -2,4 +2,10 @@
     <!-- Default screen margins, per the Android Design guidelines. -->
     <dimen name="activity_horizontal_margin">16dp</dimen>
     <dimen name="activity_vertical_margin">16dp</dimen>
+
+    <!-- Bottom navigation height for padding -->
+    <dimen name="bottom_nav_height">120dp</dimen>
+
+    <!-- Session card margin -->
+    <dimen name="session_card_margin">8dp</dimen>
 </resources>

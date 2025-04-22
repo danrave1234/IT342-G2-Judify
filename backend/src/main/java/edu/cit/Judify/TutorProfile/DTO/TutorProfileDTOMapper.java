@@ -15,12 +15,16 @@ public class TutorProfileDTOMapper {
         dto.setProfileId(entity.getId());
         dto.setUserId(entity.getUser().getUserId());
         dto.setUsername(entity.getUser().getUsername());
+        dto.setFirstName(entity.getUser().getFirstName());
+        dto.setLastName(entity.getUser().getLastName());
         dto.setBio(entity.getBiography());
         dto.setExpertise(entity.getExpertise());
         dto.setHourlyRate(entity.getHourlyRate());
         dto.setSubjects(entity.getSubjects());
         dto.setRating(entity.getRating());
         dto.setTotalReviews(entity.getTotalReviews());
+        dto.setLatitude(entity.getLatitude());
+        dto.setLongitude(entity.getLongitude());
         dto.setCreatedAt(entity.getCreatedAt());
         return dto;
     }
@@ -38,6 +42,8 @@ public class TutorProfileDTOMapper {
         entity.setSubjects(dto.getSubjects());
         entity.setRating(dto.getRating());
         entity.setTotalReviews(dto.getTotalReviews());
+        entity.setLatitude(dto.getLatitude());
+        entity.setLongitude(dto.getLongitude());
         entity.setCreatedAt(dto.getCreatedAt());
         return entity;
     }
