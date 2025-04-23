@@ -171,13 +171,24 @@ const FindTutors = () => {
     fetchTutors();
   };
 
-  const handleViewProfileClick = (tutorId) => {
-    console.log('Navigating to tutor profile:', tutorId);
-    if (!tutorId) {
-      toast.error('Cannot view profile: Missing tutor ID');
-      return;
+  const handleViewProfileClick = (tutor) => {
+    const tutorId = tutor.profileId || tutor.id;
+    
+    if (tutorId) {
+      console.log(`Navigating to tutor profile: ${tutorId}`);
+      
+      // Store tutor info in localStorage before navigation
+      try {
+        localStorage.setItem('lastViewedTutor', JSON.stringify(tutor));
+        console.log('Stored tutor data in localStorage:', tutor);
+      } catch (e) {
+        console.warn('Failed to store tutor info in localStorage:', e);
+      }
+      
+      navigate(`/tutor-profile/${tutorId}`);
+    } else {
+      toast.error('Unable to view profile: Tutor ID not found');
     }
-    navigate(`/student/tutors/${tutorId}`);
   };
 
   const handleBookSessionClick = (tutorId, tutor) => {
@@ -223,6 +234,43 @@ const FindTutors = () => {
     fetchTutors();
   };
 
+  const handleContactTutor = (tutor) => {
+    const tutorId = tutor.profileId || tutor.id || tutor.userId;
+    
+    if (tutorId) {
+      console.log(`Starting chat with tutor ID: ${tutorId}`);
+      
+      // Store complete tutor data in localStorage for conversation creation
+      try {
+        // Create a complete tutor object with all potentially needed fields
+        const tutorData = {
+          id: tutorId,
+          profileId: tutor.profileId || tutor.id,
+          userId: tutor.userId,
+          firstName: tutor.firstName || tutor.user?.firstName || 'Tutor',
+          lastName: tutor.lastName || tutor.user?.lastName || tutorId,
+          username: tutor.username || tutor.user?.username || `Tutor${tutorId}`,
+          profilePicture: tutor.profilePicture || tutor.user?.profilePicture || `https://ui-avatars.com/api/?name=Tutor+${tutorId}&background=random`,
+          subjects: tutor.subjects || []
+        };
+        
+        localStorage.setItem('lastViewedTutor', JSON.stringify(tutorData));
+        console.log('Stored detailed tutor data for messaging:', tutorData);
+      } catch (e) {
+        console.warn('Failed to store tutor info in localStorage:', e);
+      }
+      
+      // Navigate directly to Messages page with tutorId in state
+      navigate('/messages', { 
+        state: { 
+          tutorId: tutorId,
+          action: 'startConversation'
+        }
+      });
+    } else {
+      toast.error('Unable to contact tutor: Tutor ID not found');
+    }
+  };
 
   const renderGridView = () => {
     return (
@@ -233,7 +281,7 @@ const FindTutors = () => {
               <div className="flex items-center mb-4">
                 <div 
                   className="w-16 h-16 rounded-full overflow-hidden mr-4 cursor-pointer"
-                  onClick={() => handleViewProfileClick(tutor.profileId || tutor.userId)}
+                  onClick={() => handleViewProfileClick(tutor)}
                 >
                   {tutor.profilePicture || tutor.user?.profilePicture ? (
                     <img 
@@ -253,7 +301,7 @@ const FindTutors = () => {
                 <div>
                   <h3 
                     className="text-lg font-semibold mb-1 hover:text-primary-600 dark:hover:text-primary-400 cursor-pointer"
-                    onClick={() => handleViewProfileClick(tutor.profileId || tutor.userId)}
+                    onClick={() => handleViewProfileClick(tutor)}
                   >
                     {tutor.firstName || tutor.user?.firstName} {tutor.lastName || tutor.user?.lastName}
                   </h3>
@@ -312,18 +360,24 @@ const FindTutors = () => {
                 )}
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <button
-                  onClick={() => handleViewProfileClick(tutor.profileId || tutor.userId)} 
-                  className="flex-1 bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded transition duration-200"
+                  onClick={() => handleViewProfileClick(tutor)} 
+                  className="flex-1 bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-3 rounded transition duration-200"
                 >
                   View Profile
                 </button>
                 <button
                   onClick={() => handleBookSessionClick(tutor.profileId || tutor.userId, tutor)} 
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded transition duration-200"
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-3 rounded transition duration-200"
                 >
-                  Book Session
+                  Book
+                </button>
+                <button
+                  onClick={() => handleContactTutor(tutor)}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-3 rounded transition duration-200"
+                >
+                  Message
                 </button>
               </div>
             </div>
@@ -341,7 +395,7 @@ const FindTutors = () => {
             <div className="flex flex-col sm:flex-row">
               <div 
                 className="w-20 h-20 rounded-full overflow-hidden mb-4 sm:mb-0 mr-4 cursor-pointer"
-                onClick={() => handleViewProfileClick(tutor.profileId || tutor.userId)}
+                onClick={() => handleViewProfileClick(tutor)}
               >
                 {tutor.profilePicture || tutor.user?.profilePicture ? (
                   <img 
@@ -364,7 +418,7 @@ const FindTutors = () => {
                   <div>
                     <h3 
                       className="text-lg font-semibold hover:text-primary-600 dark:hover:text-primary-400 cursor-pointer"
-                      onClick={() => handleViewProfileClick(tutor.profileId || tutor.userId)}
+                      onClick={() => handleViewProfileClick(tutor)}
                     >
                       {tutor.firstName || tutor.user?.firstName} {tutor.lastName || tutor.user?.lastName}
                     </h3>
@@ -430,18 +484,24 @@ const FindTutors = () => {
                     )}
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <button
-                      onClick={() => handleViewProfileClick(tutor.profileId || tutor.userId)} 
-                      className="bg-primary-600 hover:bg-primary-700 text-white font-medium py-1.5 px-4 rounded transition duration-200"
+                      onClick={() => handleViewProfileClick(tutor)} 
+                      className="bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-3 rounded transition duration-200"
                     >
                       View Profile
                     </button>
                     <button
                       onClick={() => handleBookSessionClick(tutor.profileId || tutor.userId, tutor)} 
-                      className="bg-green-600 hover:bg-green-700 text-white font-medium py-1.5 px-4 rounded transition duration-200"
+                      className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-3 rounded transition duration-200"
                     >
-                      Book Session
+                      Book
+                    </button>
+                    <button
+                      onClick={() => handleContactTutor(tutor)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-3 rounded transition duration-200"
+                    >
+                      Message
                     </button>
                   </div>
                 </div>

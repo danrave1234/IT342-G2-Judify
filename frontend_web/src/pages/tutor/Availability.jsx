@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 import axios from 'axios';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import { FaCalendarAlt, FaSync, FaExclamationTriangle } from 'react-icons/fa';
+import { FaCalendarAlt, FaSync, FaExclamationTriangle, FaClock, FaCheck, FaTrash } from 'react-icons/fa';
 import { useSelector } from 'react-redux';
 import { tutorAvailabilityApi } from '../../api/api';
 
@@ -33,9 +33,53 @@ const Availability = () => {
 
   const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
+  // Generate the next 14 days for date selection
+  const generateDateOptions = () => {
+    const dates = [];
+    const today = new Date();
+    
+    for (let i = 0; i < 14; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() + i);
+      
+      const formattedDate = date.toISOString().split('T')[0];
+      const displayDate = date.toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric'
+      });
+      
+      dates.push({ value: formattedDate, display: displayDate });
+    }
+    
+    return dates;
+  };
+
+  // Generate time slots from 7 AM to 10 PM in 30-minute increments
+  const generateTimeSlots = () => {
+    const slots = [];
+    const startHour = 7; // 7 AM
+    const endHour = 22; // 10 PM
+    
+    for (let hour = startHour; hour < endHour; hour++) {
+      for (let minute of [0, 30]) {
+        const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+        const displayTime = new Date(`2000-01-01T${time}:00`).toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+        
+        slots.push({ value: time, display: displayTime });
+      }
+    }
+    
+    return slots;
+  };
+
   useEffect(() => {
     fetchAvailabilities();
     checkCalendarConnection();
+    setTimeSlots(generateTimeSlots());
   }, []);
 
   // Check if the user has connected their Google Calendar
@@ -202,6 +246,104 @@ const Availability = () => {
     return `${formattedHours}:${minutes} ${period}`;
   };
 
+  const [timeSlots, setTimeSlots] = useState([]);
+  const [selectedTimeSlots, setSelectedTimeSlots] = useState([]);
+
+  // Handle date selection
+  const handleDateSelection = (e) => {
+    const date = e.target.value;
+    setSelectedDate(date);
+    
+    // Pre-select time slots that are already available for this date
+    const existingSlots = availabilities
+      .filter(avail => avail.date === date)
+      .map(avail => ({
+        startTime: avail.startTime,
+        endTime: avail.endTime,
+        id: avail.availabilityId
+      }));
+    
+    setSelectedTimeSlots(existingSlots);
+  };
+
+  // Toggle time slot selection
+  const toggleTimeSlot = (startSlot) => {
+    // Find the end time (30 minutes after start time)
+    const startTime = startSlot.value;
+    const startIndex = timeSlots.findIndex(slot => slot.value === startTime);
+    
+    if (startIndex === -1 || startIndex >= timeSlots.length - 1) return;
+    
+    const endTime = timeSlots[startIndex + 1].value;
+    
+    // Check if this slot is already selected
+    const existingSlotIndex = selectedTimeSlots.findIndex(
+      slot => slot.startTime === startTime && slot.endTime === endTime
+    );
+    
+    if (existingSlotIndex !== -1) {
+      // If already selected, remove it
+      setSelectedTimeSlots(prev => prev.filter((_, index) => index !== existingSlotIndex));
+    } else {
+      // If not selected, add it
+      setSelectedTimeSlots(prev => [...prev, { startTime, endTime }]);
+    }
+  };
+
+  // Save availabilities for the selected date
+  const saveAvailabilities = async () => {
+    if (!selectedDate) {
+      toast.error('Please select a date');
+      return;
+    }
+    
+    if (selectedTimeSlots.length === 0) {
+      toast.error('Please select at least one time slot');
+      return;
+    }
+    
+    setSaving(true);
+    
+    try {
+      // First, delete existing availabilities for this date
+      const existingAvails = availabilities.filter(avail => avail.date === selectedDate);
+      
+      for (const avail of existingAvails) {
+        await tutorAvailabilityApi.deleteAvailability(avail.availabilityId);
+      }
+      
+      // Then, create new availabilities
+      for (const slot of selectedTimeSlots) {
+        if (!slot.id) { // Only create if it doesn't already exist
+          await tutorAvailabilityApi.createAvailability({
+            date: selectedDate,
+            startTime: slot.startTime,
+            endTime: slot.endTime
+          });
+        }
+      }
+      
+      toast.success('Availability saved successfully!');
+      await fetchAvailabilities(); // Refresh availabilities
+      setSelectedDate(''); // Reset selected date
+      setSelectedTimeSlots([]); // Reset selected time slots
+    } catch (error) {
+      console.error('Error saving availabilities:', error);
+      toast.error('Failed to save availability');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Group availabilities by date for display
+  const groupedAvailabilities = availabilities.reduce((acc, avail) => {
+    if (!acc[avail.date]) {
+      acc[avail.date] = [];
+    }
+    acc[avail.date].push(avail);
+    return acc;
+  }, {});
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[80vh]">
@@ -211,268 +353,155 @@ const Availability = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Your Availability</h1>
-        <p className="text-gray-600 dark:text-gray-400">
-          Set your weekly availability for tutoring sessions. Students will only be able to book during these times.
-        </p>
-      </div>
-
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400 px-4 py-3 rounded mb-6">
-          {error}
-        </div>
-      )}
-
-      <div className="bg-white dark:bg-dark-800 rounded-xl shadow-card p-6 border border-light-700 dark:border-dark-700 mb-6">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Weekly Schedule</h2>
-          <div className="flex space-x-2">
-            <button 
-              onClick={() => setShowCalendarView(!showCalendarView)}
-              className="flex items-center px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
-            >
-              <FaCalendarAlt className="mr-2" />
-              {showCalendarView ? 'Hide Calendar' : 'Show Calendar'}
-            </button>
-            {!showAddForm && (
-              <button 
-                onClick={() => setShowAddForm(true)}
-                className="btn-primary"
-              >
-                Add Availability
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Google Calendar Integration */}
-        <div className="mb-6 p-4 bg-gray-50 dark:bg-dark-700 rounded-lg">
-          <div className="flex justify-between items-center">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Google Calendar Integration</h3>
-              <p className="text-gray-600 dark:text-gray-400 text-sm">
-                Sync your availability with Google Calendar to avoid scheduling conflicts.
-              </p>
-            </div>
-            <button 
-              onClick={connectToGoogleCalendar}
-              className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
-                calendarConnected 
-                  ? 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/20 dark:text-green-400' 
-                  : 'bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/20 dark:text-blue-400'
-              }`}
-            >
-              <FaSync className="mr-2" />
-              {calendarConnected ? 'Refresh Calendar' : 'Connect Calendar'}
-            </button>
-          </div>
-
-          {conflicts.length > 0 && (
-            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg dark:bg-yellow-900/10 dark:border-yellow-800">
-              <div className="flex items-start">
-                <FaExclamationTriangle className="text-yellow-500 mt-0.5 mr-2" />
-                <div>
-                  <p className="font-medium text-yellow-700 dark:text-yellow-400">
-                    {conflicts.length} scheduling {conflicts.length === 1 ? 'conflict' : 'conflicts'} detected
-                  </p>
-                  <p className="text-sm text-yellow-600 dark:text-yellow-500">
-                    Some of your availability windows conflict with events in your Google Calendar.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Calendar View */}
-        {showCalendarView && (
-          <div className="mb-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Calendar View</h3>
-              <div className="flex items-center">
-                {loadingCalendar && (
-                  <div className="mr-2 w-4 h-4 border-t-2 border-blue-500 border-solid rounded-full animate-spin"></div>
-                )}
-                <DatePicker
-                  selected={selectedDate}
-                  onChange={handleDateChange}
-                  className="px-3 py-2 border border-gray-300 rounded-md"
-                  dateFormat="MMMM d, yyyy"
-                />
-              </div>
-            </div>
-
-            <div className="bg-white dark:bg-dark-900 border border-gray-200 dark:border-dark-700 rounded-lg p-4">
-              {calendarEvents.length > 0 ? (
-                <div className="space-y-2">
-                  <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Events on {selectedDate.toLocaleDateString()}
-                  </h4>
-                  {calendarEvents.map((event, index) => (
-                    <div key={index} className="p-3 bg-gray-50 dark:bg-dark-800 rounded border border-gray-200 dark:border-dark-700">
-                      <p className="font-medium">{event.title}</p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {new Date(event.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - 
-                        {new Date(event.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    </div>
+    <div className="container mx-auto py-8 px-4">
+      <h1 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">Manage Your Availability</h1>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Set Availability Panel */}
+        <div className="lg:col-span-1">
+          <div className="bg-white dark:bg-dark-800 rounded-lg shadow-md p-6 mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              <FaCalendarAlt className="inline-block mr-2" />
+              Set Your Availability
+            </h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="date" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Select a Date
+                </label>
+                <select
+                  id="date"
+                  value={selectedDate}
+                  onChange={handleDateSelection}
+                  className="mt-1 block w-full py-2 px-3 border border-gray-300 dark:border-dark-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm dark:bg-dark-700 dark:text-white"
+                >
+                  <option value="">-- Select a date --</option>
+                  {generateDateOptions().map((date) => (
+                    <option key={date.value} value={date.value}>
+                      {date.display}
+                    </option>
                   ))}
-                </div>
-              ) : (
-                <p className="text-center text-gray-500 dark:text-gray-400 py-4">
-                  No events scheduled for this day
-                </p>
+                </select>
+              </div>
+              
+              {selectedDate && (
+                <>
+                  <div>
+                    <h3 className="text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      <FaClock className="inline-block mr-2" />
+                      Select Time Slots
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+                      Click on a time to mark yourself as available for a 30-minute session starting at that time.
+                    </p>
+                    
+                    <div className="grid grid-cols-3 gap-2 max-h-60 overflow-y-auto p-2 border border-gray-200 dark:border-dark-700 rounded">
+                      {timeSlots.map((slot) => {
+                        const isSelected = selectedTimeSlots.some(
+                          selected => selected.startTime === slot.value
+                        );
+                        
+                        return (
+                          <button
+                            key={slot.value}
+                            type="button"
+                            onClick={() => toggleTimeSlot(slot)}
+                            className={`py-2 px-2 text-sm rounded-md text-center transition-colors ${
+                              isSelected
+                                ? 'bg-primary-100 text-primary-700 border border-primary-300 dark:bg-primary-900/30 dark:text-primary-300 dark:border-primary-700'
+                                : 'bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100 dark:bg-dark-700 dark:text-gray-300 dark:border-dark-600 dark:hover:bg-dark-600'
+                            }`}
+                          >
+                            {slot.display}
+                            {isSelected && <FaCheck className="inline-block ml-1 text-xs" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <button
+                      type="button"
+                      onClick={saveAvailabilities}
+                      disabled={saving || selectedTimeSlots.length === 0}
+                      className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {saving ? 'Saving...' : 'Save Availability'}
+                    </button>
+                  </div>
+                </>
               )}
             </div>
           </div>
-        )}
+        </div>
 
-        {showAddForm && (
-          <div className="bg-gray-50 dark:bg-dark-700 rounded-lg p-4 mb-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Add New Availability</h3>
-            <form onSubmit={handleSubmit}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label htmlFor="dayOfWeek" className="block text-gray-700 dark:text-gray-300 mb-2">Day of Week</label>
-                  <select
-                    id="dayOfWeek"
-                    name="dayOfWeek"
-                    value={newAvailability.dayOfWeek}
-                    onChange={handleInputChange}
-                    className="input"
-                    required
-                  >
-                    {daysOfWeek.map(day => (
-                      <option key={day} value={day}>{day}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-gray-700 dark:text-gray-300 mb-2">Recurring</label>
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="recurring"
-                      name="recurring"
-                      checked={newAvailability.recurring}
-                      onChange={handleInputChange}
-                      className="form-checkbox h-5 w-5 text-primary-600"
-                    />
-                    <label htmlFor="recurring" className="ml-2 text-gray-700 dark:text-gray-300">
-                      Repeat weekly
-                    </label>
-                  </div>
-                </div>
-                <div>
-                  <label htmlFor="startTime" className="block text-gray-700 dark:text-gray-300 mb-2">Start Time</label>
-                  <input
-                    type="time"
-                    id="startTime"
-                    name="startTime"
-                    value={newAvailability.startTime}
-                    onChange={handleInputChange}
-                    className="input"
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="endTime" className="block text-gray-700 dark:text-gray-300 mb-2">End Time</label>
-                  <input
-                    type="time"
-                    id="endTime"
-                    name="endTime"
-                    value={newAvailability.endTime}
-                    onChange={handleInputChange}
-                    className="input"
-                    required
-                  />
-                </div>
+        {/* Current Availability Calendar */}
+        <div className="lg:col-span-2">
+          <div className="bg-white dark:bg-dark-800 rounded-lg shadow-md p-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              <FaCalendarAlt className="inline-block mr-2" />
+              Your Current Availability
+            </h2>
+            
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="w-10 h-10 border-t-4 border-primary-600 border-solid rounded-full animate-spin"></div>
               </div>
-              <div className="flex justify-end space-x-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddForm(false)}
-                  className="bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-dark-700 dark:text-gray-300 dark:hover:bg-dark-600 px-4 py-2 rounded-lg transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="btn-primary"
-                >
-                  {saving ? 'Saving...' : 'Save Availability'}
-                </button>
+            ) : Object.keys(groupedAvailabilities).length > 0 ? (
+              <div className="space-y-6">
+                {Object.entries(groupedAvailabilities)
+                  .sort(([dateA], [dateB]) => new Date(dateA) - new Date(dateB))
+                  .map(([date, slots]) => (
+                    <div key={date} className="border border-gray-200 dark:border-dark-700 rounded-lg p-4">
+                      <h3 className="font-medium text-gray-800 dark:text-gray-200 mb-3">
+                        {new Date(date).toLocaleDateString('en-US', {
+                          weekday: 'long',
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })}
+                      </h3>
+                      
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mt-2">
+                        {slots
+                          .sort((a, b) => {
+                            const timeA = a.startTime.split(':').map(Number);
+                            const timeB = b.startTime.split(':').map(Number);
+                            return (timeA[0] * 60 + timeA[1]) - (timeB[0] * 60 + timeB[1]);
+                          })
+                          .map((slot) => (
+                            <div
+                              key={slot.availabilityId}
+                              className="flex items-center justify-between bg-gray-50 dark:bg-dark-700 p-2 rounded border border-gray-200 dark:border-dark-600"
+                            >
+                              <span className="text-gray-700 dark:text-gray-300 text-sm">
+                                {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
+                              </span>
+                              <button
+                                onClick={() => handleDelete(slot.availabilityId)}
+                                className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                              >
+                                <FaTrash size={12} />
+                              </button>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  ))}
               </div>
-            </form>
-          </div>
-        )}
-
-        {availabilities.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-dark-700">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Day
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Start Time
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    End Time
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Recurring
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-dark-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {availabilities.map((availability) => (
-                  <tr key={availability.id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {availability.dayOfWeek}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {formatTime(availability.startTime)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {formatTime(availability.endTime)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {availability.recurring ? 'Yes' : 'No'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button
-                        onClick={() => handleDelete(availability.id)}
-                        className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="text-center py-8">
-            <p className="text-gray-600 dark:text-gray-400 mb-4">You haven&apos;t set any availability yet. Add your first availability slot to start receiving bookings.</p>
-            {!showAddForm && (
-              <button 
-                onClick={() => setShowAddForm(true)}
-                className="btn-primary"
-              >
-                Add Availability
-              </button>
+            ) : (
+              <div className="text-center py-8 border-2 border-dashed border-gray-300 dark:border-dark-600 rounded-lg">
+                <FaCalendarAlt className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-600 mb-4" />
+                <p className="text-gray-500 dark:text-gray-400 mb-2">You haven't set up any availability yet.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Use the form on the left to add your available times so students can book sessions with you.
+                </p>
+              </div>
             )}
           </div>
-        )}
+        </div>
       </div>
 
       <div className="bg-white dark:bg-dark-800 rounded-xl shadow-card p-6 border border-light-700 dark:border-dark-700">

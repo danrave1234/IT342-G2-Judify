@@ -8,4 +8,5 @@ import java.util.List;
 @Repository
 public interface ConversationRepository extends JpaRepository<ConversationEntity, Long> {
     List<ConversationEntity> findByParticipantsContaining(UserEntity participant);
-} 
+}
+

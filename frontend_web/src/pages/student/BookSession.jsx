@@ -14,7 +14,7 @@ const BookSession = () => {
   const { createSession } = useSession();
 
   const [tutor, setTutor] = useState(null);
-  const [tutorAvailability, setTutorAvailability] = useState([]);
+  const [tutorAvailability, setTutorAvailability] = useState({});
   const [loadingTutor, setLoadingTutor] = useState(true);
   const [loadingTimeSlots, setLoadingTimeSlots] = useState(false);
   const [selectedDate, setSelectedDate] = useState('');
@@ -112,6 +112,7 @@ const BookSession = () => {
 
         let availabilityData = [];
         try {
+          // Fetch the tutor's availability
           const availabilityResponse = await tutorAvailabilityApi.getAvailabilities(profileIdToUse);
           availabilityData = availabilityResponse.data;
           console.log('Successfully fetched tutor availability:', availabilityData);
@@ -121,28 +122,17 @@ const BookSession = () => {
           console.log('Continuing with empty availability');
         }
 
-        // Process availability data to format needed by the UI
-        const formattedAvailability = availabilityData.map(avail => {
-          // Convert day of week to actual dates for the next occurrence of that day
-          const dayIndex = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-            .findIndex(day => day === avail.dayOfWeek);
-
-          const today = new Date();
-          const currentDayIndex = today.getDay();
-          const daysUntilNext = (dayIndex + 7 - currentDayIndex) % 7;
-
-          const nextDate = new Date();
-          nextDate.setDate(today.getDate() + daysUntilNext);
-
-          // Format date as YYYY-MM-DD
-          const formattedDate = nextDate.toISOString().split('T')[0];
-
-          return {
+        // Process and group availability data by date
+        const availabilityByDate = {};
+        availabilityData.forEach(avail => {
+          if (!availabilityByDate[avail.date]) {
+            availabilityByDate[avail.date] = [];
+          }
+          availabilityByDate[avail.date].push({
             id: avail.availabilityId,
-            date: formattedDate,
             startTime: avail.startTime,
             endTime: avail.endTime
-          };
+          });
         });
 
         setTutor({
@@ -153,7 +143,7 @@ const BookSession = () => {
           subjects: tutorData.subjects || ['General Tutoring']
         });
 
-        setTutorAvailability(formattedAvailability);
+        setTutorAvailability(availabilityByDate);
 
         // Set default subject from tutor subjects if available
         if (tutorData.subjects && tutorData.subjects.length > 0) {
@@ -176,7 +166,7 @@ const BookSession = () => {
                 rate: 0, // We don't have this info
                 subjects: parsedInfo.subjects || ['General Tutoring']
               });
-              setTutorAvailability([]);
+              setTutorAvailability({});
               setError('Using limited tutor information. Some features may be unavailable. Try going back to the tutor list and selecting again.');
               setLoadingTutor(false);
               return;
@@ -202,107 +192,70 @@ const BookSession = () => {
 
   // Generate available time slots when a date is selected
   useEffect(() => {
-    if (!selectedDate) {
+    if (!selectedDate || !tutorAvailability[selectedDate]) {
       setAvailableTimeSlots([]);
       return;
     }
 
-    // Find the availability for the selected date
-    const availability = tutorAvailability.find(a => a.date === selectedDate);
-
-    if (!availability) {
+    // Get the availability slots for the selected date
+    const dateAvailability = tutorAvailability[selectedDate];
+    
+    if (!dateAvailability || dateAvailability.length === 0) {
       setAvailableTimeSlots([]);
       return;
     }
 
-    // Generate time slots in 30-minute increments
-    const startTime = new Date(`${selectedDate}T${availability.startTime}`);
-    const endTime = new Date(`${selectedDate}T${availability.endTime}`);
-
-    // Adjust end time based on session duration
-    const actualEndTime = new Date(endTime);
-    actualEndTime.setHours(actualEndTime.getHours() - sessionInfo.duration);
-
-    let currentTime = new Date(startTime);
-
-    // Function to check if a time slot is available (not booked in Google Calendar)
-    const isTimeSlotAvailable = async (startTime, endTime) => {
-      try {
-        // Format the date and times for the API request
-        const date = startTime.toISOString().split('T')[0]; // YYYY-MM-DD
-        const startTimeStr = startTime.toTimeString().substring(0, 5); // HH:MM
-        const endTimeStr = endTime.toTimeString().substring(0, 5); // HH:MM
-
-        // Call the API to check availability
-        const response = await API.get('/calendar/check-availability', {
-          params: {
-            tutorId: profileIdToUse,
-            date: date,
-            startTime: startTimeStr,
-            endTime: endTimeStr
-          }
-        });
-
-        return response.data; // true if available, false if not
-      } catch (error) {
-        console.error('Error checking time slot availability:', error);
-
-        // Fallback to a simple check if the API call fails
-        // This is a simplified version of the previous mock implementation
-        const currentHour = startTime.getHours();
-
-        // Assume 10-11 AM and 2-3 PM are always booked (as a fallback)
-        if ((currentHour === 10) || (currentHour === 14)) {
-          return false;
-        }
-
-        return true;
-      }
-    };
-
-    // Generate all potential time slots first
-    const potentialSlots = [];
-    while (currentTime <= actualEndTime) {
-      const slotStartTime = new Date(currentTime);
-      const slotEndTime = new Date(currentTime);
-      slotEndTime.setHours(slotEndTime.getHours() + sessionInfo.duration);
-
-      potentialSlots.push({
-        startTime: slotStartTime,
-        endTime: slotEndTime,
-        formattedStart: slotStartTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        formattedEnd: slotEndTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        value: slotStartTime.toISOString()
-      });
-
-      // Move to next 30-minute slot
-      currentTime.setMinutes(currentTime.getMinutes() + 30);
-    }
-
-    // Now check availability for each slot
-    setAvailableTimeSlots([]); // Clear slots while loading
     setLoadingTimeSlots(true);
 
-    // Check each slot asynchronously
-    const checkSlots = async () => {
-      const availableSlots = [];
-
-      for (const slot of potentialSlots) {
-        const isAvailable = await isTimeSlotAvailable(slot.startTime, slot.endTime);
-        if (isAvailable) {
-          availableSlots.push({
-            startTime: slot.formattedStart,
-            endTime: slot.formattedEnd,
-            value: slot.value
-          });
-        }
+    // Process each availability slot to generate 30-minute sessions
+    const processedTimeSlots = [];
+    
+    dateAvailability.forEach(slot => {
+      // Convert time strings to Date objects for easier calculation
+      const startTime = new Date(`${selectedDate}T${slot.startTime}`);
+      const endTime = new Date(`${selectedDate}T${slot.endTime}`);
+      
+      // Adjust the end time based on session duration to ensure there's enough time
+      const actualEndTime = new Date(endTime);
+      actualEndTime.setMinutes(actualEndTime.getMinutes() - (sessionInfo.duration * 60));
+      
+      let currentTime = new Date(startTime);
+      
+      // Generate 30-minute slots
+      while (currentTime <= actualEndTime) {
+        const slotStart = new Date(currentTime);
+        const slotEnd = new Date(currentTime);
+        slotEnd.setMinutes(slotEnd.getMinutes() + (sessionInfo.duration * 60));
+        
+        processedTimeSlots.push({
+          startTime: slotStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          endTime: slotEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          value: slotStart.toISOString()
+        });
+        
+        // Move to next 30-minute slot
+        currentTime.setMinutes(currentTime.getMinutes() + 30);
       }
-
-      setAvailableTimeSlots(availableSlots);
-      setLoadingTimeSlots(false);
-    };
-
-    checkSlots();
+    });
+    
+    // Sort slots by time
+    processedTimeSlots.sort((a, b) => {
+      return new Date(a.value) - new Date(b.value);
+    });
+    
+    // Remove duplicate slots
+    const uniqueSlots = [];
+    const seen = new Set();
+    
+    processedTimeSlots.forEach(slot => {
+      if (!seen.has(slot.value)) {
+        seen.add(slot.value);
+        uniqueSlots.push(slot);
+      }
+    });
+    
+    setAvailableTimeSlots(uniqueSlots);
+    setLoadingTimeSlots(false);
     setSelectedTimeSlot(null); // Reset selected time slot when date changes
   }, [selectedDate, tutorAvailability, sessionInfo.duration]);
 
@@ -389,8 +342,17 @@ const BookSession = () => {
           isOnline: sessionInfo.isOnline
         }));
 
-        // Redirect to payment page instead of session details
-        navigate('/student/payments?tab=payment');
+        // Navigate to messages with session context after booking
+        navigate('/student/messages', { 
+          state: { 
+            tutorId: tutorId, 
+            sessionContext: {
+              sessionDate: startTime.toLocaleDateString(),
+              sessionTime: `${startTime.toLocaleTimeString()} - ${endTime.toLocaleTimeString()}`,
+              subject: sessionInfo.subject
+            }
+          }
+        });
       } else {
         setError(result.message || 'Failed to book session. Please try again.');
       }
@@ -568,16 +530,22 @@ const BookSession = () => {
                 required
               >
                 <option value="" disabled>Select a date</option>
-                {tutorAvailability.map((availability) => (
-                  <option key={availability.id} value={availability.date}>
-                    {new Date(availability.date).toLocaleDateString('en-US', { 
-                      weekday: 'long', 
-                      year: 'numeric', 
-                      month: 'long', 
-                      day: 'numeric' 
-                    })}
-                  </option>
-                ))}
+                {Object.keys(tutorAvailability).length > 0 ? (
+                  Object.keys(tutorAvailability)
+                    .sort((a, b) => new Date(a) - new Date(b))
+                    .map((date) => (
+                      <option key={date} value={date}>
+                        {new Date(date).toLocaleDateString('en-US', { 
+                          weekday: 'long', 
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric' 
+                        })}
+                      </option>
+                    ))
+                ) : (
+                  <option value="" disabled>No available dates</option>
+                )}
               </select>
             </div>
 
@@ -656,13 +624,31 @@ const BookSession = () => {
                 </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={submitting || !selectedTimeSlot}
-                className="btn-primary w-full"
-              >
-                {submitting ? 'Booking...' : 'Book Session'}
-              </button>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  type="submit"
+                  disabled={submitting || !selectedTimeSlot}
+                  className="btn-primary flex-1"
+                >
+                  {submitting ? 'Booking...' : 'Book Session'}
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={() => navigate('/student/messages', { 
+                    state: { 
+                      userId: tutorId,
+                      sessionContext: null
+                    }
+                  })}
+                  className="btn bg-blue-600 hover:bg-blue-700 text-white flex-1 flex items-center justify-center"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd" />
+                  </svg>
+                  Chat with Tutor
+                </button>
+              </div>
             </div>
           </div>
         </form>
