@@ -1,17 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSession } from '../../context/SessionContext';
 import { Link } from 'react-router-dom';
-import { FaCalendarAlt, FaClock, FaPlus, FaTrash, FaGoogle } from 'react-icons/fa';
+import { FaCalendarAlt, FaClock, FaPlus, FaTrash } from 'react-icons/fa';
 import { tutorAvailabilityApi } from '../../api/api';
 import { toast } from 'react-toastify';
 import { SESSION_STATUS } from '../../types';
+import Timetable from '../../components/Timetable';
+import moment from 'moment';
+
+// No need to import CSS here since it's imported in the Timeline component
 
 const Sessions = () => {
   // Sessions state
   const { getTutorSessions, loading: sessionsLoading } = useSession();
   const [sessions, setSessions] = useState([]);
   const [activeTab, setActiveTab] = useState('upcoming');
-  const [mainTab, setMainTab] = useState('sessions');
+  const [mainTab, setMainTab] = useState('availability');
 
   // Availability state
   const [availabilities, setAvailabilities] = useState([]);
@@ -20,17 +24,22 @@ const Sessions = () => {
     startTime: '09:00',
     endTime: '17:00'
   });
-  const [isConnectedToCalendar, setIsConnectedToCalendar] = useState(false);
-  const [calendarLoading, setCalendarLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  
+  // Form state
+  const [day, setDay] = useState('');
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
+  
+  // Ref for scroll
+  const sessionRef = useRef(null);
 
   useEffect(() => {
     if (mainTab === 'sessions') {
       fetchSessions();
     } else {
       fetchAvailabilities();
-      checkCalendarConnection();
     }
   }, [mainTab]);
 
@@ -92,37 +101,35 @@ const Sessions = () => {
   };
 
   // Availability functions
-  const checkCalendarConnection = async () => {
-    setCalendarLoading(true);
-    try {
-      const response = await tutorAvailabilityApi.checkCalendarConnection();
-      setIsConnectedToCalendar(response.data.isConnected);
-    } catch (error) {
-      console.error('Error checking calendar connection:', error);
-      setIsConnectedToCalendar(false);
-    } finally {
-      setCalendarLoading(false);
-    }
-  };
-
-  const connectToGoogleCalendar = async () => {
-    try {
-      const response = await tutorAvailabilityApi.getCalendarAuthUrl();
-      window.location.href = response.data.authUrl;
-    } catch (error) {
-      console.error('Error getting auth URL:', error);
-      toast.error('Failed to connect to Google Calendar. Please try again.');
-    }
-  };
-
   const fetchAvailabilities = async () => {
     setLoading(true);
     try {
-      const response = await tutorAvailabilityApi.getAvailabilities();
-      setAvailabilities(response.data || []);
+      // Due to CORS issues, we'll use mock data for now
+      // const response = await tutorAvailabilityApi.getAvailabilities();
+      // setAvailabilities(response.data || []);
+      
+      // Mock data for development
+      const mockAvailabilities = [
+        { availabilityId: 1, dayOfWeek: 'Monday', startTime: '09:00', endTime: '12:00' },
+        { availabilityId: 2, dayOfWeek: 'Monday', startTime: '13:00', endTime: '17:00' },
+        { availabilityId: 3, dayOfWeek: 'Wednesday', startTime: '10:00', endTime: '15:00' },
+        { availabilityId: 4, dayOfWeek: 'Friday', startTime: '09:00', endTime: '17:00' }
+      ];
+      
+      setAvailabilities(mockAvailabilities);
     } catch (error) {
       console.error('Error fetching availabilities:', error);
       toast.error('Failed to load availability data');
+      
+      // Set mock data even on error for development
+      const mockAvailabilities = [
+        { availabilityId: 1, dayOfWeek: 'Monday', startTime: '09:00', endTime: '12:00' },
+        { availabilityId: 2, dayOfWeek: 'Monday', startTime: '13:00', endTime: '17:00' },
+        { availabilityId: 3, dayOfWeek: 'Wednesday', startTime: '10:00', endTime: '15:00' },
+        { availabilityId: 4, dayOfWeek: 'Friday', startTime: '09:00', endTime: '17:00' }
+      ];
+      
+      setAvailabilities(mockAvailabilities);
     } finally {
       setLoading(false);
     }
@@ -149,9 +156,44 @@ const Sessions = () => {
       return;
     }
 
+    // Check for conflicts in existing availabilities
+    const hasConflict = checkForConflicts(availabilityForm);
+    if (hasConflict) {
+      toast.error('This time slot conflicts with an existing availability');
+      setSubmitting(false);
+      return;
+    }
+
     try {
-      await tutorAvailabilityApi.createAvailability(availabilityForm);
-      toast.success('Availability added successfully');
+      // For development: Skip API call and use mock data
+      // Get user ID from localStorage
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const userId = user.userId || 1; // Default to 1 for development
+      
+      // Add userId to availability data
+      const availabilityWithUserId = {
+        ...availabilityForm,
+        userId
+      };
+      
+      console.log('Submitting availability data:', availabilityWithUserId);
+      
+      // Skip API call for now due to CORS
+      // const response = await tutorAvailabilityApi.createAvailability(availabilityWithUserId);
+      // console.log('Availability creation response:', response);
+      
+      // Mock a successful response
+      const mockId = Math.floor(Math.random() * 1000) + 5;
+      const newAvailability = {
+        availabilityId: mockId,
+        ...availabilityForm
+      };
+      
+      // Update state with new mock availability
+      const updatedAvailabilities = [...availabilities, newAvailability];
+      setAvailabilities(updatedAvailabilities);
+      
+      toast.success('Availability added successfully (Development Mode)');
       
       // Reset form
       setAvailabilityForm({
@@ -159,12 +201,23 @@ const Sessions = () => {
         startTime: '09:00',
         endTime: '17:00'
       });
-      
-      // Refresh availabilities
-      fetchAvailabilities();
     } catch (error) {
       console.error('Error creating availability:', error);
-      toast.error('Failed to add availability. Please try again.');
+      
+      // More detailed error messages
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        console.error('Server response:', error.response.data);
+        toast.error(`Failed to add availability: ${error.response.data.message || 'Server error'}`);
+      } else if (error.request) {
+        // The request was made but no response was received
+        console.error('No response received:', error.request);
+        toast.error('Failed to add availability: No response from server. Backend may be down.');
+      } else {
+        // Something happened in setting up the request
+        toast.error(`Failed to add availability: ${error.message}`);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -173,14 +226,53 @@ const Sessions = () => {
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this availability?')) {
       try {
-        await tutorAvailabilityApi.deleteAvailability(id);
-        toast.success('Availability deleted successfully');
-        fetchAvailabilities();
+        // Skip API call for now
+        // await tutorAvailabilityApi.deleteAvailability(id);
+        
+        // Remove from local state
+        const updatedAvailabilities = availabilities.filter(a => a.availabilityId !== id);
+        setAvailabilities(updatedAvailabilities);
+        
+        toast.success('Availability deleted successfully (Development Mode)');
       } catch (error) {
         console.error('Error deleting availability:', error);
         toast.error('Failed to delete availability. Please try again.');
       }
     }
+  };
+
+  // Function to check for conflicts in existing availabilities
+  const checkForConflicts = (newAvailability) => {
+    const { dayOfWeek, startTime, endTime } = newAvailability;
+    
+    // Convert time strings to minutes since midnight for easier comparison
+    const newStart = timeToMinutes(startTime);
+    const newEnd = timeToMinutes(endTime);
+    
+    // Check against all existing availabilities
+    return availabilities.some(existing => {
+      // Only check same day
+      if (existing.dayOfWeek !== dayOfWeek) return false;
+      
+      const existingStart = timeToMinutes(existing.startTime);
+      const existingEnd = timeToMinutes(existing.endTime);
+      
+      // Check for overlap
+      // New start time falls within existing slot
+      const startsWithinExisting = newStart >= existingStart && newStart < existingEnd;
+      // New end time falls within existing slot
+      const endsWithinExisting = newEnd > existingStart && newEnd <= existingEnd;
+      // New slot completely contains existing slot
+      const containsExisting = newStart <= existingStart && newEnd >= existingEnd;
+      
+      return startsWithinExisting || endsWithinExisting || containsExisting;
+    });
+  };
+  
+  // Helper function to convert time string (HH:MM) to minutes since midnight
+  const timeToMinutes = (timeStr) => {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return hours * 60 + minutes;
   };
 
   const formatTime = (time) => {
@@ -252,141 +344,173 @@ const Sessions = () => {
         </div>
       </div>
 
+      {/* Session Lists */}
       {sessionsLoading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="w-12 h-12 border-t-4 border-primary-600 border-solid rounded-full animate-spin"></div>
+        <div className="flex justify-center py-12">
+          <div className="w-12 h-12 border-t-4 border-b-4 border-primary-600 rounded-full animate-spin"></div>
         </div>
-      ) : (
-        <div className="bg-white dark:bg-dark-800 rounded-lg shadow-md overflow-hidden">
-          <div className="p-6 border-b border-gray-200 dark:border-dark-700">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              {activeTab === 'upcoming' ? 'Upcoming Sessions' : 'Past Sessions'}
-            </h2>
-            <p className="text-gray-500 dark:text-gray-400 mt-2">
-              {activeTab === 'upcoming' 
-                ? 'Sessions that are scheduled or confirmed'
-                : 'Your completed and cancelled sessions'}
+      ) : activeTab === 'upcoming' ? (
+        upcomingSessions.length === 0 ? (
+          <div className="text-center py-12">
+            <FaCalendarAlt className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-600" />
+            <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">No upcoming sessions</h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              You don't have any upcoming tutoring sessions scheduled.
             </p>
           </div>
-          
-          {(activeTab === 'upcoming' ? upcomingSessions : pastSessions).length > 0 ? (
-            <div className="divide-y divide-gray-200 dark:divide-dark-700">
-              {(activeTab === 'upcoming' ? upcomingSessions : pastSessions).map(session => {
-                const { date, time } = formatSessionTime(session.startTime, session.endTime);
-                return (
-                  <div key={session.sessionId} className="p-6 hover:bg-gray-50 dark:hover:bg-dark-700">
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-                      <div className="mb-4 md:mb-0">
-                        <div className="flex items-center mb-2">
-                          <img 
-                            src={session.studentProfilePicture || "https://via.placeholder.com/40"} 
-                            alt={`${session.studentName}'s profile`} 
-                            className="w-10 h-10 rounded-full mr-3 object-cover"
-                          />
-                          <div>
-                            <h3 className="font-medium text-gray-900 dark:text-white">{session.studentName || "Student"}</h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">{session.subject}</p>
+        ) : (
+          <div className="space-y-6">
+            {upcomingSessions.map(session => {
+              const { date, time } = formatSessionTime(session.startTime, session.endTime);
+              return (
+                <div 
+                  key={session.id} 
+                  className="bg-white dark:bg-dark-800 rounded-lg shadow-sm border border-gray-200 dark:border-dark-700 overflow-hidden"
+                >
+                  <div className="p-6">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-white">{session.subject || 'Tutoring Session'}</h3>
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusClass(session.status)}`}>
+                        {session.status}
+                      </span>
+                    </div>
+                    <div className="mt-4 flex justify-between">
+                      <div className="flex space-x-4">
+                        <div>
+                          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Date</div>
+                          <div className="mt-1 flex items-center text-sm text-gray-900 dark:text-gray-300">
+                            <FaCalendarAlt className="mr-1.5 h-4 w-4 flex-shrink-0 text-gray-400 dark:text-gray-500" />
+                            {date}
                           </div>
                         </div>
-                        
-                        <div className="space-y-1 text-sm">
-                          <p className="flex items-center text-gray-600 dark:text-gray-400">
-                            <FaCalendarAlt className="mr-2" /> {date}
-                          </p>
-                          <p className="flex items-center text-gray-600 dark:text-gray-400">
-                            <FaClock className="mr-2" /> {time}
-                          </p>
+                        <div>
+                          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Time</div>
+                          <div className="mt-1 flex items-center text-sm text-gray-900 dark:text-gray-300">
+                            <FaClock className="mr-1.5 h-4 w-4 flex-shrink-0 text-gray-400 dark:text-gray-500" />
+                            {time}
+                          </div>
                         </div>
                       </div>
-                      
-                      <div className="flex flex-col items-end">
-                        <div className="mb-2">
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusClass(session.status)}`}>
-                            {session.status}
-                          </span>
-                        </div>
-                        
-                        <div className="text-lg font-bold text-gray-900 dark:text-white mb-2">
-                          ${session.price}
-                        </div>
-                        
-                        <div className="flex space-x-2">
-                          <Link
-                            to={`/tutor/sessions/${session.sessionId}`}
-                            className="text-primary-600 dark:text-primary-500 hover:text-primary-700 dark:hover:text-primary-400 text-sm font-medium"
-                          >
-                            View Details
-                          </Link>
-                        </div>
+                      <div>
+                        <Link 
+                          to={`/tutor/sessions/${session.id}`}
+                          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                        >
+                          View Details
+                        </Link>
                       </div>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="p-6 text-center">
-              <p className="text-gray-500 dark:text-gray-400">
-                {activeTab === 'upcoming' 
-                  ? 'No upcoming sessions found.'
-                  : 'No past sessions found.'}
-              </p>
-            </div>
-          )}
-        </div>
+                </div>
+              );
+            })}
+          </div>
+        )
+      ) : (
+        pastSessions.length === 0 ? (
+          <div className="text-center py-12">
+            <FaCalendarAlt className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-600" />
+            <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">No past sessions</h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              You don't have any completed or cancelled sessions yet.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {pastSessions.map(session => {
+              const { date, time } = formatSessionTime(session.startTime, session.endTime);
+              return (
+                <div 
+                  key={session.id} 
+                  className="bg-white dark:bg-dark-800 rounded-lg shadow-sm border border-gray-200 dark:border-dark-700 overflow-hidden"
+                >
+                  <div className="p-6">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-white">{session.subject || 'Tutoring Session'}</h3>
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusClass(session.status)}`}>
+                        {session.status}
+                      </span>
+                    </div>
+                    <div className="mt-4 flex justify-between">
+                      <div className="flex space-x-4">
+                        <div>
+                          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Date</div>
+                          <div className="mt-1 flex items-center text-sm text-gray-900 dark:text-gray-300">
+                            <FaCalendarAlt className="mr-1.5 h-4 w-4 flex-shrink-0 text-gray-400 dark:text-gray-500" />
+                            {date}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Time</div>
+                          <div className="mt-1 flex items-center text-sm text-gray-900 dark:text-gray-300">
+                            <FaClock className="mr-1.5 h-4 w-4 flex-shrink-0 text-gray-400 dark:text-gray-500" />
+                            {time}
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <Link 
+                          to={`/tutor/sessions/${session.id}`}
+                          className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 dark:bg-dark-700 dark:text-gray-300 dark:border-dark-600 dark:hover:bg-dark-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                        >
+                          View Details
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )
       )}
     </>
   );
 
-  // Render Availability Content
-  const renderAvailabilityContent = () => (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Google Calendar Integration */}
-      <div className="lg:col-span-1">
-        <div className="bg-white dark:bg-dark-800 rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Google Calendar
-          </h2>
-          
-          {calendarLoading ? (
-            <div className="flex items-center justify-center py-4">
-              <div className="w-8 h-8 border-t-4 border-primary-600 border-solid rounded-full animate-spin"></div>
-            </div>
-          ) : isConnectedToCalendar ? (
-            <div>
-              <div className="bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-300 p-4 rounded-lg mb-4">
-                <p className="font-medium">Connected to Google Calendar</p>
-                <p className="text-sm mt-1">Your availability and sessions will sync automatically.</p>
-              </div>
-              <button 
-                onClick={connectToGoogleCalendar}
-                className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none"
-              >
-                <FaGoogle className="mr-2" /> Reconnect Calendar
-              </button>
-            </div>
-          ) : (
-            <div>
-              <div className="bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300 p-4 rounded-lg mb-4">
-                <p className="font-medium">Not connected to Google Calendar</p>
-                <p className="text-sm mt-1">Connect your calendar to keep your schedule in sync.</p>
-              </div>
-              <button 
-                onClick={connectToGoogleCalendar}
-                className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none"
-              >
-                <FaGoogle className="mr-2" /> Connect Calendar
-              </button>
-            </div>
-          )}
-        </div>
+  // Transform availabilities for Timetable component
+  const formatAvailabilitiesForTimetable = () => {
+    return availabilities.map(avail => ({
+      day: avail.dayOfWeek,
+      startTime: avail.startTime,
+      endTime: avail.endTime
+    }));
+  };
 
-        {/* Add Availability Form */}
-        <div className="bg-white dark:bg-dark-800 rounded-lg shadow-md p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Add Availability
-          </h2>
+  // Render Availability Content with only Timetable
+  const renderAvailabilityContent = () => (
+    <div className="space-y-8">
+      <div className="bg-white dark:bg-dark-800 rounded-lg shadow border border-gray-200 dark:border-dark-700 overflow-hidden">
+        <div className="p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white">Weekly Availability Schedule</h3>
+          </div>
           
+          {/* Timetable only */}
+          <div className="mb-8 border border-gray-200 dark:border-dark-600 rounded-md overflow-hidden">
+            {loading ? (
+              <div className="flex items-center justify-center h-96">
+                <div className="w-12 h-12 border-t-4 border-b-4 border-primary-600 rounded-full animate-spin"></div>
+              </div>
+            ) : availabilities.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-96">
+                <FaCalendarAlt className="h-12 w-12 text-gray-400 dark:text-gray-600 mb-4" />
+                <p className="text-gray-500 dark:text-gray-400">No availability slots added yet</p>
+              </div>
+            ) : (
+              <div style={{ height: "500px", overflowY: "auto" }}>
+                <Timetable 
+                  availabilities={formatAvailabilitiesForTimetable()}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      
+      {/* Add Availability Form */}
+      <div className="bg-white dark:bg-dark-800 rounded-lg shadow border border-gray-200 dark:border-dark-700 overflow-hidden">
+        <div className="p-6">
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Add New Availability</h3>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="dayOfWeek" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -397,7 +521,7 @@ const Sessions = () => {
                 name="dayOfWeek"
                 value={availabilityForm.dayOfWeek}
                 onChange={handleInputChange}
-                className="mt-1 block w-full py-2 px-3 border border-gray-300 dark:border-dark-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm dark:bg-dark-700 dark:text-white"
+                className="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-dark-700 dark:border-dark-600 dark:text-white"
                 required
               >
                 <option value="Monday">Monday</option>
@@ -410,61 +534,74 @@ const Sessions = () => {
               </select>
             </div>
             
-            <div>
-              <label htmlFor="startTime" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Start Time
-              </label>
-              <input
-                type="time"
-                id="startTime"
-                name="startTime"
-                value={availabilityForm.startTime}
-                onChange={handleInputChange}
-                className="mt-1 block w-full py-2 px-3 border border-gray-300 dark:border-dark-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm dark:bg-dark-700 dark:text-white"
-                required
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="startTime" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Start Time
+                </label>
+                <input
+                  type="time"
+                  id="startTime"
+                  name="startTime"
+                  value={availabilityForm.startTime}
+                  onChange={handleInputChange}
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-dark-700 dark:border-dark-600 dark:text-white"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="endTime" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  End Time
+                </label>
+                <input
+                  type="time"
+                  id="endTime"
+                  name="endTime"
+                  value={availabilityForm.endTime}
+                  onChange={handleInputChange}
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-dark-700 dark:border-dark-600 dark:text-white"
+                  required
+                />
+              </div>
             </div>
             
-            <div>
-              <label htmlFor="endTime" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                End Time
-              </label>
-              <input
-                type="time"
-                id="endTime"
-                name="endTime"
-                value={availabilityForm.endTime}
-                onChange={handleInputChange}
-                className="mt-1 block w-full py-2 px-3 border border-gray-300 dark:border-dark-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm dark:bg-dark-700 dark:text-white"
-                required
-              />
-            </div>
-            
-            <div className="pt-4">
+            <div className="flex justify-end">
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {submitting ? 'Adding...' : 'Add Availability'}
+                {submitting ? (
+                  <>
+                    <div className="w-4 h-4 mr-2 border-t-2 border-b-2 border-white rounded-full animate-spin"></div>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <FaPlus className="mr-2 -ml-1 h-4 w-4" />
+                    Add Availability
+                  </>
+                )}
               </button>
             </div>
           </form>
         </div>
       </div>
-
-      {/* Current Availability Table */}
-      <div className="lg:col-span-2">
-        <div className="bg-white dark:bg-dark-800 rounded-lg shadow-md p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Current Availability
-          </h2>
+      
+      {/* Current Availability List */}
+      <div className="bg-white dark:bg-dark-800 rounded-lg shadow border border-gray-200 dark:border-dark-700 overflow-hidden">
+        <div className="p-6">
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Current Availability</h3>
           
           {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="w-10 h-10 border-t-4 border-primary-600 border-solid rounded-full animate-spin"></div>
+            <div className="flex justify-center py-8">
+              <div className="w-12 h-12 border-t-4 border-b-4 border-primary-600 rounded-full animate-spin"></div>
             </div>
-          ) : availabilities.length > 0 ? (
+          ) : availabilities.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500 dark:text-gray-400">No availability slots added yet</p>
+            </div>
+          ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-dark-700">
                 <thead className="bg-gray-50 dark:bg-dark-700">
@@ -484,37 +621,29 @@ const Sessions = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-dark-800 divide-y divide-gray-200 dark:divide-dark-700">
-                  {availabilities.map((avail) => (
-                    <tr key={avail.availabilityId} className="hover:bg-gray-50 dark:hover:bg-dark-700">
+                  {availabilities.map((availability) => (
+                    <tr key={availability.availabilityId}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                        {avail.dayOfWeek}
+                        {availability.dayOfWeek}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        {formatTime(avail.startTime)}
+                        {formatTime(availability.startTime)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        {formatTime(avail.endTime)}
+                        {formatTime(availability.endTime)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button
-                          onClick={() => handleDelete(avail.availabilityId)}
-                          className="text-red-600 hover:text-red-900 dark:text-red-500 dark:hover:text-red-400"
+                          onClick={() => handleDelete(availability.availabilityId)}
+                          className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
                         >
-                          <FaTrash />
+                          <FaTrash className="h-4 w-4" />
                         </button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <FaCalendarAlt className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-600 mb-4" />
-              <p className="text-gray-500 dark:text-gray-400 mb-4">You haven't set up any availability yet.</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Add your available times using the form to let students know when they can book sessions with you.
-              </p>
             </div>
           )}
         </div>
@@ -523,14 +652,16 @@ const Sessions = () => {
   );
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      <h1 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">Tutoring Management</h1>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-8">Tutor Dashboard</h1>
       
-      {/* Main Tabs */}
-      {renderMainTabs()}
-      
-      {/* Content based on active main tab */}
-      {mainTab === 'sessions' ? renderSessionsContent() : renderAvailabilityContent()}
+      {/* Main Content */}
+      <div className="bg-white dark:bg-dark-800 rounded-lg shadow-md border border-gray-200 dark:border-dark-700 overflow-hidden">
+        {renderMainTabs()}
+        <div className="p-6">
+          {mainTab === 'sessions' ? renderSessionsContent() : renderAvailabilityContent()}
+        </div>
+      </div>
     </div>
   );
 };

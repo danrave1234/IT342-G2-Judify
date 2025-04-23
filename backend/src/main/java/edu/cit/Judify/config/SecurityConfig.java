@@ -16,14 +16,21 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf.disable())  // Disable CSRF for development
+//            .cors(cors -> cors.configure(http)) // Enable CORS
             .authorizeHttpRequests(auth -> auth
                 // Swagger UI endpoints
                 .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/api-docs/**", "/v3/api-docs/**").permitAll()
                 // Authentication endpoints
                 .requestMatchers("/api/users/authenticate", "/api/users/addUser").permitAll()
+                // OAuth2 endpoints
+                .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                 .anyRequest().permitAll()  // Allow all requests during development
                 // For production, replace the line above with something like:
                 // .anyRequest().authenticated()
+            )
+            .oauth2Login(oauth2 -> oauth2
+                .defaultSuccessUrl("/api/users/oauth2-success", true)
+                .failureUrl("/api/users/oauth2-failure")
             );
 
         return http.build();

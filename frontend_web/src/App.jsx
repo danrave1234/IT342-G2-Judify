@@ -19,6 +19,7 @@ import MainLayout from './components/layout/MainLayout';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import ForgotPassword from './pages/auth/ForgotPassword';
+import OAuth2Callback from './pages/auth/OAuth2Callback';
 
 // Public pages
 import LandingPage from './pages/LandingPage';
@@ -80,6 +81,9 @@ function App() {
                         <Route path="/auth/forgot-password" element={<ForgotPassword />} />
                         <Route path="/forgot-password" element={<ForgotPassword />} />
                       </Route>
+                      
+                      {/* OAuth2 Callback Route */}
+                      <Route path="/oauth2-callback" element={<OAuth2Callback />} />
                       
                       {/* Protected Layout for all authenticated routes */}
                       <Route element={<PrivateRoute><MainLayout /></PrivateRoute>}>

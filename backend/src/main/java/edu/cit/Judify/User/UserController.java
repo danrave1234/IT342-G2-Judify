@@ -12,6 +12,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -310,5 +313,49 @@ public class UserController {
             e.printStackTrace();
             return ResponseEntity.status(500).body("Server error: " + e.getMessage());
         }
+    }
+
+    @Operation(summary = "OAuth2 Authentication Success", description = "Endpoint to handle successful OAuth2 authentication")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Authentication successful - redirects to frontend")
+    })
+    @GetMapping("/oauth2-success")
+    public ResponseEntity<Void> handleOAuth2Success(@AuthenticationPrincipal OAuth2User oauth2User) {
+        // Extract user info from OAuth2 authentication
+        Map<String, Object> attributes = oauth2User.getAttributes();
+        
+        // Debug log all attributes
+        System.out.println("OAuth2 authentication success, received attributes:");
+        attributes.forEach((key, value) -> System.out.println(key + ": " + value));
+        
+        // Extract email (main identifier)
+        String email = (String) attributes.get("email");
+        String name = (String) attributes.get("name");
+        
+        System.out.println("OAuth2 user email: " + email);
+        System.out.println("OAuth2 user name: " + name);
+        
+        // Find or create the user
+        UserEntity user = userService.findOrCreateOAuth2User(email, name, attributes);
+        
+        // Create a JWT token (same as regular login)
+        String token = userService.generateJwtToken(user);
+        
+        // Return redirect to frontend with token
+        return ResponseEntity.status(302)
+            .header("Location", "http://localhost:5173/oauth2-callback?token=" + token + "&userId=" + user.getUserId())
+            .build();
+    }
+    
+    @Operation(summary = "OAuth2 Authentication Failure", description = "Endpoint to handle failed OAuth2 authentication")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "302", description = "Redirect to frontend login page with error")
+    })
+    @GetMapping("/oauth2-failure")
+    public ResponseEntity<Void> handleOAuth2Failure() {
+        // Redirect to frontend login page with error
+        return ResponseEntity.status(302)
+            .header("Location", "http://localhost:5173/auth/login?error=oauth2_failure")
+            .build();
     }
 } 

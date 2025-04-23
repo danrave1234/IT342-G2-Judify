@@ -11,7 +11,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.security.Key;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Arrays;
 
 @Service
 public class UserService {
@@ -138,7 +140,7 @@ public class UserService {
         return authDTO;
     }
 
-    private String generateJwtToken(UserEntity user) {
+    public String generateJwtToken(UserEntity user) {
         return Jwts.builder()
                 .setSubject(user.getEmail())
                 .claim("userId", user.getUserId())
@@ -146,5 +148,82 @@ public class UserService {
                 .setIssuedAt(new Date())
                 .signWith(jwtSecretKey)
                 .compact();
+    }
+
+    /**
+     * Finds or creates a user based on OAuth2 authentication data
+     * 
+     * @param email The user's email from OAuth2 provider
+     * @param name The user's name from OAuth2 provider
+     * @param attributes All OAuth2 attributes
+     * @return The user entity (either existing or newly created)
+     */
+    public UserEntity findOrCreateOAuth2User(String email, String name, Map<String, Object> attributes) {
+        // Check if user already exists
+        Optional<UserEntity> existingUser = userRepository.findByEmail(email);
+        
+        if (existingUser.isPresent()) {
+            return existingUser.get();
+        }
+        
+        // Create new user
+        UserEntity newUser = new UserEntity();
+        newUser.setEmail(email);
+        
+        // Handle default values to avoid null constraint violations
+        String username = email != null ? email.split("@")[0] : "user";
+        newUser.setUsername(username);
+        
+        // Extract first name and last name from attributes if available
+        // Try different attribute names that Google might return
+        if (attributes.containsKey("given_name")) {
+            newUser.setFirstName((String) attributes.get("given_name"));
+        } else if (attributes.containsKey("givenName")) {
+            newUser.setFirstName((String) attributes.get("givenName"));
+        }
+        
+        if (attributes.containsKey("family_name")) {
+            newUser.setLastName((String) attributes.get("family_name"));
+        } else if (attributes.containsKey("familyName")) {
+            newUser.setLastName((String) attributes.get("familyName"));
+        }
+        
+        // If first_name and last_name are still null, use name field or defaults
+        if (newUser.getFirstName() == null) {
+            if (name != null && !name.trim().isEmpty()) {
+                String[] nameParts = name.split(" ");
+                if (nameParts.length > 0) {
+                    newUser.setFirstName(nameParts[0]);
+                    if (nameParts.length > 1) {
+                        newUser.setLastName(String.join(" ", Arrays.copyOfRange(nameParts, 1, nameParts.length)));
+                    }
+                }
+            } else {
+                // Default values as fallback
+                newUser.setFirstName(username); // Use username as default first name
+            }
+        }
+        
+        // Ensure last_name has a value if it's also required
+        if (newUser.getLastName() == null) {
+            newUser.setLastName(""); // Empty string as default last name
+        }
+        
+        // Set default values
+        newUser.setPassword(""); // OAuth2 users don't need a password
+        newUser.setRole(UserRole.STUDENT); // Default role
+        
+        // Set timestamps
+        Date now = new Date();
+        newUser.setCreatedAt(now);
+        newUser.setUpdatedAt(now);
+        
+        // Debug log
+        System.out.println("Creating OAuth2 user: " + newUser.getEmail() + 
+                          ", FirstName: " + newUser.getFirstName() + 
+                          ", LastName: " + newUser.getLastName());
+        
+        // Save the new user
+        return userRepository.save(newUser);
     }
 } 
