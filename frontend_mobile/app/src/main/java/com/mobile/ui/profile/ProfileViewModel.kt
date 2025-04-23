@@ -139,18 +139,6 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     }
 
     /**
-     * Get mock user data for demo purposes
-     */
-    private fun getMockUser(userId: Long): User {
-        return User(
-            id = userId,
-            name = "John Doe",
-            email = "john.doe@example.com",
-            profileImageUrl = null // No image for mock data
-        )
-    }
-
-    /**
      * Update user profile
      * @param name Full name of the user (first and last name)
      * @param email Email address of the user

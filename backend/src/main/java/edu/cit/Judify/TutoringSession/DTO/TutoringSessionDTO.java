@@ -9,13 +9,17 @@ public class TutoringSessionDTO {
     private Date startTime;
     private Date endTime;
     private String subject;
-    private String status; // SCHEDULED, ONGOING, COMPLETED, CANCELLED
+    private String status; // PENDING, NEGOTIATING, SCHEDULED, ONGOING, COMPLETED, CANCELLED
     private Double price;
     private String notes;
     private String locationData;    // For in-person sessions
     private String meetingLink;     // For online sessions
     private Date createdAt;
     private Date updatedAt;
+    private String tutorName;       // Added tutorName field
+    private Boolean tutorAccepted;  // Whether the tutor has accepted the session
+    private Boolean studentAccepted; // Whether the student has accepted the session
+    private Long conversationId;    // ID of the conversation for negotiation
 
     // Default constructor
     public TutoringSessionDTO() {
@@ -125,4 +129,36 @@ public class TutoringSessionDTO {
     public void setUpdatedAt(Date updatedAt) {
         this.updatedAt = updatedAt;
     }
-} 
+
+    public String getTutorName() {
+        return tutorName;
+    }
+
+    public void setTutorName(String tutorName) {
+        this.tutorName = tutorName;
+    }
+
+    public Boolean getTutorAccepted() {
+        return tutorAccepted;
+    }
+
+    public void setTutorAccepted(Boolean tutorAccepted) {
+        this.tutorAccepted = tutorAccepted;
+    }
+
+    public Boolean getStudentAccepted() {
+        return studentAccepted;
+    }
+
+    public void setStudentAccepted(Boolean studentAccepted) {
+        this.studentAccepted = studentAccepted;
+    }
+
+    public Long getConversationId() {
+        return conversationId;
+    }
+
+    public void setConversationId(Long conversationId) {
+        this.conversationId = conversationId;
+    }
+}

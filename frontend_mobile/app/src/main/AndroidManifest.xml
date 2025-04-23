@@ -115,6 +115,13 @@
             android:theme="@style/Theme.Judify"
             android:windowSoftInputMode="adjustResize" />
 
+        <!-- Add the UserSelectionActivity -->
+        <activity
+            android:name=".ui.chat.UserSelectionActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Judify"
+            android:parentActivityName=".ui.chat.MessageActivity" />
+
     </application>
 
 </manifest>

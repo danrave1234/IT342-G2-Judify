@@ -105,7 +105,7 @@ class ChatFragment : BaseFragment() {
                 Log.e(TAG, "Error loading conversations: ${error.message}")
                 progressBar.visibility = View.GONE
                 
-                // Show mock data if available, or show error
+                // Show error
                 if (conversationAdapter.itemCount > 0) {
                     // Keep existing data visible if we have any
                     errorStateLayout.visibility = View.GONE
@@ -139,20 +139,31 @@ class ChatFragment : BaseFragment() {
     }
 
     private fun createNewConversation() {
-        // For now, we'll just create a mock conversation with the current user and another user
-        val mockParticipantIds = listOf(currentUserId, 2L) // Mock second user with ID 2
+        // Navigate to user selection activity
+        val intent = Intent(requireContext(), UserSelectionActivity::class.java)
+        startActivityForResult(intent, REQUEST_SELECT_USER)
+    }
 
-        viewModel.createConversation(mockParticipantIds) { result ->
-            result.onSuccess { conversation ->
-                Log.d(TAG, "Created conversation: ${conversation.id}")
-                // Navigate to the new conversation
-                navigateToMessageActivity(conversation)
-                // Refresh the conversations list
-                loadConversations()
-            }.onFailure { error ->
-                Log.e(TAG, "Error creating conversation: ${error.message}")
-                errorStateLayout.visibility = View.VISIBLE
-                errorText.text = "Failed to create conversation: ${error.message}"
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_SELECT_USER && resultCode == android.app.Activity.RESULT_OK && data != null) {
+            val selectedUserId = data.getLongExtra("SELECTED_USER_ID", -1L)
+            if (selectedUserId != -1L) {
+                val participantIds = listOf(currentUserId, selectedUserId)
+                
+                viewModel.createConversation(participantIds) { result ->
+                    result.onSuccess { conversation ->
+                        Log.d(TAG, "Created conversation: ${conversation.id}")
+                        // Navigate to the new conversation
+                        navigateToMessageActivity(conversation)
+                        // Refresh the conversations list
+                        loadConversations()
+                    }.onFailure { error ->
+                        Log.e(TAG, "Error creating conversation: ${error.message}")
+                        errorStateLayout.visibility = View.VISIBLE
+                        errorText.text = "Failed to create conversation: ${error.message}"
+                    }
+                }
             }
         }
     }
@@ -176,5 +187,6 @@ class ChatFragment : BaseFragment() {
 
     companion object {
         fun newInstance() = ChatFragment()
+        private const val REQUEST_SELECT_USER = 1001
     }
 }

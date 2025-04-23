@@ -35,11 +35,15 @@ import com.mobile.utils.NetworkUtils.TutorProfile
 import de.hdodenhof.circleimageview.CircleImageView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.delay
 
 class LearnerDashboardActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityLearnerDashboardBinding
     private val TAG = "LearnerDashboard"
+    
+    // Session adapter for the RecyclerView
+    private val sessionAdapter = SessionAdapter(emptyList())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -58,6 +62,9 @@ class LearnerDashboardActivity : AppCompatActivity() {
 
         // Set up app bar behavior
         setupAppBarBehavior()
+        
+        // Set up sessions recycler view
+        setupSessionsRecyclerView()
 
         // Load top tutors
         loadTopTutors()
@@ -376,99 +383,70 @@ class LearnerDashboardActivity : AppCompatActivity() {
     }
 
     /**
-     * Load sessions for the current learner
+     * Load learner sessions from the API
      */
     private fun loadLearnerSessions() {
-        lifecycleScope.launch {
-            try {
-                // Get the user ID from preferences
-                val userId = PreferenceUtils.getUserId(this@LearnerDashboardActivity)
-                if (userId != null) {
-                    // Get all sessions
-                    val allSessionsResult = NetworkUtils.getLearnerSessions(userId)
-                    if (allSessionsResult.isSuccess) {
-                        val allSessions = allSessionsResult.getOrNull() ?: emptyList()
-                        
-                        // Get upcoming sessions
-                        val upcomingSessionsResult = NetworkUtils.getUpcomingLearnerSessions(userId)
-                        if (upcomingSessionsResult.isSuccess) {
-                            val upcomingSessions = upcomingSessionsResult.getOrNull() ?: emptyList()
-                            
-                            // Display sessions in the UI
-                            displaySessions(allSessions)
-                        } else {
-                            // Handle error
-                            showNoSessions()
-                        }
-                    } else {
-                        // Handle error
-                        showNoSessions()
-                    }
-                } else {
-                    // Handle error - user not found
-                    Log.e(TAG, "User ID not found in preferences")
-                    showNoSessions()
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error loading sessions: ${e.message}", e)
-                showNoSessions()
-            }
-        }
-    }
-    
-    /**
-     * Display the sessions in the UI
-     */
-    private fun displaySessions(sessions: List<NetworkUtils.TutoringSession>) {
-        // Set up RecyclerView for sessions
-        val recyclerView = binding.allSessionsRecyclerView
-        
-        if (sessions.isEmpty()) {
-            showNoSessions()
+        // Show loading indicator
+        binding.loadingProgressBar.visibility = View.VISIBLE
+        binding.noSessionsText.visibility = View.GONE
+
+        val userId = PreferenceUtils.getUserId(this)
+        if (userId == null) {
+            Toast.makeText(this, "User ID not found", Toast.LENGTH_SHORT).show()
+            binding.loadingProgressBar.visibility = View.GONE
+            binding.noSessionsText.visibility = View.VISIBLE
             return
         }
-        
-        // Create an adapter for the sessions
-        val adapter = SessionAdapter(sessions)
-        recyclerView.adapter = adapter
-        recyclerView.layoutManager = LinearLayoutManager(this)
-    }
-    
-    /**
-     * Show a message when no sessions are available
-     */
-    private fun showNoSessions() {
-        val recyclerView = binding.allSessionsRecyclerView
-        recyclerView.visibility = View.GONE
-        
-        // Create and show a message in place of the RecyclerView
-        val noSessionsView = layoutInflater.inflate(R.layout.item_no_sessions, null)
-        val parent = recyclerView.parent as LinearLayout
-        
-        // Remove any existing no-sessions view first
-        for (i in 0 until parent.childCount) {
-            val child = parent.getChildAt(i)
-            if (child.id == R.id.noSessionsView) {
-                parent.removeViewAt(i)
-                break
+
+        lifecycleScope.launch {
+            try {
+                val result = NetworkUtils.getLearnerSessions(userId.toString())
+                if (result.isSuccess) {
+                    val sessions = result.getOrNull() ?: emptyList()
+                    if (sessions.isNotEmpty()) {
+                        binding.noSessionsText.visibility = View.GONE
+                        binding.allSessionsRecyclerView.visibility = View.VISIBLE
+                        sessionAdapter.submitList(sessions)
+                        Log.d(TAG, "Loaded ${sessions.size} sessions for learner")
+                    } else {
+                        binding.noSessionsText.text = "You don't have any sessions yet. Book a session with a tutor to get started!"
+                        binding.noSessionsText.visibility = View.VISIBLE
+                        binding.allSessionsRecyclerView.visibility = View.GONE
+                        Log.d(TAG, "No sessions found for learner")
+                    }
+                } else {
+                    val error = result.exceptionOrNull()
+                    val errorMsg = error?.message ?: "Unknown error"
+                    
+                    // Check if it's a 404 error which likely means the user just doesn't have any sessions yet
+                    if (errorMsg.contains("404")) {
+                        Log.d(TAG, "No sessions found for learner (404): likely a new user")
+                        binding.noSessionsText.text = "You don't have any sessions yet. Book a session with a tutor to get started!"
+                    } else {
+                        Log.e(TAG, "Failed to load learner sessions: $errorMsg", error)
+                        binding.noSessionsText.text = "Unable to load sessions. Pull down to refresh."
+                        Toast.makeText(this@LearnerDashboardActivity, "Failed to load sessions", Toast.LENGTH_SHORT).show()
+                    }
+                    
+                    binding.noSessionsText.visibility = View.VISIBLE
+                    binding.allSessionsRecyclerView.visibility = View.GONE
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Exception loading learner sessions: ${e.message}", e)
+                binding.noSessionsText.text = "Unable to load sessions. Pull down to refresh."
+                binding.noSessionsText.visibility = View.VISIBLE
+                binding.allSessionsRecyclerView.visibility = View.GONE
+                Toast.makeText(this@LearnerDashboardActivity, "Error loading sessions", Toast.LENGTH_SHORT).show()
+            } finally {
+                binding.loadingProgressBar.visibility = View.GONE
             }
         }
-        
-        // Set up click listener for Find Tutors button
-        noSessionsView.findViewById<com.google.android.material.button.MaterialButton>(R.id.findTutorButton)
-            .setOnClickListener {
-                val intent = Intent(this, TutorSearchActivity::class.java)
-                startActivity(intent)
-            }
-        
-        // Add the no-sessions view
-        parent.addView(noSessionsView, parent.indexOfChild(recyclerView) + 1)
     }
     
     /**
      * Adapter for the sessions RecyclerView
      */
-    private inner class SessionAdapter(private val sessions: List<NetworkUtils.TutoringSession>) : 
+    private inner class SessionAdapter(private var sessions: List<NetworkUtils.TutoringSession>) : 
         androidx.recyclerview.widget.RecyclerView.Adapter<SessionAdapter.ViewHolder>() {
         
         inner class ViewHolder(view: View) : androidx.recyclerview.widget.RecyclerView.ViewHolder(view) {
@@ -516,22 +494,27 @@ class LearnerDashboardActivity : AppCompatActivity() {
             
             holder.status.text = session.status
             
-            // Get tutor name - in a real app, you would load this from the network
-            lifecycleScope.launch {
-                try {
-                    val tutorResult = NetworkUtils.findTutorById(session.tutorId)
-                    if (tutorResult.isSuccess) {
-                        val tutor = tutorResult.getOrNull()
-                        if (tutor != null) {
-                            holder.tutorName.text = tutor.name
+            // Use tutorName from session if available, otherwise fetch from network
+            if (session.tutorName.isNotEmpty()) {
+                holder.tutorName.text = session.tutorName
+            } else {
+                // Get tutor name from network if not included in session data
+                lifecycleScope.launch {
+                    try {
+                        val tutorResult = NetworkUtils.findTutorById(session.tutorId)
+                        if (tutorResult.isSuccess) {
+                            val tutor = tutorResult.getOrNull()
+                            if (tutor != null) {
+                                holder.tutorName.text = tutor.name
+                            } else {
+                                holder.tutorName.text = "Unknown Tutor"
+                            }
                         } else {
                             holder.tutorName.text = "Unknown Tutor"
                         }
-                    } else {
+                    } catch (e: Exception) {
                         holder.tutorName.text = "Unknown Tutor"
                     }
-                } catch (e: Exception) {
-                    holder.tutorName.text = "Unknown Tutor"
                 }
             }
             
@@ -544,6 +527,24 @@ class LearnerDashboardActivity : AppCompatActivity() {
         }
         
         override fun getItemCount() = sessions.size
+        
+        /**
+         * Update the list of sessions
+         */
+        fun submitList(newSessions: List<NetworkUtils.TutoringSession>) {
+            sessions = newSessions
+            notifyDataSetChanged()
+        }
+    }
+
+    /**
+     * Set up the RecyclerView for sessions
+     */
+    private fun setupSessionsRecyclerView() {
+        binding.allSessionsRecyclerView.apply {
+            adapter = sessionAdapter
+            layoutManager = LinearLayoutManager(this@LearnerDashboardActivity)
+        }
     }
 
 }

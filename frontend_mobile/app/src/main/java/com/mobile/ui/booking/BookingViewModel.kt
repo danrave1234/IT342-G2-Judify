@@ -316,28 +316,10 @@ class BookingViewModel(
                     onFailure = { exception ->
                         Log.e("BookingViewModel", "Failed to load tutor availability: ${exception.message}", exception)
 
-                        // Fall back to mock data if the API fails
-                        val availabilityMap = mapOf(
-                            "MONDAY" to listOf(NetworkUtils.TutorAvailability(id = 1, tutorId = tutorId, dayOfWeek = "MONDAY", startTime = "12:00", endTime = "18:00")),
-                            "TUESDAY" to listOf(NetworkUtils.TutorAvailability(id = 2, tutorId = tutorId, dayOfWeek = "TUESDAY", startTime = "12:00", endTime = "18:00")),
-                            "WEDNESDAY" to listOf(NetworkUtils.TutorAvailability(id = 3, tutorId = tutorId, dayOfWeek = "WEDNESDAY", startTime = "12:00", endTime = "20:00")),
-                            "THURSDAY" to listOf(NetworkUtils.TutorAvailability(id = 4, tutorId = tutorId, dayOfWeek = "THURSDAY", startTime = "12:00", endTime = "18:00")),
-                            "FRIDAY" to listOf(NetworkUtils.TutorAvailability(id = 5, tutorId = tutorId, dayOfWeek = "FRIDAY", startTime = "12:00", endTime = "18:00")),
-                            "SATURDAY" to emptyList(),
-                            "SUNDAY" to emptyList()
-                        )
-
-                        val availability = availabilityMap[dayOfWeek] ?: emptyList()
-
-                        // Generate time slots from mock availability
-                        val timeSlots = generateTimeSlotsFromAvailability(availability)
-
                         _availabilityState.postValue(
                             _availabilityState.value?.copy(
-                                availability = availability,
-                                timeSlots = timeSlots,
                                 isLoading = false,
-                                error = "Using mock data. ${exception.message}"
+                                error = "Failed to load availability: ${exception.message}"
                             )
                         )
                     }

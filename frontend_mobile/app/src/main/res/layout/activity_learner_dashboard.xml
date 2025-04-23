@@ -236,6 +236,22 @@
                     android:textColor="?android:textColorPrimary"
                     android:layout_marginBottom="8dp" />
 
+                <ProgressBar
+                    android:id="@+id/loadingProgressBar"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/noSessionsText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="No sessions found"
+                    android:textAlignment="center"
+                    android:padding="16dp"
+                    android:visibility="gone" />
+
                 <androidx.recyclerview.widget.RecyclerView
                     android:id="@+id/allSessionsRecyclerView"
                     android:layout_width="match_parent"

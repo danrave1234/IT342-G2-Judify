@@ -2,6 +2,7 @@ package edu.cit.Judify.TutoringSession;
 
 import java.util.Date;
 
+import edu.cit.Judify.Conversation.ConversationEntity;
 import edu.cit.Judify.User.UserEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -10,6 +11,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -56,6 +58,16 @@ public class TutoringSessionEntity {
 
     @Temporal(TemporalType.TIMESTAMP)
     private Date updatedAt;
+
+    @Column(nullable = true)
+    private Boolean tutorAccepted;
+
+    @Column(nullable = true)
+    private Boolean studentAccepted;
+
+    @OneToOne
+    @JoinColumn(name = "conversation_id", nullable = true)
+    private ConversationEntity conversation;
 
     // Constructors
     public TutoringSessionEntity() {
@@ -152,6 +164,30 @@ public class TutoringSessionEntity {
     }
     public void setUpdatedAt(Date updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public Boolean getTutorAccepted() {
+        return tutorAccepted;
+    }
+
+    public void setTutorAccepted(Boolean tutorAccepted) {
+        this.tutorAccepted = tutorAccepted;
+    }
+
+    public Boolean getStudentAccepted() {
+        return studentAccepted;
+    }
+
+    public void setStudentAccepted(Boolean studentAccepted) {
+        this.studentAccepted = studentAccepted;
+    }
+
+    public ConversationEntity getConversation() {
+        return conversation;
+    }
+
+    public void setConversation(ConversationEntity conversation) {
+        this.conversation = conversation;
     }
 
     @PrePersist

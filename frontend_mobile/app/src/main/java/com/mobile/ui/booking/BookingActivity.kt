@@ -304,7 +304,7 @@ class BookingActivity : AppCompatActivity() {
         // Observe booking result
         viewModel.bookingResult.observe(this) { success ->
             if (success) {
-                Toast.makeText(this, "Session booked successfully!", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Session request sent! Waiting for tutor to accept.", Toast.LENGTH_LONG).show()
                 // Navigate back or to a confirmation screen
                 finish()
             }
@@ -355,8 +355,8 @@ class BookingActivity : AppCompatActivity() {
                                 if (profileSubjects.isNotEmpty()) {
                                     Log.d("BookingActivity", "Using profile subjects: $profileSubjects")
 
-                                    // Create mock TutorSubject objects from the profile subjects
-                                    val mockSubjects = profileSubjects.mapIndexed { index, subject ->
+                                    // Create TutorSubject objects from the profile subjects
+                                    val subjectsFromProfile = profileSubjects.mapIndexed { index, subject ->
                                         NetworkUtils.TutorSubject(
                                             id = index.toLong(),
                                             tutorProfileId = tutorId,
@@ -364,16 +364,16 @@ class BookingActivity : AppCompatActivity() {
                                             createdAt = ""
                                         )
                                     }
-                                    tutorSubjects = mockSubjects
-                                    subjectAdapter.updateSubjects(mockSubjects)
+                                    tutorSubjects = subjectsFromProfile
+                                    subjectAdapter.updateSubjects(subjectsFromProfile)
 
                                     // Select the first subject if none selected
-                                    if (selectedSubject.isEmpty() && mockSubjects.isNotEmpty()) {
-                                        selectedSubject = mockSubjects[0].subject
+                                    if (selectedSubject.isEmpty() && subjectsFromProfile.isNotEmpty()) {
+                                        selectedSubject = subjectsFromProfile[0].subject
                                         subjectAdapter.selectSubject(0)
                                     } else if (selectedSubject.isNotEmpty()) {
                                         // Find the index of the selected subject and select it in the adapter
-                                        val selectedIndex = mockSubjects.indexOfFirst { it.subject.equals(selectedSubject, ignoreCase = true) }
+                                        val selectedIndex = subjectsFromProfile.indexOfFirst { it.subject.equals(selectedSubject, ignoreCase = true) }
                                         if (selectedIndex >= 0) {
                                             // Programmatically select the subject in the adapter
                                             subjectAdapter.selectSubject(selectedIndex)
@@ -419,11 +419,11 @@ class BookingActivity : AppCompatActivity() {
                     Calendar.SUNDAY -> "SUNDAY"
                     else -> ""
                 }
-                
+
                 // Format the date for API call (yyyy-MM-dd)
                 val apiDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
                 val specificDate = apiDateFormat.format(calendar.time)
-                
+
                 // Pass both the day of week and the specific date to the ViewModel
                 viewModel.loadTutorAvailability(dayOfWeek, specificDate)
             },
@@ -499,7 +499,7 @@ class BookingActivity : AppCompatActivity() {
         val studentId = sharedPreferences.getLong("user_id", -1)
 
         if (studentId == -1L) {
-            Toast.makeText(this, "Please login to book a session", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Please login to request a session", Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -556,10 +556,10 @@ class BookingActivity : AppCompatActivity() {
             callback = { success ->
                 runOnUiThread {
                     if (success) {
-                        Toast.makeText(this, "Session booked successfully!", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this, "Session request sent! Waiting for tutor to accept.", Toast.LENGTH_LONG).show()
                         finish()
                     } else {
-                        Toast.makeText(this, "Failed to book session. Please try again.", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this, "Failed to request session. Please try again.", Toast.LENGTH_LONG).show()
                     }
                 }
             }

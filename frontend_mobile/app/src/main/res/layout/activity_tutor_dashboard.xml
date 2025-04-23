@@ -368,61 +368,67 @@
         android:background="@drawable/shadow_gradient"
         app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
-    <!-- Scrollable Content -->
-    <androidx.core.widget.NestedScrollView
+    <!-- Scrollable Content with SwipeRefreshLayout -->
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/swipeRefreshLayout"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:clipToPadding="false"
-        android:paddingBottom="56dp"
-        android:fillViewport="true"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
-
-        <LinearLayout
+        
+        <androidx.core.widget.NestedScrollView
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:paddingBottom="56dp"
+            android:fillViewport="true">
 
-            <!-- Session List -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:paddingLeft="16dp"
-                android:paddingTop="16dp"
-                android:paddingRight="16dp"
-                android:paddingBottom="32dp">
+                android:orientation="vertical">
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Recent Sessions"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:textColor="?android:textColorPrimary"
-                    android:layout_marginBottom="16dp" />
-
-                <!-- Session list will be populated dynamically -->
+                <!-- Session List -->
                 <LinearLayout
-                    android:id="@+id/sessionsContainer"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical">
+                    android:orientation="vertical"
+                    android:paddingLeft="16dp"
+                    android:paddingTop="16dp"
+                    android:paddingRight="16dp"
+                    android:paddingBottom="32dp">
 
-                    <!-- Placeholder for empty state -->
                     <TextView
-                        android:id="@+id/noRecentSessionsText"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="No recent sessions"
-                        android:textSize="14sp"
-                        android:textColor="?android:textColorSecondary"
-                        android:gravity="center"
-                        android:padding="32dp"
-                        android:visibility="gone" />
+                        android:text="Recent Sessions"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:textColor="?android:textColorPrimary"
+                        android:layout_marginBottom="16dp" />
+
+                    <!-- Session list will be populated dynamically -->
+                    <LinearLayout
+                        android:id="@+id/sessionsContainer"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <!-- Placeholder for empty state -->
+                        <TextView
+                            android:id="@+id/noRecentSessionsText"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="No recent sessions"
+                            android:textSize="14sp"
+                            android:textColor="?android:textColorSecondary"
+                            android:gravity="center"
+                            android:padding="32dp"
+                            android:visibility="gone" />
+                    </LinearLayout>
                 </LinearLayout>
             </LinearLayout>
-        </LinearLayout>
-    </androidx.core.widget.NestedScrollView>
+        </androidx.core.widget.NestedScrollView>
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
     <!-- Fragment Container for Map and other features -->
     <FrameLayout
