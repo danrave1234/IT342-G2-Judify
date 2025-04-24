@@ -18,6 +18,8 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import jakarta.servlet.http.HttpServletRequest;
+import java.net.URL;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -320,7 +322,7 @@ public class UserController {
         @ApiResponse(responseCode = "200", description = "Authentication successful - redirects to frontend")
     })
     @GetMapping("/oauth2-success")
-    public ResponseEntity<Void> handleOAuth2Success(@AuthenticationPrincipal OAuth2User oauth2User) {
+    public ResponseEntity<Void> handleOAuth2Success(@AuthenticationPrincipal OAuth2User oauth2User, HttpServletRequest request) {
         // Extract user info from OAuth2 authentication
         Map<String, Object> attributes = oauth2User.getAttributes();
         
@@ -341,10 +343,54 @@ public class UserController {
         // Create a JWT token (same as regular login)
         String token = userService.generateJwtToken(user);
         
-        // Return redirect to frontend with token
+        // Get the origin header or referer to determine the frontend URL
+        String frontendUrl = getFrontendUrl(request);
+        System.out.println("Redirecting to frontend URL: " + frontendUrl);
+        
+        // Redirect to frontend with token and userId
         return ResponseEntity.status(302)
-            .header("Location", "http://localhost:5173/oauth2-callback?token=" + token + "&userId=" + user.getUserId())
+            .header("Location", frontendUrl + "/oauth2-callback?token=" + token + "&userId=" + user.getUserId())
             .build();
+    }
+    
+    /**
+     * Helper method to determine the frontend URL for redirection
+     */
+    private String getFrontendUrl(HttpServletRequest request) {
+        // First try to get the origin header
+        String origin = request.getHeader("Origin");
+        
+        // If origin is not available, try the referer header
+        if (origin == null || origin.isEmpty()) {
+            String referer = request.getHeader("Referer");
+            if (referer != null && !referer.isEmpty()) {
+                // Extract origin from referer (e.g., http://localhost:5173/login -> http://localhost:5173)
+                try {
+                    URL url = new URL(referer);
+                    origin = url.getProtocol() + "://" + url.getHost();
+                    if (url.getPort() != -1) {
+                        origin += ":" + url.getPort();
+                    }
+                } catch (Exception e) {
+                    System.err.println("Error parsing referer URL: " + e.getMessage());
+                }
+            }
+        }
+        
+        // If we still don't have an origin, use the default frontend URL
+        if (origin == null || origin.isEmpty()) {
+            // Default to the most common frontend URL
+            origin = "http://localhost:5173";
+            
+            // Try to determine the client's IP and port dynamically
+            // This is a best effort attempt and may not work in all environments
+            String xForwardedHost = request.getHeader("X-Forwarded-Host");
+            if (xForwardedHost != null && !xForwardedHost.isEmpty()) {
+                origin = request.getScheme() + "://" + xForwardedHost;
+            }
+        }
+        
+        return origin;
     }
     
     @Operation(summary = "OAuth2 Authentication Failure", description = "Endpoint to handle failed OAuth2 authentication")
@@ -352,10 +398,13 @@ public class UserController {
         @ApiResponse(responseCode = "302", description = "Redirect to frontend login page with error")
     })
     @GetMapping("/oauth2-failure")
-    public ResponseEntity<Void> handleOAuth2Failure() {
+    public ResponseEntity<Void> handleOAuth2Failure(HttpServletRequest request) {
+        // Get the frontend URL
+        String frontendUrl = getFrontendUrl(request);
+        
         // Redirect to frontend login page with error
         return ResponseEntity.status(302)
-            .header("Location", "http://localhost:5173/auth/login?error=oauth2_failure")
+            .header("Location", frontendUrl + "/auth/login?error=oauth2_failure")
             .build();
     }
 } 

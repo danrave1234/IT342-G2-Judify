@@ -84,6 +84,16 @@ const Login = () => {
     }
   };
 
+  // Handle Google OAuth login with dynamic backend URL
+  const handleGoogleLogin = () => {
+    // Get backend URL from API base URL or use default
+    const backendUrl = 'http://localhost:8080';
+    
+    // Redirect to Google OAuth2 endpoint on the backend
+    window.location.href = `${backendUrl}/oauth2/authorization/google`;
+    console.log('Redirecting to Google OAuth login...');
+  };
+
   return (
     <div>
       <div className="text-center mb-6">
@@ -216,7 +226,7 @@ const Login = () => {
         </div>
 
         <div className="mt-6 grid grid-cols-3 gap-3">
-          <button type="button" className="auth-social-button">
+          <button type="button" className="auth-social-button" onClick={handleGoogleLogin}>
             <FaGoogle className="text-red-500" />
           </button>
           <button type="button" className="auth-social-button">

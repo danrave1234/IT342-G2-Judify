@@ -82,7 +82,7 @@ function App() {
                         <Route path="/forgot-password" element={<ForgotPassword />} />
                       </Route>
                       
-                      {/* OAuth2 Callback Route */}
+                      {/* OAuth2 Routes */}
                       <Route path="/oauth2-callback" element={<OAuth2Callback />} />
                       
                       {/* Protected Layout for all authenticated routes */}

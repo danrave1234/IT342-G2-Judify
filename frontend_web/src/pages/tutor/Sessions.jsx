@@ -361,8 +361,8 @@ const Sessions = () => {
         ) : (
           <div className="space-y-6">
             {upcomingSessions.map(session => {
-              const { date, time } = formatSessionTime(session.startTime, session.endTime);
-              return (
+                const { date, time } = formatSessionTime(session.startTime, session.endTime);
+                return (
                 <div 
                   key={session.id} 
                   className="bg-white dark:bg-dark-800 rounded-lg shadow-sm border border-gray-200 dark:border-dark-700 overflow-hidden"
@@ -376,7 +376,7 @@ const Sessions = () => {
                     </div>
                     <div className="mt-4 flex justify-between">
                       <div className="flex space-x-4">
-                        <div>
+                          <div>
                           <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Date</div>
                           <div className="mt-1 flex items-center text-sm text-gray-900 dark:text-gray-300">
                             <FaCalendarAlt className="mr-1.5 h-4 w-4 flex-shrink-0 text-gray-400 dark:text-gray-500" />
@@ -427,9 +427,9 @@ const Sessions = () => {
                   <div className="p-6">
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-medium text-gray-900 dark:text-white">{session.subject || 'Tutoring Session'}</h3>
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusClass(session.status)}`}>
-                        {session.status}
-                      </span>
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusClass(session.status)}`}>
+                            {session.status}
+                          </span>
                     </div>
                     <div className="mt-4 flex justify-between">
                       <div className="flex space-x-4">
@@ -449,19 +449,19 @@ const Sessions = () => {
                         </div>
                       </div>
                       <div>
-                        <Link 
+                          <Link
                           to={`/tutor/sessions/${session.id}`}
                           className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 dark:bg-dark-700 dark:text-gray-300 dark:border-dark-600 dark:hover:bg-dark-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-                        >
-                          View Details
-                        </Link>
+                          >
+                            View Details
+                          </Link>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
         )
       )}
     </>
@@ -483,7 +483,7 @@ const Sessions = () => {
         <div className="p-6">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-medium text-gray-900 dark:text-white">Weekly Availability Schedule</h3>
-          </div>
+            </div>
           
           {/* Timetable only */}
           <div className="mb-8 border border-gray-200 dark:border-dark-600 rounded-md overflow-hidden">
@@ -495,19 +495,19 @@ const Sessions = () => {
               <div className="flex flex-col items-center justify-center h-96">
                 <FaCalendarAlt className="h-12 w-12 text-gray-400 dark:text-gray-600 mb-4" />
                 <p className="text-gray-500 dark:text-gray-400">No availability slots added yet</p>
-              </div>
-            ) : (
+            </div>
+          ) : (
               <div style={{ height: "500px", overflowY: "auto" }}>
                 <Timetable 
                   availabilities={formatAvailabilitiesForTimetable()}
                 />
               </div>
             )}
-          </div>
+            </div>
         </div>
-      </div>
-      
-      {/* Add Availability Form */}
+        </div>
+
+        {/* Add Availability Form */}
       <div className="bg-white dark:bg-dark-800 rounded-lg shadow border border-gray-200 dark:border-dark-700 overflow-hidden">
         <div className="p-6">
           <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Add New Availability</h3>
@@ -535,33 +535,33 @@ const Sessions = () => {
             </div>
             
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="startTime" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Start Time
-                </label>
-                <input
-                  type="time"
-                  id="startTime"
-                  name="startTime"
-                  value={availabilityForm.startTime}
-                  onChange={handleInputChange}
+            <div>
+              <label htmlFor="startTime" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Start Time
+              </label>
+              <input
+                type="time"
+                id="startTime"
+                name="startTime"
+                value={availabilityForm.startTime}
+                onChange={handleInputChange}
                   className="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-dark-700 dark:border-dark-600 dark:text-white"
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="endTime" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  End Time
-                </label>
-                <input
-                  type="time"
-                  id="endTime"
-                  name="endTime"
-                  value={availabilityForm.endTime}
-                  onChange={handleInputChange}
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="endTime" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                End Time
+              </label>
+              <input
+                type="time"
+                id="endTime"
+                name="endTime"
+                value={availabilityForm.endTime}
+                onChange={handleInputChange}
                   className="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-dark-700 dark:border-dark-600 dark:text-white"
-                  required
-                />
+                required
+              />
               </div>
             </div>
             
@@ -587,7 +587,7 @@ const Sessions = () => {
           </form>
         </div>
       </div>
-      
+
       {/* Current Availability List */}
       <div className="bg-white dark:bg-dark-800 rounded-lg shadow border border-gray-200 dark:border-dark-700 overflow-hidden">
         <div className="p-6">
@@ -657,9 +657,9 @@ const Sessions = () => {
       
       {/* Main Content */}
       <div className="bg-white dark:bg-dark-800 rounded-lg shadow-md border border-gray-200 dark:border-dark-700 overflow-hidden">
-        {renderMainTabs()}
+      {renderMainTabs()}
         <div className="p-6">
-          {mainTab === 'sessions' ? renderSessionsContent() : renderAvailabilityContent()}
+      {mainTab === 'sessions' ? renderSessionsContent() : renderAvailabilityContent()}
         </div>
       </div>
     </div>
