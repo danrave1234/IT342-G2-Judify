@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Arrays;
 import java.util.stream.Collectors;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/users")
@@ -406,5 +407,104 @@ public class UserController {
         return ResponseEntity.status(302)
             .header("Location", frontendUrl + "/auth/login?error=oauth2_failure")
             .build();
+    }
+
+    @Operation(summary = "Check if user is new OAuth2 user", description = "Checks if a user needs to complete registration")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Status returned")
+    })
+    @GetMapping("/check-oauth2-status/{userId}")
+    public ResponseEntity<Map<String, Object>> checkOAuth2Status(
+            @Parameter(description = "User ID") @PathVariable Long userId) {
+        
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            Optional<UserEntity> userOpt = userService.getUserById(userId);
+            
+            if (userOpt.isPresent()) {
+                UserEntity user = userOpt.get();
+                
+                // Check if this is a new OAuth2 user (no password and default role)
+                boolean isNewOAuth2User = (user.getPassword() == null || user.getPassword().isEmpty()) && 
+                                        user.getRole() == UserRole.STUDENT;
+                
+                response.put("isNewOAuth2User", isNewOAuth2User);
+                response.put("email", user.getEmail());
+                response.put("firstName", user.getFirstName());
+                response.put("lastName", user.getLastName());
+                response.put("username", user.getUsername());
+                
+                return ResponseEntity.ok(response);
+            } else {
+                response.put("error", "User not found");
+                return ResponseEntity.status(404).body(response);
+            }
+        } catch (Exception e) {
+            response.put("error", e.getMessage());
+            return ResponseEntity.status(500).body(response);
+        }
+    }
+    
+    @Operation(summary = "Complete OAuth2 registration", description = "Updates a new OAuth2 user's details")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Registration completed successfully"),
+        @ApiResponse(responseCode = "404", description = "User not found")
+    })
+    @PostMapping("/complete-oauth2-registration/{userId}")
+    public ResponseEntity<?> completeOAuth2Registration(
+            @Parameter(description = "User ID") @PathVariable Long userId,
+            @RequestBody Map<String, Object> userData) {
+        
+        try {
+            Optional<UserEntity> userOpt = userService.getUserById(userId);
+            
+            if (userOpt.isPresent()) {
+                UserEntity user = userOpt.get();
+                
+                // Update user details
+                if (userData.containsKey("username")) {
+                    user.setUsername((String) userData.get("username"));
+                }
+                
+                if (userData.containsKey("firstName")) {
+                    user.setFirstName((String) userData.get("firstName"));
+                }
+                
+                if (userData.containsKey("lastName")) {
+                    user.setLastName((String) userData.get("lastName"));
+                }
+                
+                // Update role if provided
+                if (userData.containsKey("role")) {
+                    String roleStr = (String) userData.get("role");
+                    try {
+                        UserRole role = UserRole.valueOf(roleStr);
+                        user.setRole(role);
+                    } catch (IllegalArgumentException e) {
+                        return ResponseEntity.badRequest()
+                            .body("Invalid role value. Must be one of: " + Arrays.toString(UserRole.values()));
+                    }
+                }
+                
+                // Update the user
+                user.setUpdatedAt(new Date());
+                UserEntity updatedUser = userService.updateUser(userId, user);
+                
+                // Generate a new token with updated role
+                String token = userService.generateJwtToken(updatedUser);
+                
+                // Return the updated user info and new token
+                Map<String, Object> response = new HashMap<>();
+                response.put("user", userDTOMapper.toDTO(updatedUser));
+                response.put("token", token);
+                
+                return ResponseEntity.ok(response);
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Server error: " + e.getMessage());
+        }
     }
 } 

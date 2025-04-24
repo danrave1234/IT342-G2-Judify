@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'react-toastify';
 import { FaGoogle, FaApple, FaFacebook } from 'react-icons/fa';
 import { useUser } from '../../context/UserContext';
+import { studentProfileApi, tutorProfileApi } from '../../api/api';
 
 const Register = () => {
   const { register: registerUser } = useUser();
@@ -22,6 +23,67 @@ const Register = () => {
   const handleUserTypeSelection = (type) => {
     setUserType(type);
     setValue('userType', type);
+  };
+
+  const createStudentProfile = async (userId) => {
+    try {
+      // Create a basic student profile
+      const studentProfileData = {
+        userId: userId,
+        bio: "I'm a new student on the platform",
+        gradeLevel: "College",
+        school: "To be updated",
+        interests: ["General Learning"]
+      };
+      
+      const response = await studentProfileApi.createProfile(studentProfileData);
+      if (response && response.data) {
+        console.log("Student profile created successfully:", response.data);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error("Error creating student profile:", error);
+      // Don't fail the whole registration process if student profile creation fails
+      // User can create it later from their profile page
+      return false;
+    }
+  };
+
+  const createTutorProfile = async (userId) => {
+    try {
+      // Create a basic tutor profile
+      const tutorProfileData = {
+        userId: userId,
+        bio: "I'm a new tutor on the platform",
+        expertise: "New to tutoring",
+        hourlyRate: 20.00,
+        subjects: ["General"],
+        rating: 0.0,
+        totalReviews: 0
+      };
+      
+      const response = await tutorProfileApi.createProfile(tutorProfileData);
+      if (response && response.data) {
+        console.log("Tutor profile created successfully:", response.data);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error("Error creating tutor profile:", error);
+      // Don't fail the whole registration process if tutor profile creation fails
+      // User can create it later from their profile page
+      return false;
+    }
+  };
+
+  // Function to handle Google OAuth signup
+  const handleGoogleSignup = () => {
+    // Use direct URL to the OAuth2 endpoint
+    const googleAuthUrl = 'http://localhost:8080/oauth2/authorization/google';
+    
+    console.log('Redirecting to Google OAuth for signup:', googleAuthUrl);
+    window.location.href = googleAuthUrl;
   };
 
   const onSubmit = async (data) => {
@@ -74,6 +136,16 @@ const Register = () => {
         if (directResponse.ok) {
           const result = await directResponse.json();
           console.log('Direct API call successful:', result);
+          
+          // Create the appropriate profile based on selected role
+          if (result.userId) {
+            if (data.userType === 'student') {
+              await createStudentProfile(result.userId);
+            } else if (data.userType === 'tutor') {
+              await createTutorProfile(result.userId);
+            }
+          }
+          
           toast.success('Registration successful! You can now log in.');
           setTimeout(() => {
             navigate('/auth/login');
@@ -95,6 +167,15 @@ const Register = () => {
       const result = await registerUser(userData);
       
       if (result.success) {
+        // Create the appropriate profile based on selected role
+        if (result.userId) {
+          if (data.userType === 'student') {
+            await createStudentProfile(result.userId);
+          } else if (data.userType === 'tutor') {
+            await createTutorProfile(result.userId);
+          }
+        }
+        
         toast.success('Registration successful! You can now log in.');
         setTimeout(() => {
           navigate('/auth/login');
@@ -366,7 +447,11 @@ const Register = () => {
         </div>
 
         <div className="mt-6 grid grid-cols-3 gap-3">
-          <button type="button" className="auth-social-button">
+          <button 
+            type="button" 
+            className="auth-social-button"
+            onClick={handleGoogleSignup}
+          >
             <FaGoogle className="text-red-500" />
           </button>
           <button type="button" className="auth-social-button">

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { userApi } from '../../api/api';
+import axios from 'axios';
 
 const OAuth2Callback = () => {
   const [searchParams] = useSearchParams();
@@ -48,6 +49,23 @@ const OAuth2Callback = () => {
         
         // Store user in localStorage
         localStorage.setItem('user', JSON.stringify(user));
+        
+        // Check if this is a new OAuth2 user
+        try {
+          const response = await axios.get(`/api/users/check-oauth2-status/${userId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          
+          if (response.data && response.data.isNewOAuth2User) {
+            // Redirect to complete registration
+            console.log('New OAuth2 user - redirecting to complete registration');
+            navigate(`/oauth2-register?userId=${userId}&token=${token}`, { replace: true });
+            return;
+          }
+        } catch (checkErr) {
+          console.warn('Error checking OAuth2 status:', checkErr);
+          // Continue with normal flow if check fails
+        }
         
         // Try to fetch complete user profile data
         try {
