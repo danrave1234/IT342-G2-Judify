@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'react-toastify';
 import { 
@@ -11,7 +11,10 @@ import {
   FaGraduationCap, 
   FaSchool, 
   FaHeart,
-  FaCamera
+  FaCamera,
+  FaMapPin,
+  FaToggleOn,
+  FaToggleOff
 } from 'react-icons/fa';
 import { useUser } from '../context/UserContext';
 import { useStudentProfile } from '../context/StudentProfileContext';
@@ -27,8 +30,16 @@ const ProfilePage = () => {
   const [interests, setInterests] = useState([]);
   const [newInterest, setNewInterest] = useState('');
   const [uploadingProfile, setUploadingProfile] = useState(false);
+  const [shareLocation, setShareLocation] = useState(false);
+  const [mapLoaded, setMapLoaded] = useState(false);
+  const mapRef = useRef(null);
+  const mapMarkerRef = useRef(null);
 
-  const { register, handleSubmit, setValue, formState: { errors }, reset } = useForm();
+  const { register, handleSubmit, setValue, watch, formState: { errors }, reset } = useForm();
+  
+  // Watch location fields for changes
+  const latitude = watch('location.latitude', '');
+  const longitude = watch('location.longitude', '');
 
   const isTutor = user?.role === 'TUTOR';
   const profile = isTutor ? tutorProfile : studentProfile;
@@ -44,7 +55,18 @@ const ProfilePage = () => {
           bio: profile.bio || '',
           expertise: profile.expertise || '',
           hourlyRate: profile.hourlyRate || '',
+          location: {
+            city: profile.location?.city || '',
+            state: profile.location?.state || '',
+            country: profile.location?.country || '',
+            latitude: profile.location?.latitude || '',
+            longitude: profile.location?.longitude || ''
+          },
+          shareLocation: profile.shareLocation || false
         });
+        
+        // Set share location toggle state
+        setShareLocation(profile.shareLocation || false);
       } else {
         reset({
           bio: profile.bio || '',
@@ -70,9 +92,222 @@ const ProfilePage = () => {
         bio: '',
         expertise: '',
         hourlyRate: '0',
+        location: {
+          city: '',
+          state: '',
+          country: '',
+          latitude: '',
+          longitude: ''
+        },
+        shareLocation: false
       });
     }
   }, [profile, reset, isTutor]);
+
+  // Initialize map when location coordinates are available and map should be shown
+  useEffect(() => {
+    // Only load the map if we're a tutor, have coordinates, and sharing is enabled
+    if (isTutor && latitude && longitude && shareLocation) {
+      // Check if Leaflet is loaded
+      if (!window.L) {
+        // Load Leaflet from CDN if not already loaded
+        const linkElement = document.createElement('link');
+        linkElement.rel = 'stylesheet';
+        linkElement.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+        document.head.appendChild(linkElement);
+        
+        const scriptElement = document.createElement('script');
+        scriptElement.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+        scriptElement.onload = initializeMap;
+        document.body.appendChild(scriptElement);
+      } else {
+        initializeMap();
+      }
+    }
+  }, [latitude, longitude, shareLocation, isTutor, activeTab]);
+
+  // Initialize the map with the current location
+  const initializeMap = () => {
+    if (!window.L || !latitude || !longitude) return;
+    
+    // Clear existing map if already initialized
+    if (mapRef.current) {
+      mapRef.current.remove();
+      mapRef.current = null;
+    }
+    
+    // Make sure the map container exists
+    const mapContainer = document.getElementById('location-map');
+    if (!mapContainer) return;
+    
+    try {
+      // Create map centered at the given coordinates with Google Maps-like UI
+      mapRef.current = window.L.map('location-map', {
+        zoomControl: false, // Custom zoom controls
+        attributionControl: false, // Custom attribution
+      }).setView([latitude, longitude], 13);
+      
+      // Use a Google Maps-like tile layer
+      window.L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+      }).addTo(mapRef.current);
+      
+      // Add custom controls
+      const customControlsDiv = window.L.DomUtil.create('div', 'custom-map-controls');
+      customControlsDiv.innerHTML = `
+        <div class="map-controls-container">
+          <div class="zoom-controls">
+            <button class="zoom-btn zoom-in" title="Zoom in"><span class="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg></span></button>
+            <button class="zoom-btn zoom-out" title="Zoom out"><span class="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><path d="M19 13H5v-2h14z"/></svg></span></button>
+          </div>
+        </div>
+      `;
+      
+      // Apply CSS styles for the custom controls
+      const style = document.createElement('style');
+      style.innerHTML = `
+        .custom-map-controls {
+          position: absolute;
+          right: 10px;
+          top: 10px;
+          z-index: 1000;
+        }
+        .map-controls-container {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .zoom-controls {
+          background: white;
+          border-radius: 4px;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+          overflow: hidden;
+        }
+        .zoom-btn {
+          height: 40px;
+          width: 40px;
+          background: white;
+          border: none;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: background-color 0.2s;
+          color: #666;
+        }
+        .zoom-btn:hover {
+          background-color: #f5f5f5;
+          color: #4285F4;
+        }
+        .zoom-controls {
+          display: flex;
+          flex-direction: column;
+        }
+        .zoom-in {
+          border-bottom: 1px solid #e6e6e6;
+        }
+        .icon {
+          width: 24px;
+          height: 24px;
+          display: inline-flex;
+        }
+        
+        .leaflet-marker-icon {
+          transition: transform 0.2s;
+        }
+        .leaflet-marker-icon:hover {
+          transform: scale(1.1);
+        }
+        
+        .custom-marker {
+          width: 32px;
+          height: 42px;
+          background: #4285F4;
+          border-radius: 50% 50% 50% 0;
+          transform: rotate(-45deg);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+          border: 2px solid white;
+          position: relative;
+        }
+        .custom-marker::after {
+          content: '';
+          width: 14px;
+          height: 14px;
+          background: rgba(66, 133, 244, 0.3);
+          border-radius: 50%;
+          position: absolute;
+          bottom: -18px;
+          left: 9px;
+          transform: rotate(45deg);
+        }
+        .custom-marker svg {
+          transform: rotate(45deg);
+        }
+      `;
+      document.head.appendChild(style);
+      
+      // Add the custom controls to the map
+      const customControls = window.L.control({position: 'topright'});
+      customControls.onAdd = function() {
+        return customControlsDiv;
+      };
+      customControls.addTo(mapRef.current);
+      
+      // Add event listeners for custom controls
+      setTimeout(() => {
+        document.querySelector('.zoom-in')?.addEventListener('click', () => {
+          mapRef.current.zoomIn();
+        });
+        document.querySelector('.zoom-out')?.addEventListener('click', () => {
+          mapRef.current.zoomOut();
+        });
+      }, 100);
+      
+      // Create a Google Maps-like marker
+      const customIcon = window.L.divIcon({
+        html: `<div class="custom-marker">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                </svg>
+              </div>`,
+        className: '',
+        iconSize: [32, 42],
+        iconAnchor: [16, 42],
+        popupAnchor: [0, -42]
+      });
+      
+      // Add marker at the specified position with custom icon
+      mapMarkerRef.current = window.L.marker([latitude, longitude], { icon: customIcon }).addTo(mapRef.current)
+        .bindPopup(`<b>Your Location</b><br>${profile?.location?.city || ''}, ${profile?.location?.state || ''}`)
+        .openPopup();
+          
+      setMapLoaded(true);
+    } catch (error) {
+      console.error('Error initializing map:', error);
+      toast.error('Failed to load map. Please try again.');
+    }
+  };
+
+  // Update the map marker when coordinates change
+  useEffect(() => {
+    if (mapLoaded && mapRef.current && mapMarkerRef.current && latitude && longitude) {
+      // Update marker position with animation
+      mapMarkerRef.current.setLatLng([latitude, longitude]);
+      
+      // Update popup content
+      mapMarkerRef.current.setPopupContent(`<b>Your Location</b><br>${profile?.location?.city || ''}, ${profile?.location?.state || ''}`);
+      
+      // Re-center map with smooth animation
+      mapRef.current.setView([latitude, longitude], 13, {
+        animate: true,
+        duration: 1
+      });
+    }
+  }, [latitude, longitude, mapLoaded, profile]);
 
   const onSubmit = async (data) => {
     if (!user || !user.userId) {
@@ -88,7 +323,9 @@ const ProfilePage = () => {
           ...data,
           userId: user.userId,
           // Include profile picture if available
-          profilePicture: user.profileImage || user.profilePicture
+          profilePicture: user.profileImage || user.profilePicture,
+          // Include location sharing preference
+          shareLocation: shareLocation
         };
 
         const result = await updateTutorProfile(profileData);
@@ -158,18 +395,135 @@ const ProfilePage = () => {
 
   const handleGetCurrentLocation = () => {
     if (navigator.geolocation) {
+      // Show a loading toast
+      const loadingToastId = toast.loading("Getting your location...");
+      
       navigator.geolocation.getCurrentPosition(
         (position) => {
+          // Update form values with new coordinates
           setValue('location.latitude', position.coords.latitude);
           setValue('location.longitude', position.coords.longitude);
-          toast.success('Location updated');
+          
+          // Get city, state and country using reverse geocoding
+          fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}`)
+            .then(response => response.json())
+            .then(data => {
+              // Extract relevant address components
+              const address = data.address || {};
+              setValue('location.city', address.city || address.town || address.village || '');
+              setValue('location.state', address.state || '');
+              setValue('location.country', address.country || '');
+              
+              // Close the loading toast
+              toast.dismiss(loadingToastId);
+              toast.success('Location updated successfully');
+
+              // If location sharing is enabled, update the profile immediately
+              if (shareLocation) {
+                updateLocationInDatabase(
+                  position.coords.latitude, 
+                  position.coords.longitude,
+                  address.city || address.town || address.village || '',
+                  address.state || '',
+                  address.country || ''
+                );
+              }
+            })
+            .catch(error => {
+              console.error('Geocoding error:', error);
+              
+              // Close the loading toast
+              toast.dismiss(loadingToastId);
+              toast.success('Location coordinates updated');
+              
+              // Still update the database with coordinates only
+              if (shareLocation) {
+                updateLocationInDatabase(
+                  position.coords.latitude, 
+                  position.coords.longitude
+                );
+              }
+            });
         },
         (error) => {
-          toast.error('Error getting location: ' + error.message);
+          // More user-friendly error handling
+          let errorMessage = 'Error getting location';
+          
+          switch(error.code) {
+            case 1:
+              errorMessage = 'Please enable location access in your browser settings';
+              break;
+            case 2:
+              errorMessage = 'Unable to determine your location';
+              break;
+            case 3:
+              errorMessage = 'Location request timed out';
+              break;
+          }
+          
+          // Dismiss loading toast and show error
+          toast.dismiss(loadingToastId);
+          toast.error(errorMessage);
+        },
+        { 
+          enableHighAccuracy: true, 
+          timeout: 10000, 
+          maximumAge: 0 
         }
       );
     } else {
       toast.error('Geolocation is not supported by this browser');
+    }
+  };
+
+  // Add a new function to update location in the database immediately
+  const updateLocationInDatabase = async (latitude, longitude, city = null, state = null, country = null) => {
+    if (!user || !user.userId) {
+      toast.error('Unable to update location - user information missing');
+      return;
+    }
+
+    try {
+      const locationData = {
+        userId: user.userId,
+        profileId: tutorProfile?.id,
+        location: {
+          latitude,
+          longitude,
+          city: city || tutorProfile?.location?.city || '',
+          state: state || tutorProfile?.location?.state || '',
+          country: country || tutorProfile?.location?.country || ''
+        },
+        shareLocation: true
+      };
+
+      // Similar to updateTutorProfile but only updating location
+      const result = await updateTutorProfile({
+        ...tutorProfile,
+        ...locationData,
+        shareLocation: true
+      });
+
+      if (result.success) {
+        toast.success('Location shared with students');
+      } else {
+        toast.error(result.message || 'Failed to update location');
+      }
+    } catch (error) {
+      console.error('Error updating location:', error);
+      toast.error('Failed to update location');
+    }
+  };
+
+  // Toggle location sharing for tutors
+  const handleToggleLocationSharing = () => {
+    const newShareLocationValue = !shareLocation;
+    setShareLocation(newShareLocationValue);
+    setValue('shareLocation', newShareLocationValue);
+    
+    if (newShareLocationValue) {
+      // If enabling location sharing, immediately get user's location
+      handleGetCurrentLocation();
     }
   };
 
@@ -408,6 +762,83 @@ const ProfilePage = () => {
                       )}
                     </div>
                   </div>
+
+                  {/* Location Section for Tutors */}
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-xl font-bold text-gray-800 mb-2 flex items-center">
+                        <FaMapMarkerAlt className="mr-2 text-blue-600" /> Location
+                      </h2>
+                      {isTutor && (
+                        <div className="flex items-center text-gray-600">
+                          {profile?.shareLocation ? (
+                            <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full flex items-center text-sm font-medium">
+                              <FaMapMarkerAlt className="mr-1.5" /> Location Enabled
+                            </span>
+                          ) : (
+                            <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full flex items-center text-sm font-medium">
+                              <FaMapPin className="mr-1.5" /> Location Disabled
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      {profile?.location ? (
+                        <div>
+                          <p className="text-gray-700 mb-2">
+                            {[
+                              profile.location.city,
+                              profile.location.state,
+                              profile.location.country
+                            ]
+                              .filter(Boolean)
+                              .join(', ')}
+                          </p>
+                          {profile.shareLocation && profile.location.latitude && profile.location.longitude && (
+                            <div className="mt-3 border rounded-lg overflow-hidden">
+                              <div id="view-location-map" className="h-60 w-full">
+                                {/* Map will be inserted here by useEffect */}
+                                {!mapLoaded && (
+                                  <div className="h-full w-full flex items-center justify-center bg-gray-100">
+                                    <div className="text-center">
+                                      <FaMapPin className="mx-auto text-2xl text-blue-500 mb-2" />
+                                      <p className="text-gray-500">Loading map...</p>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          {isTutor && !profile.shareLocation && (
+                            <div className="bg-gray-100 p-4 rounded-lg mt-2 flex items-center justify-between">
+                              <div>
+                                <p className="text-gray-600 text-sm">Your location is saved but not visible to students</p>
+                              </div>
+                              <button
+                                onClick={() => setActiveTab('edit')}
+                                className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 transition duration-150"
+                              >
+                                Enable Location
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="bg-gray-100 p-4 rounded-lg">
+                          <p className="text-gray-500">No location specified</p>
+                          {isTutor && (
+                            <button
+                              onClick={() => setActiveTab('edit')}
+                              className="mt-2 px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 transition duration-150"
+                            >
+                              Add Your Location
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </>
               ) : (
                 /* Student Specific Info */
@@ -508,6 +939,143 @@ const ProfilePage = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                       placeholder="Your hourly rate"
                     />
+                  </div>
+                  
+                  {/* Location section for tutors with GPS sharing button */}
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <h3 className="text-lg font-medium text-gray-800">Location</h3>
+                      
+                      {isTutor && (
+                        <div className="flex items-center space-x-3">
+                          <button
+                            type="button"
+                            onClick={handleGetCurrentLocation}
+                            className="flex items-center text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1.5 rounded-md transition duration-150"
+                          >
+                            <FaMapMarkerAlt className="mr-1.5" /> Update current location
+                          </button>
+                          
+                          <button 
+                            className={`flex items-center px-3 py-1.5 rounded-md transition-all duration-200 ${
+                              shareLocation 
+                                ? 'bg-green-600 hover:bg-green-700 text-white' 
+                                : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                            }`} 
+                            onClick={handleToggleLocationSharing}
+                          >
+                            {shareLocation ? (
+                              <>
+                                <FaToggleOn className="text-xl mr-1.5" /> Location Enabled
+                              </>
+                            ) : (
+                              <>
+                                <FaToggleOff className="text-xl mr-1.5" /> Enable Location
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                      <div>
+                        <label htmlFor="location.city" className="block text-sm font-medium text-gray-700 mb-1">City</label>
+                        <input
+                          type="text"
+                          id="location.city"
+                          {...register('location.city')}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="location.state" className="block text-sm font-medium text-gray-700 mb-1">State/Province</label>
+                        <input
+                          type="text"
+                          id="location.state"
+                          {...register('location.state')}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="location.country" className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                        <input
+                          type="text"
+                          id="location.country"
+                          {...register('location.country')}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="location.latitude" className="block text-sm font-medium text-gray-700 mb-1">Latitude</label>
+                        <input
+                          type="text"
+                          id="location.latitude"
+                          {...register('location.latitude')}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="location.longitude" className="block text-sm font-medium text-gray-700 mb-1">Longitude</label>
+                        <input
+                          type="text"
+                          id="location.longitude"
+                          {...register('location.longitude')}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+                    </div>
+                    
+                    {/* Map preview with enable button */}
+                    {isTutor && (
+                      <div className="mt-4">
+                        {!shareLocation && (
+                          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+                            <div className="flex items-start">
+                              <div className="flex-shrink-0 mt-0.5">
+                                <svg className="h-5 w-5 text-amber-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                </svg>
+                              </div>
+                              <div className="ml-3">
+                                <h3 className="text-sm font-medium text-amber-800">Enable Location Sharing</h3>
+                                <div className="mt-2">
+                                  <p className="text-sm text-amber-700">
+                                    Students will not be able to see your location on the map. Enable location sharing to make it easier for students to find you for in-person sessions.
+                                  </p>
+                                  <button
+                                    type="button"
+                                    onClick={handleToggleLocationSharing}
+                                    className="mt-2 flex items-center px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-md transition-colors duration-150"
+                                  >
+                                    <FaMapMarkerAlt className="mr-1.5" /> Enable Location
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {shareLocation && latitude && longitude && (
+                          <div className="border rounded-lg overflow-hidden">
+                            <div id="location-map" className="h-60 w-full">
+                              {/* Map will be inserted here by useEffect */}
+                              {!mapLoaded && (
+                                <div className="h-full w-full flex items-center justify-center bg-gray-100">
+                                  <div className="text-center">
+                                    <FaMapPin className="mx-auto text-2xl text-blue-500 mb-2" />
+                                    <p className="text-gray-500">Loading map...</p>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </>
               ) : (

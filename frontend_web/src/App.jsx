@@ -44,6 +44,7 @@ import TutorSessions from './pages/tutor/Sessions';
 import TutorSessionDetails from './pages/tutor/SessionDetails';
 import TutorAvailability from './pages/tutor/Availability';
 import TutorPayments from './pages/tutor/Payments';
+import TutorMessages from './pages/tutor/TutorMessages';
 
 // Common pages
 import Messages from './pages/Messages';
@@ -112,7 +113,7 @@ function App() {
                           <Route path="/tutor/sessions" element={<TutorRoute><TutorSessions /></TutorRoute>} />
                           <Route path="/tutor/sessions/:sessionId" element={<TutorRoute><TutorSessionDetails /></TutorRoute>} />
                           <Route path="/tutor/availability" element={<TutorRoute><TutorAvailability /></TutorRoute>} />
-                          <Route path="/tutor/messages" element={<TutorRoute><Messages /></TutorRoute>} />
+                          <Route path="/tutor/messages" element={<TutorRoute><TutorMessages /></TutorRoute>} />
                           <Route path="/tutor/payments" element={<TutorRoute><TutorPayments /></TutorRoute>} />
                         </Route>
 

@@ -244,6 +244,8 @@ export const conversationApi = {
   getConversations: (userId) => API.get(`/conversations/user/${userId}`),
   getConversation: (conversationId) => API.get(`/conversations/${conversationId}`),
   createConversation: (data) => API.post('/conversations', data),
+  getConversationMessages: (conversationId, params) => 
+    API.get(`/conversations/${conversationId}/messages`, { params }),
 };
 
 // Notification API endpoints
@@ -337,11 +339,7 @@ export const calendarApi = {
     API.get(`/calendar/available-slots`, { params: { tutorId, date, durationMinutes } }),
   checkAvailability: (tutorId, date, startTime, endTime) => 
     API.get(`/calendar/check-availability`, { params: { tutorId, date, startTime, endTime } }),
-  createEvent: (sessionId) => API.post(`/calendar/create-event`, null, { params: { sessionId } }),
-  updateEvent: (sessionId, eventId) => 
-    API.put(`/calendar/update-event`, null, { params: { sessionId, eventId } }),
-  deleteEvent: (userId, eventId) => 
-    API.delete(`/calendar/delete-event`, { params: { userId, eventId } }),
+  createEvent: (sessionId) => API.post(`/calendar/create-event`, { sessionId }),
 };
 
 // Student Profiles API endpoints
@@ -371,4 +369,4 @@ export const studentProfileApi = {
   }
 };
 
-export default API; 
+export default API;

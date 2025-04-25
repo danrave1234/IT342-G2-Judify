@@ -30,7 +30,7 @@ const FindTutors = () => {
   ];
 
   useEffect(() => {
-    // Get user's location on component mount
+    // Automatically attempt to get user's location without explicit permission checks
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -38,10 +38,18 @@ const FindTutors = () => {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
           });
+          console.log('User location obtained automatically');
+          
+          // Once we have location, update distance for all tutors
+          if (tutors.length > 0) {
+            updateTutorDistances(tutors, position.coords.latitude, position.coords.longitude);
+          }
         },
         (error) => {
-          console.warn('Error getting location:', error.message);
-        }
+          console.warn('Location not available:', error.message);
+          // Silently handle errors - don't show permission errors to users
+        },
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
       );
     }
 
@@ -75,8 +83,19 @@ const FindTutors = () => {
 
       if (result && result.success) {
         console.log('Fetched tutors:', result.results);
-        setTutors(result.results);
-        setFilteredTutors(result.results);
+        
+        // Calculate distances if user location is available
+        let tutorsList = result.results;
+        if (userLocation) {
+          tutorsList = updateTutorDistances(
+            tutorsList, 
+            userLocation.latitude, 
+            userLocation.longitude
+          );
+        }
+        
+        setTutors(tutorsList);
+        setFilteredTutors(tutorsList);
       } else {
         console.error('Error fetching tutors:', result?.message);
         toast.error(result?.message || 'Failed to load tutors');
@@ -112,12 +131,12 @@ const FindTutors = () => {
       );
     }
 
-    // Rating filter (already applied in search, but filter client-side too for immediate feedback)
+    // Rating filter
     if (minRating > 0) {
       filtered = filtered.filter(tutor => (tutor.rating || 0) >= minRating);
     }
 
-    // Price range filter (already applied in search, but filter client-side too)
+    // Price range filter
     if (priceRange.min) {
       filtered = filtered.filter(tutor => (tutor.hourlyRate || 0) >= parseFloat(priceRange.min));
     }
@@ -131,6 +150,24 @@ const FindTutors = () => {
         filtered = filtered.filter(tutor => tutor.isOnlineAvailable || tutor.onlineAvailable);
       } else if (sessionType === 'inPerson') {
         filtered = filtered.filter(tutor => tutor.isInPersonAvailable || tutor.inPersonAvailable);
+      }
+    }
+
+    // Distance filter (if user location is available)
+    if (selectedDistance && userLocation) {
+      if (selectedDistance === 'nearest') {
+        // Sort by distance
+        filtered.sort((a, b) => {
+          const distA = a.distance !== undefined ? a.distance : Infinity;
+          const distB = b.distance !== undefined ? b.distance : Infinity;
+          return distA - distB;
+        });
+      } else if (selectedDistance === '5km') {
+        filtered = filtered.filter(tutor => tutor.distance !== undefined && tutor.distance <= 5);
+      } else if (selectedDistance === '10km') {
+        filtered = filtered.filter(tutor => tutor.distance !== undefined && tutor.distance <= 10);
+      } else if (selectedDistance === '25km') {
+        filtered = filtered.filter(tutor => tutor.distance !== undefined && tutor.distance <= 25);
       }
     }
 
@@ -272,6 +309,31 @@ const FindTutors = () => {
     }
   };
 
+  // Add function to update tutor distances
+  const updateTutorDistances = (tutorsList, userLat, userLon) => {
+    // Don't modify tutors if we don't have user location
+    if (!userLat || !userLon) return tutorsList;
+    
+    // Calculate distance for each tutor
+    const tutorsWithDistance = tutorsList.map(tutor => {
+      if (tutor.location?.latitude && tutor.location?.longitude) {
+        const distance = calculateDistance(
+          userLat, userLon,
+          tutor.location.latitude, tutor.location.longitude
+        );
+        return { ...tutor, distance };
+      }
+      return tutor;
+    });
+    
+    // Sort by distance if needed
+    if (selectedDistance === 'nearest') {
+      tutorsWithDistance.sort((a, b) => (a.distance || Infinity) - (b.distance || Infinity));
+    }
+    
+    return tutorsWithDistance;
+  };
+
   const renderGridView = () => {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -316,11 +378,14 @@ const FindTutors = () => {
               </div>
 
               <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 mb-2">
-                <FaMapMarkerAlt className="mr-1" />
-                {tutor.location?.city || tutor.city ? (
+                <FaMapMarkerAlt className={`mr-1 ${tutor.distance ? 'text-blue-500' : ''}`} />
+                {tutor.shareLocation && tutor.location?.city || tutor.city ? (
                   <span>
                     {tutor.location?.city || tutor.city}
                     {(tutor.location?.state || tutor.state) ? `, ${tutor.location?.state || tutor.state}` : ''}
+                    {tutor.distance !== undefined && (
+                      <span className="ml-2 text-blue-600 font-medium">{tutor.distance.toFixed(1)} km</span>
+                    )}
                   </span>
                 ) : (
                   <span>Location not specified</span>
@@ -438,11 +503,14 @@ const FindTutors = () => {
                     <p className="text-lg font-semibold">${tutor.hourlyRate || 0}/hour</p>
 
                     <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 justify-start sm:justify-end">
-                      <FaMapMarkerAlt className="mr-1" />
-                      {tutor.location?.city || tutor.city ? (
+                      <FaMapMarkerAlt className={`mr-1 ${tutor.distance ? 'text-blue-500' : ''}`} />
+                      {tutor.shareLocation && (tutor.location?.city || tutor.city) ? (
                         <span>
                           {tutor.location?.city || tutor.city}
                           {(tutor.location?.state || tutor.state) ? `, ${tutor.location?.state || tutor.state}` : ''}
+                          {tutor.distance !== undefined && (
+                            <span className="ml-2 text-blue-600 font-medium">{tutor.distance.toFixed(1)} km</span>
+                          )}
                         </span>
                       ) : (
                         <span>Location not specified</span>
@@ -637,6 +705,27 @@ const FindTutors = () => {
                 className="mr-2"
               />
               <label htmlFor="available-now">Available Now</label>
+            </div>
+
+            {/* Distance Filter */}
+            <div>
+              <label className="block text-sm font-medium mb-1">Distance</label>
+              <select
+                value={selectedDistance}
+                onChange={(e) => setSelectedDistance(e.target.value)}
+                className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-dark-700 text-gray-900 dark:text-gray-100"
+              >
+                <option value="">Any Distance</option>
+                <option value="nearest">Nearest First</option>
+                <option value="5km">Within 5 km</option>
+                <option value="10km">Within 10 km</option>
+                <option value="25km">Within 25 km</option>
+              </select>
+              {!userLocation && (
+                <p className="text-xs text-amber-600 mt-1">
+                  Enable location for distance features
+                </p>
+              )}
             </div>
           </div>
         </div>

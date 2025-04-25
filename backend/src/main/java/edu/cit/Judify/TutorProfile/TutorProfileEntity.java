@@ -38,6 +38,8 @@ public class TutorProfileEntity {
     private Double latitude;
 
     private Double longitude;
+    
+    private Boolean shareLocation;
 
     @OneToMany(mappedBy = "tutor", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<CourseEntity> courses = new HashSet<>();
@@ -50,6 +52,7 @@ public class TutorProfileEntity {
         this.createdAt = new Date();
         this.rating = 0.0;
         this.totalReviews = 0;
+        this.shareLocation = false; // Default to false for privacy
     }
 
     // Getters and Setters
@@ -162,6 +165,14 @@ public class TutorProfileEntity {
 
     public void setLongitude(Double longitude) {
         this.longitude = longitude;
+    }
+    
+    public Boolean getShareLocation() {
+        return shareLocation;
+    }
+
+    public void setShareLocation(Boolean shareLocation) {
+        this.shareLocation = shareLocation;
     }
 
     public Set<CourseEntity> getCourses() {

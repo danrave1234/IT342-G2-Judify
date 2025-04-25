@@ -80,26 +80,7 @@ const BookSession = () => {
             console.log('Successfully fetched tutor profile by userId:', tutorId);
           } catch (userIdError) {
             console.log('Error fetching by userId:', userIdError.message);
-
-            // If both methods fail, try using the TutorProfileContext's getTutorProfile method
-            try {
-              console.log('Trying to fetch using context method with ID:', tutorId);
-              // This would require importing and using the TutorProfileContext
-              // const { getTutorProfile } = useTutorProfile();
-              // const result = await getTutorProfile(tutorId);
-              // if (result.success) {
-              //   tutorData = result.profile;
-              //   profileIdToUse = tutorData.profileId;
-              // } else {
-              //   throw new Error(result.message);
-              // }
-
-              // Since we can't use hooks conditionally, we'll just throw an error
-              throw new Error('Could not fetch tutor profile with ID: ' + tutorId);
-            } catch (contextError) {
-              console.error('All methods to fetch tutor profile failed:', contextError);
-              throw new Error('Tutor profile could not be found');
-            }
+            throw new Error('Could not fetch tutor profile with ID: ' + tutorId);
           }
         }
 
@@ -108,32 +89,97 @@ const BookSession = () => {
         }
 
         console.log('Retrieved tutor data:', tutorData);
-        console.log('Using profileId for availability:', profileIdToUse);
+        
+        // Use userId from tutor data for availability
+        const tutorUserId = tutorData.userId || tutorId;
+        console.log('Using tutorUserId for availability:', tutorUserId);
 
+        // Fetch tutor's availability directly from the correct endpoint
         let availabilityData = [];
         try {
-          // Fetch the tutor's availability
-          const availabilityResponse = await tutorAvailabilityApi.getAvailabilities(profileIdToUse);
-          availabilityData = availabilityResponse.data;
-          console.log('Successfully fetched tutor availability:', availabilityData);
+          // First try to get availability with the tutor's userId (most reliable)
+          console.log('Fetching tutor availability with userId:', tutorUserId);
+          
+          // Use the proper endpoint from TutorAvailabilityController
+          const availabilityResponse = await API.get(`/api/tutor-availability/findByTutor/${tutorUserId}`);
+          
+          if (availabilityResponse.data && Array.isArray(availabilityResponse.data)) {
+            availabilityData = availabilityResponse.data;
+            console.log('Successfully fetched tutor availability with userId:', availabilityData);
+          } else {
+            console.warn('No availability data returned from API or invalid format');
+          }
         } catch (availError) {
           console.error('Error fetching tutor availability:', availError);
-          // Continue with empty availability rather than failing the whole process
-          console.log('Continuing with empty availability');
+          
+          // Try alternate endpoint (for backward compatibility)
+          try {
+            console.log('Trying alternate availability endpoint');
+            const backupResponse = await tutorAvailabilityApi.getAvailabilities(tutorUserId);
+            
+            if (backupResponse.data && Array.isArray(backupResponse.data)) {
+              availabilityData = backupResponse.data;
+              console.log('Successfully fetched tutor availability from backup endpoint:', availabilityData);
+            }
+          } catch (backupError) {
+            console.error('Backup availability fetch also failed:', backupError);
+            console.log('Continuing with empty availability');
+          }
         }
 
         // Process and group availability data by date
         const availabilityByDate = {};
-        availabilityData.forEach(avail => {
-          if (!availabilityByDate[avail.date]) {
-            availabilityByDate[avail.date] = [];
-          }
-          availabilityByDate[avail.date].push({
-            id: avail.availabilityId,
-            startTime: avail.startTime,
-            endTime: avail.endTime
+        
+        if (availabilityData && availabilityData.length > 0) {
+          console.log('Raw availability data format sample:', availabilityData[0]);
+          
+          availabilityData.forEach(avail => {
+            // Check if we have a date field in the availability
+            if (avail.date) {
+              if (!availabilityByDate[avail.date]) {
+                availabilityByDate[avail.date] = [];
+              }
+              availabilityByDate[avail.date].push({
+                id: avail.availabilityId,
+                startTime: avail.startTime,
+                endTime: avail.endTime
+              });
+            } else if (avail.dayOfWeek) {
+              // If we have dayOfWeek instead of date, convert to actual dates
+              // Generate the next 30 days of availability based on day of week
+              const dayMap = {
+                'MONDAY': 1, 'TUESDAY': 2, 'WEDNESDAY': 3, 'THURSDAY': 4, 
+                'FRIDAY': 5, 'SATURDAY': 6, 'SUNDAY': 0,
+                'Monday': 1, 'Tuesday': 2, 'Wednesday': 3, 'Thursday': 4, 
+                'Friday': 5, 'Saturday': 6, 'Sunday': 0
+              };
+              
+              const dayNum = dayMap[avail.dayOfWeek];
+              if (dayNum !== undefined) {
+                const today = new Date();
+                for (let i = 0; i < 30; i++) {
+                  const date = new Date(today);
+                  date.setDate(today.getDate() + i);
+                  
+                  if (date.getDay() === dayNum) {
+                    const dateStr = date.toISOString().split('T')[0];
+                    if (!availabilityByDate[dateStr]) {
+                      availabilityByDate[dateStr] = [];
+                    }
+                    availabilityByDate[dateStr].push({
+                      id: `${avail.availabilityId || 'gen'}_${i}`,
+                      startTime: avail.startTime,
+                      endTime: avail.endTime
+                    });
+                  }
+                }
+              }
+            }
           });
-        });
+        }
+
+        console.log('Processed availability by date:', availabilityByDate);
+        console.log('Available dates:', Object.keys(availabilityByDate));
 
         setTutor({
           id: tutorId,
@@ -209,32 +255,49 @@ const BookSession = () => {
 
     // Process each availability slot to generate 30-minute sessions
     const processedTimeSlots = [];
+    const now = new Date();
+    const isToday = new Date(selectedDate).setHours(0, 0, 0, 0) === new Date().setHours(0, 0, 0, 0);
     
     dateAvailability.forEach(slot => {
-      // Convert time strings to Date objects for easier calculation
-      const startTime = new Date(`${selectedDate}T${slot.startTime}`);
-      const endTime = new Date(`${selectedDate}T${slot.endTime}`);
-      
-      // Adjust the end time based on session duration to ensure there's enough time
-      const actualEndTime = new Date(endTime);
-      actualEndTime.setMinutes(actualEndTime.getMinutes() - (sessionInfo.duration * 60));
-      
-      let currentTime = new Date(startTime);
-      
-      // Generate 30-minute slots
-      while (currentTime <= actualEndTime) {
-        const slotStart = new Date(currentTime);
-        const slotEnd = new Date(currentTime);
-        slotEnd.setMinutes(slotEnd.getMinutes() + (sessionInfo.duration * 60));
+      try {
+        // Convert time strings to Date objects for easier calculation
+        const startTime = new Date(`${selectedDate}T${slot.startTime}`);
+        const endTime = new Date(`${selectedDate}T${slot.endTime}`);
         
-        processedTimeSlots.push({
-          startTime: slotStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          endTime: slotEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          value: slotStart.toISOString()
-        });
+        // Skip slots that have already passed if it's today
+        if (isToday && startTime < now) {
+          return;
+        }
         
-        // Move to next 30-minute slot
-        currentTime.setMinutes(currentTime.getMinutes() + 30);
+        // Adjust the end time based on session duration to ensure there's enough time
+        const actualEndTime = new Date(endTime);
+        actualEndTime.setMinutes(actualEndTime.getMinutes() - (sessionInfo.duration * 60));
+        
+        let currentTime = new Date(startTime);
+        
+        // Generate 30-minute slots
+        while (currentTime <= actualEndTime) {
+          const slotStart = new Date(currentTime);
+          const slotEnd = new Date(currentTime);
+          slotEnd.setMinutes(slotEnd.getMinutes() + (sessionInfo.duration * 60));
+          
+          // Skip slots that have already passed if it's today
+          if (isToday && slotStart < now) {
+            currentTime.setMinutes(currentTime.getMinutes() + 30);
+            continue;
+          }
+          
+          processedTimeSlots.push({
+            startTime: slotStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            endTime: slotEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            value: slotStart.toISOString()
+          });
+          
+          // Move to next 30-minute slot
+          currentTime.setMinutes(currentTime.getMinutes() + 30);
+        }
+      } catch (error) {
+        console.error('Error processing time slot:', error, slot);
       }
     });
     
@@ -254,6 +317,8 @@ const BookSession = () => {
       }
     });
     
+    console.log(`Generated ${uniqueSlots.length} time slots for ${selectedDate}`);
+    
     setAvailableTimeSlots(uniqueSlots);
     setLoadingTimeSlots(false);
     setSelectedTimeSlot(null); // Reset selected time slot when date changes
@@ -268,7 +333,16 @@ const BookSession = () => {
   };
 
   const handleDateChange = (e) => {
-    setSelectedDate(e.target.value);
+    const selectedDateValue = e.target.value;
+    console.log('Selected date:', selectedDateValue);
+    setSelectedDate(selectedDateValue);
+    setSelectedTimeSlot(null); // Reset selected time slot when date changes
+    
+    // Check if we have availability for this date
+    if (!tutorAvailability[selectedDateValue] || tutorAvailability[selectedDateValue].length === 0) {
+      console.warn('No availability found for the selected date:', selectedDateValue);
+      setAvailableTimeSlots([]);
+    }
   };
 
   const handleTimeSlotSelect = (timeSlot) => {
@@ -521,32 +595,58 @@ const BookSession = () => {
             {/* Date Selection */}
             <div>
               <label htmlFor="date" className="block text-gray-700 dark:text-gray-300 mb-2">Date</label>
-              <select
-                id="date"
-                name="date"
-                value={selectedDate}
-                onChange={handleDateChange}
-                className="input"
-                required
-              >
-                <option value="" disabled>Select a date</option>
-                {Object.keys(tutorAvailability).length > 0 ? (
-                  Object.keys(tutorAvailability)
-                    .sort((a, b) => new Date(a) - new Date(b))
-                    .map((date) => (
-                      <option key={date} value={date}>
-                        {new Date(date).toLocaleDateString('en-US', { 
-                          weekday: 'long', 
-                          year: 'numeric', 
-                          month: 'long', 
-                          day: 'numeric' 
-                        })}
-                      </option>
-                    ))
-                ) : (
-                  <option value="" disabled>No available dates</option>
-                )}
-              </select>
+              {loadingTutor ? (
+                <div className="flex items-center h-10 mb-2">
+                  <div className="w-5 h-5 border-t-2 border-primary-600 border-solid rounded-full animate-spin mr-2"></div>
+                  <span className="text-gray-600 dark:text-gray-400 text-sm">Loading tutor's schedule...</span>
+                </div>
+              ) : (
+                <>
+                  <select
+                    id="date"
+                    name="date"
+                    value={selectedDate}
+                    onChange={handleDateChange}
+                    className="input"
+                    required
+                  >
+                    <option value="" disabled>Select a date</option>
+                    {Object.keys(tutorAvailability).length > 0 ? (
+                      Object.keys(tutorAvailability)
+                        .sort((a, b) => new Date(a) - new Date(b))
+                        // Filter out dates in the past
+                        .filter(date => new Date(date) >= new Date().setHours(0, 0, 0, 0))
+                        .map((date) => (
+                          <option key={date} value={date}>
+                            {new Date(date).toLocaleDateString('en-US', { 
+                              weekday: 'long', 
+                              year: 'numeric', 
+                              month: 'long', 
+                              day: 'numeric' 
+                            })}
+                          </option>
+                        ))
+                    ) : (
+                      <option value="" disabled>No available dates</option>
+                    )}
+                  </select>
+                  {Object.keys(tutorAvailability).length === 0 && !loadingTutor && (
+                    <div className="mt-2 p-3 bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-800/30 rounded-lg">
+                      <p className="text-yellow-600 dark:text-yellow-400 text-sm">
+                        <strong>No available time slots found.</strong> This tutor has not set their availability yet.
+                      </p>
+                      <p className="text-yellow-500 dark:text-yellow-500 text-xs mt-1">
+                        Please check back later or send them a message to inquire about their schedule.
+                      </p>
+                    </div>
+                  )}
+                  {Object.keys(tutorAvailability).length > 0 && (
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {Object.keys(tutorAvailability).length} {Object.keys(tutorAvailability).length === 1 ? 'date' : 'dates'} available
+                    </p>
+                  )}
+                </>
+              )}
             </div>
 
             {/* Time Slot Selection */}
@@ -556,7 +656,7 @@ const BookSession = () => {
                 {loadingTimeSlots ? (
                   <div className="flex justify-center items-center h-20">
                     <div className="w-8 h-8 border-t-4 border-primary-600 border-solid rounded-full animate-spin"></div>
-                    <p className="ml-3 text-gray-600 dark:text-gray-400">Checking availability...</p>
+                    <p className="ml-3 text-gray-600 dark:text-gray-400">Loading available time slots...</p>
                   </div>
                 ) : availableTimeSlots.length > 0 ? (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
@@ -576,7 +676,10 @@ const BookSession = () => {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-yellow-600 dark:text-yellow-400">No available time slots for this date.</p>
+                  <div className="text-center py-4 border border-yellow-200 bg-yellow-50 dark:bg-yellow-900/10 dark:border-yellow-800/30 rounded-lg">
+                    <p className="text-yellow-600 dark:text-yellow-400">No available time slots for this date.</p>
+                    <p className="text-sm text-yellow-500 dark:text-yellow-500 mt-1">Try selecting a different date or contacting the tutor.</p>
+                  </div>
                 )}
               </div>
             )}
