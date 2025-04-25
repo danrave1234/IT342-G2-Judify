@@ -20,40 +20,72 @@ const OAuth2Register = () => {
       const userId = searchParams.get('userId');
       const token = searchParams.get('token');
       
-      if (!userId || !token) {
-        setError('Missing required parameters. Please try again.');
-        setIsLoading(false);
-        return;
-      }
-      
       try {
-        // Store token in localStorage for API calls
-        localStorage.setItem('token', token);
-        
-        // Check user status
-        const response = await axios.get(`/api/users/check-oauth2-status/${userId}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (!response.data.isNewOAuth2User) {
-          // User already completed registration - redirect to dashboard
-          navigate('/student', { replace: true });
+        setIsLoading(true);
+        if (!userId || !token) {
+          setError('Missing required information. Please try logging in again.');
           return;
         }
+
+        // Check if user has already completed OAuth2 registration
+        const statusResponse = await axios.get(`/api/users/check-oauth2-status/${userId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        // Log the response for debugging
+        console.log('OAuth2 status check response:', statusResponse.data);
+        console.log('registrationComplete value:', statusResponse.data.registrationComplete);
+        console.log('isNewOAuth2User value:', statusResponse.data.isNewOAuth2User);
         
-        // Set form values
-        setUserData(response.data);
-        setValue('firstName', response.data.firstName || '');
-        setValue('lastName', response.data.lastName || '');
-        setValue('email', response.data.email || '');
-        setValue('username', response.data.username || '');
-        setValue('userId', userId);
-        setValue('userType', userType);
+        // Only proceed with auto-redirect if the user has explicitly completed registration
+        // This is a new check to avoid users accidentally skipping registration
+        const userHasCompletedRegistration = statusResponse.data.registrationComplete && 
+                                            statusResponse.data.username && 
+                                            statusResponse.data.username.length > 0 &&
+                                            statusResponse.data.role !== 'STUDENT';
         
-        setIsLoading(false);
-      } catch (err) {
-        console.error('Error loading user data:', err);
+        console.log('User has completed registration:', userHasCompletedRegistration);
+                                            
+        // If user is already registered, redirect to dashboard
+        if (userHasCompletedRegistration) {
+          toast.info('You have already completed registration.');
+          
+          // Redirect based on role
+          if (statusResponse.data.role === 'TUTOR') {
+            navigate('/tutor', { replace: true });
+          } else {
+            navigate('/student', { replace: true });
+          }
+          return;
+        }
+
+        // Get user data
+        const response = await axios.get(`/api/users/${userId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        // Set user data in form
+        const user = response.data;
+        
+        if (user) {
+          setValue('userId', userId);
+          // For OAuth2 users, email is already confirmed and should be pre-filled
+          if (user.email) {
+            setValue('email', user.email);
+          }
+          // Pre-fill name fields if available
+          if (user.firstName) {
+            setValue('firstName', user.firstName);
+          }
+          if (user.lastName) {
+            setValue('lastName', user.lastName);
+          }
+          setUserData(user);
+        }
+      } catch (error) {
+        console.error('Error loading user data:', error);
         setError('Failed to load user data. Please try again.');
+      } finally {
         setIsLoading(false);
       }
     };

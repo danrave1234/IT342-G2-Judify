@@ -30,11 +30,42 @@ const Availability = () => {
   const fetchAvailabilities = async () => {
     setLoading(true);
     try {
-      const response = await tutorAvailabilityApi.getAvailabilities(user.userId);
-      setAvailabilities(response.data);
+      // Check if this is a new user by seeing when the account was created
+      const userData = localStorage.getItem('user');
+      if (!userData) {
+        // No user data, return empty list
+        setAvailabilities([]);
+        return;
+      }
+      
+      const user = JSON.parse(userData);
+      const isNewAccount = user.createdAt ? 
+        (new Date() - new Date(user.createdAt)) < 24 * 60 * 60 * 1000 : // Less than 24 hours old
+        true; // If createdAt is missing, assume it's a new account
+      
+      // For new accounts, don't use mock data - show empty state
+      if (isNewAccount) {
+        console.log('New account detected, showing empty availability state');
+        setAvailabilities([]);
+        return;
+      }
+      
+      // For existing accounts, try to get real data
+      try {
+        const response = await tutorAvailabilityApi.getAvailabilities(user.userId);
+        if (response && response.data && response.data.length > 0) {
+          setAvailabilities(response.data);
+          return;
+        }
+      } catch (apiError) {
+        console.error('API error fetching availabilities:', apiError);
+        // Fall back to empty state for new accounts
+        setAvailabilities([]);
+      }
     } catch (error) {
       console.error('Error fetching availabilities', error);
       toast.error('Failed to load availabilities');
+      setAvailabilities([]);
     } finally {
       setLoading(false);
     }

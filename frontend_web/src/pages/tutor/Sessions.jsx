@@ -104,32 +104,55 @@ const Sessions = () => {
   const fetchAvailabilities = async () => {
     setLoading(true);
     try {
-      // Due to CORS issues, we'll use mock data for now
-      // const response = await tutorAvailabilityApi.getAvailabilities();
-      // setAvailabilities(response.data || []);
+      // Check if this is a new user by seeing when the account was created
+      const userData = localStorage.getItem('user');
+      if (!userData) {
+        // No user data, return empty list
+        setAvailabilities([]);
+        return;
+      }
       
-      // Mock data for development
-      const mockAvailabilities = [
-        { availabilityId: 1, dayOfWeek: 'Monday', startTime: '09:00', endTime: '12:00' },
-        { availabilityId: 2, dayOfWeek: 'Monday', startTime: '13:00', endTime: '17:00' },
-        { availabilityId: 3, dayOfWeek: 'Wednesday', startTime: '10:00', endTime: '15:00' },
-        { availabilityId: 4, dayOfWeek: 'Friday', startTime: '09:00', endTime: '17:00' }
-      ];
+      const user = JSON.parse(userData);
+      const isNewAccount = user.createdAt ? 
+        (new Date() - new Date(user.createdAt)) < 24 * 60 * 60 * 1000 : // Less than 24 hours old
+        true; // If createdAt is missing, assume it's a new account
       
-      setAvailabilities(mockAvailabilities);
+      // For new accounts, don't use mock data - show empty state
+      if (isNewAccount) {
+        console.log('New account detected, showing empty availability state');
+        setAvailabilities([]);
+        return;
+      }
+      
+      // Use the API to get real availability data
+      try {
+        const response = await tutorAvailabilityApi.getAvailabilities(user.userId);
+        if (response && response.data && response.data.length > 0) {
+          setAvailabilities(response.data);
+          return;
+        }
+      } catch (apiError) {
+        console.error('API error fetching availabilities:', apiError);
+        // Only use mock data for development and existing accounts
+        if (!isNewAccount && process.env.NODE_ENV === 'development') {
+          // Mock data for development
+          const mockAvailabilities = [
+            { availabilityId: 1, dayOfWeek: 'Monday', startTime: '09:00', endTime: '12:00' },
+            { availabilityId: 2, dayOfWeek: 'Monday', startTime: '13:00', endTime: '17:00' },
+            { availabilityId: 3, dayOfWeek: 'Wednesday', startTime: '10:00', endTime: '15:00' },
+            { availabilityId: 4, dayOfWeek: 'Friday', startTime: '09:00', endTime: '17:00' }
+          ];
+          
+          setAvailabilities(mockAvailabilities);
+        } else {
+          // For new accounts or production, show empty state
+          setAvailabilities([]);
+        }
+      }
     } catch (error) {
       console.error('Error fetching availabilities:', error);
       toast.error('Failed to load availability data');
-      
-      // Set mock data even on error for development
-      const mockAvailabilities = [
-        { availabilityId: 1, dayOfWeek: 'Monday', startTime: '09:00', endTime: '12:00' },
-        { availabilityId: 2, dayOfWeek: 'Monday', startTime: '13:00', endTime: '17:00' },
-        { availabilityId: 3, dayOfWeek: 'Wednesday', startTime: '10:00', endTime: '15:00' },
-        { availabilityId: 4, dayOfWeek: 'Friday', startTime: '09:00', endTime: '17:00' }
-      ];
-      
-      setAvailabilities(mockAvailabilities);
+      setAvailabilities([]);
     } finally {
       setLoading(false);
     }
@@ -491,12 +514,7 @@ const Sessions = () => {
               <div className="flex items-center justify-center h-96">
                 <div className="w-12 h-12 border-t-4 border-b-4 border-primary-600 rounded-full animate-spin"></div>
               </div>
-            ) : availabilities.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-96">
-                <FaCalendarAlt className="h-12 w-12 text-gray-400 dark:text-gray-600 mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">No availability slots added yet</p>
-            </div>
-          ) : (
+            ) : (
               <div style={{ height: "500px", overflowY: "auto" }}>
                 <Timetable 
                   availabilities={formatAvailabilitiesForTimetable()}
@@ -599,7 +617,9 @@ const Sessions = () => {
             </div>
           ) : availabilities.length === 0 ? (
             <div className="text-center py-8">
+              <FaCalendarAlt className="h-8 w-8 text-gray-400 dark:text-gray-600 mx-auto mb-2" />
               <p className="text-gray-500 dark:text-gray-400">No availability slots added yet</p>
+              <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Use the form above to add your availability</p>
             </div>
           ) : (
             <div className="overflow-x-auto">

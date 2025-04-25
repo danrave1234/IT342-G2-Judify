@@ -425,11 +425,48 @@ public class UserController {
             if (userOpt.isPresent()) {
                 UserEntity user = userOpt.get();
                 
-                // Check if this is a new OAuth2 user (no password and default role)
-                boolean isNewOAuth2User = (user.getPassword() == null || user.getPassword().isEmpty()) && 
-                                        user.getRole() == UserRole.STUDENT;
+                // Debug logs to see what we're working with
+                System.out.println("====== OAuth2 Status Check ======");
+                System.out.println("User ID: " + user.getUserId());
+                System.out.println("Email: " + user.getEmail());
+                System.out.println("Username: " + user.getUsername());
+                System.out.println("First Name: " + user.getFirstName());
+                System.out.println("Last Name: " + user.getLastName());
+                System.out.println("Password: " + (user.getPassword() == null ? "null" : (user.getPassword().isEmpty() ? "empty" : "has value")));
+                System.out.println("Role: " + user.getRole());
+                
+                // Check if this is a new OAuth2 user who needs to complete registration
+                // A user is considered to have completed registration if:
+                // 1. They have a password set (meaning they registered normally, not via OAuth2), OR
+                // 2. They have a role other than the default STUDENT role (meaning they chose their role), OR
+                // 3. Their username is different from their email prefix (meaning they set a custom username)
+                
+                String emailPrefix = user.getEmail() != null && user.getEmail().contains("@") 
+                    ? user.getEmail().split("@")[0]
+                    : "";
+                
+                boolean hasCustomUsername = user.getUsername() != null && 
+                                          !user.getUsername().equals(emailPrefix) &&
+                                          !user.getUsername().isEmpty();
+                                          
+                boolean hasPassword = user.getPassword() != null && !user.getPassword().isEmpty();
+                boolean hasNonDefaultRole = user.getRole() != UserRole.STUDENT;
+                
+                boolean isNewOAuth2User = !hasPassword && !hasNonDefaultRole && !hasCustomUsername;
+                
+                // For debugging
+                System.out.println("Email prefix: " + emailPrefix);
+                System.out.println("Has custom username: " + hasCustomUsername);
+                System.out.println("Has password: " + hasPassword);
+                System.out.println("Has non-default role: " + hasNonDefaultRole);
+                System.out.println("Is New OAuth2 User: " + isNewOAuth2User);
+                System.out.println("Registration Complete: " + !isNewOAuth2User);
+                System.out.println("================================");
                 
                 response.put("isNewOAuth2User", isNewOAuth2User);
+                // Add registrationComplete field (opposite of isNewOAuth2User)
+                response.put("registrationComplete", !isNewOAuth2User);
+                response.put("role", user.getRole().name());
                 response.put("email", user.getEmail());
                 response.put("firstName", user.getFirstName());
                 response.put("lastName", user.getLastName());

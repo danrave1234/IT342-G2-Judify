@@ -163,7 +163,16 @@ public class UserService {
         Optional<UserEntity> existingUser = userRepository.findByEmail(email);
         
         if (existingUser.isPresent()) {
-            return existingUser.get();
+            // This is important - we need to distinguish between existing users who have completed
+            // registration and those who were created via OAuth2 but haven't completed registration
+            UserEntity user = existingUser.get();
+            
+            // Log what we found
+            System.out.println("Existing OAuth2 user found: " + user.getEmail());
+            System.out.println("Password: " + (user.getPassword() == null ? "null" : (user.getPassword().isEmpty() ? "empty" : "has value")));
+            System.out.println("Role: " + user.getRole());
+            
+            return user;
         }
         
         // Create new user
@@ -219,9 +228,10 @@ public class UserService {
         newUser.setUpdatedAt(now);
         
         // Debug log
-        System.out.println("Creating OAuth2 user: " + newUser.getEmail() + 
+        System.out.println("Creating new OAuth2 user: " + newUser.getEmail() + 
                           ", FirstName: " + newUser.getFirstName() + 
-                          ", LastName: " + newUser.getLastName());
+                          ", LastName: " + newUser.getLastName() +
+                          ", needs registration: true");
         
         // Save the new user
         return userRepository.save(newUser);

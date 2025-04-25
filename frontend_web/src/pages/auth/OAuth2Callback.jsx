@@ -50,64 +50,11 @@ const OAuth2Callback = () => {
         // Store user in localStorage
         localStorage.setItem('user', JSON.stringify(user));
         
-        // Check if this is a new OAuth2 user
-        try {
-          const response = await axios.get(`/api/users/check-oauth2-status/${userId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          
-          if (response.data && response.data.isNewOAuth2User) {
-            // Redirect to complete registration
-            console.log('New OAuth2 user - redirecting to complete registration');
-            navigate(`/oauth2-register?userId=${userId}&token=${token}`, { replace: true });
-            return;
-          }
-        } catch (checkErr) {
-          console.warn('Error checking OAuth2 status:', checkErr);
-          // Continue with normal flow if check fails
-        }
-        
-        // Try to fetch complete user profile data
-        try {
-          console.log('Fetching user profile data for ID:', userId);
-          const response = await userApi.getCurrentUser();
-          
-          if (response && response.data) {
-            const userData = response.data;
-            console.log('User profile data received:', userData);
-            
-            // Update user object with profile data
-            const updatedUser = {
-              ...user,
-              email: userData.email || user.email,
-              username: userData.username || user.username,
-              firstName: userData.firstName || user.firstName,
-              lastName: userData.lastName || user.lastName,
-              role: userData.role || user.role,
-              profileImage: userData.profilePicture || userData.profileImage || user.profileImage
-            };
-            
-            // Update localStorage with complete user data
-            localStorage.setItem('user', JSON.stringify(updatedUser));
-          }
-        } catch (profileErr) {
-          console.warn('Could not fetch complete profile, continuing with basic user data:', profileErr);
-          // Non-fatal error, we'll continue with the basic user info
-        }
-        
-        // Show success message
-        toast.success('Login successful');
-        
-        // Determine destination based on user role
-        const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-        const role = (storedUser.role || 'STUDENT').toUpperCase();
-        
-        // Redirect to appropriate dashboard
-        if (role.includes('TUTOR')) {
-          navigate('/tutor', { replace: true });
-        } else {
-          navigate('/student', { replace: true });
-        }
+        // Always redirect to OAuth2Register page to let the user select their role
+        // and complete their profile information
+        console.log('Redirecting to complete registration');
+        navigate(`/oauth2-register?userId=${userId}&token=${token}`, { replace: true });
+        return;
       } catch (err) {
         console.error('Error processing OAuth response:', err);
         setErrorMessage('Error completing authentication. Please try again.');
@@ -138,7 +85,7 @@ const OAuth2Callback = () => {
         ) : (
           <>
             <h2 className="text-xl font-bold mb-4 text-green-500">Authentication Successful</h2>
-            <p className="text-gray-600">Redirecting to dashboard...</p>
+            <p className="text-gray-600">Redirecting to registration page...</p>
           </>
         )}
       </div>
