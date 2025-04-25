@@ -1,3 +1,6 @@
+// Apply Node.js polyfills for browser compatibility
+import './utils/nodePolyfills.js';
+
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import './index.css'

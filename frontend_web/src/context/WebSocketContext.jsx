@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useUser } from './UserContext';
+import WebSocketService from '../services/WebSocketService';
 
 const WebSocketContext = createContext(null);
 
@@ -7,55 +8,60 @@ export const useWebSocket = () => useContext(WebSocketContext);
 
 export const WebSocketProvider = ({ children }) => {
   const { user } = useUser();
-  const [socket, setSocket] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [conversations, setConversations] = useState([]);
   const [activeConversation, setActiveConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [error, setError] = useState(null);
+  const [currentPage, setCurrentPage] = useState(0);
+  const messagePageSize = 20; // Number of messages to load per page
+  
+  // Ref to track if we're already loading more messages
+  const isLoadingMoreRef = useRef(false);
 
-  // Initialize WebSocket connection
+  // Load conversations from localStorage on component mount
+  useEffect(() => {
+    if (user) {
+      loadConversationsFromStorage();
+    }
+  }, [user]);
+
+  // Initialize message service connection
   useEffect(() => {
     if (!user) return;
 
-    // For demonstration, we'll use a free echo WebSocket server
-    // In production, you would use your own WebSocket server endpoint
-    const wsUrl = 'wss://echo.websocket.org';
-    const newSocket = new WebSocket(wsUrl);
-
-    newSocket.onopen = () => {
-      console.log('WebSocket connected');
-      setIsConnected(true);
-      // Load conversations from localStorage when socket connects
+    try {
+      // Connect to the message service
+      WebSocketService.connect(
+        user.userId,
+        user.token || localStorage.getItem('auth_token'),
+        // On connected callback
+        () => {
+          console.log('Message service connected');
+          setIsConnected(true);
+        },
+        // On error callback
+        (errorMessage) => {
+          console.error('Message service connection error:', errorMessage);
+          setError('Failed to connect to messaging service');
+          // Still try to load data from localStorage
+          loadConversationsFromStorage();
+        }
+      );
+    } catch (error) {
+      console.error('Error setting up message service:', error);
+      setError('Failed to initialize messaging service');
+      // Still try to load data from localStorage
       loadConversationsFromStorage();
-    };
-
-    newSocket.onmessage = (event) => {
-      // Handle incoming messages
-      const receivedMessage = JSON.parse(event.data);
-      if (receivedMessage.type === 'chat_message' && activeConversation?.conversationId === receivedMessage.conversationId) {
-        handleNewMessage(receivedMessage);
-      }
-    };
-
-    newSocket.onclose = () => {
-      console.log('WebSocket disconnected');
-      setIsConnected(false);
-    };
-
-    newSocket.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      setError('Failed to connect to chat service');
-    };
-
-    setSocket(newSocket);
+    }
 
     // Clean up on unmount
     return () => {
-      if (newSocket) {
-        newSocket.close();
-      }
+      WebSocketService.disconnect();
+      setIsConnected(false);
     };
   }, [user]);
 
@@ -66,7 +72,9 @@ export const WebSocketProvider = ({ children }) => {
     try {
       const storedConversations = localStorage.getItem(`judify_conversations_${user.userId}`);
       if (storedConversations) {
-        setConversations(JSON.parse(storedConversations));
+        const parsedConversations = JSON.parse(storedConversations);
+        setConversations(parsedConversations);
+        console.log('Loaded conversations from localStorage:', parsedConversations.length);
       }
     } catch (error) {
       console.error('Error loading conversations from localStorage:', error);
@@ -81,28 +89,6 @@ export const WebSocketProvider = ({ children }) => {
       localStorage.setItem(`judify_conversations_${user.userId}`, JSON.stringify(updatedConversations));
     } catch (error) {
       console.error('Error saving conversations to localStorage:', error);
-    }
-  }, [user]);
-
-  // Load messages for a conversation from localStorage
-  const loadMessages = useCallback((conversationId) => {
-    if (!user || !conversationId) return { success: false };
-    
-    setLoading(true);
-    
-    try {
-      const storageKey = `judify_messages_${conversationId}`;
-      const storedMessages = localStorage.getItem(storageKey);
-      const messagesArray = storedMessages ? JSON.parse(storedMessages) : [];
-      setMessages(messagesArray);
-      
-      return { success: true, messages: messagesArray };
-    } catch (error) {
-      console.error('Error loading messages from localStorage:', error);
-      setError('Failed to load messages');
-      return { success: false, message: 'Failed to load messages' };
-    } finally {
-      setLoading(false);
     }
   }, [user]);
 
@@ -123,8 +109,19 @@ export const WebSocketProvider = ({ children }) => {
     if (!activeConversation) return;
     
     setMessages(prevMessages => {
-      const newMessages = [...prevMessages, message];
-      saveMessagesToStorage(activeConversation.conversationId || activeConversation.id, newMessages);
+      // Avoid duplicate messages
+      if (prevMessages.some(msg => msg.messageId === message.messageId)) {
+        return prevMessages;
+      }
+      
+      const newMessages = [message, ...prevMessages];
+      
+      // Sort by timestamp, newest first
+      newMessages.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      
+      // Only save the latest messages to storage (latest 50 messages to save space)
+      saveMessagesToStorage(activeConversation.conversationId || activeConversation.id, 
+                           newMessages.slice(0, 50));
       return newMessages;
     });
     
@@ -148,6 +145,135 @@ export const WebSocketProvider = ({ children }) => {
       return updatedConversations;
     });
   }, [activeConversation, saveMessagesToStorage, saveConversationsToStorage]);
+
+  // Load messages for a conversation with pagination
+  const loadMessages = useCallback(async (conversationId) => {
+    if (!user || !conversationId) return { success: false };
+    
+    setLoading(true);
+    setCurrentPage(0); // Reset to first page when loading a new conversation
+    
+    try {
+      // Subscribe to this conversation for real-time updates
+      if (isConnected) {
+        const subscription = WebSocketService.subscribeToConversation(conversationId, (message) => {
+          handleNewMessage(message);
+        });
+        
+        if (!subscription) {
+          console.warn(`Failed to subscribe to conversation ${conversationId}`);
+        }
+      }
+      
+      // Load existing messages from the server with pagination
+      const result = await WebSocketService.loadConversationMessages(conversationId, 0, messagePageSize);
+      
+      if (result.success) {
+        // Update state
+        setMessages(result.messages);
+        setHasMoreMessages(result.hasMore);
+        
+        // Also save to localStorage as a backup (only the first page)
+        saveMessagesToStorage(conversationId, result.messages);
+        
+        return { success: true, messages: result.messages, hasMore: result.hasMore };
+      } else {
+        // If server fetch fails, try localStorage backup
+        const storageKey = `judify_messages_${conversationId}`;
+        const storedMessages = localStorage.getItem(storageKey);
+        
+        if (storedMessages) {
+          try {
+            const parsedMessages = JSON.parse(storedMessages);
+            setMessages(parsedMessages);
+            setHasMoreMessages(false); // No more messages from localStorage
+            return { success: true, messages: parsedMessages, hasMore: false };
+          } catch (parseError) {
+            console.error('Error parsing stored messages:', parseError);
+          }
+        }
+        
+        // If all fails, return empty array
+        setMessages([]);
+        setHasMoreMessages(false);
+        return { success: false, message: 'Failed to load messages', messages: [], hasMore: false };
+      }
+    } catch (error) {
+      console.error('Error loading messages:', error);
+      setError('Failed to load messages');
+      
+      // Try localStorage backup
+      try {
+        const storageKey = `judify_messages_${conversationId}`;
+        const storedMessages = localStorage.getItem(storageKey);
+        if (storedMessages) {
+          const parsedMessages = JSON.parse(storedMessages);
+          setMessages(parsedMessages);
+          setHasMoreMessages(false);
+          return { success: true, messages: parsedMessages, hasMore: false };
+        }
+      } catch (e) {
+        console.error('Error loading messages from localStorage:', e);
+      }
+      
+      setMessages([]);
+      setHasMoreMessages(false);
+      return { success: false, message: 'Failed to load messages', messages: [], hasMore: false };
+    } finally {
+      setLoading(false);
+    }
+  }, [user, isConnected, handleNewMessage, saveMessagesToStorage, messagePageSize]);
+
+  // Load more messages (older messages) for pagination
+  const loadMoreMessages = useCallback(async () => {
+    if (!user || !activeConversation || !hasMoreMessages || isLoadingMoreRef.current) {
+      return { success: false };
+    }
+    
+    const conversationId = activeConversation.conversationId || activeConversation.id;
+    const nextPage = currentPage + 1;
+    
+    isLoadingMoreRef.current = true;
+    setLoadingMore(true);
+    
+    try {
+      // Load next page of messages
+      const result = await WebSocketService.loadMoreMessages(conversationId, nextPage, messagePageSize);
+      
+      if (result.success && result.messages.length > 0) {
+        // Append older messages to the existing messages (at the end, since newer messages are at the top)
+        setMessages(prevMessages => {
+          const combinedMessages = [...prevMessages, ...result.messages];
+          
+          // Remove duplicates based on messageId
+          const uniqueMessages = Array.from(
+            new Map(combinedMessages.map(msg => [msg.messageId, msg])).values()
+          );
+          
+          // Sort by timestamp, newest first
+          uniqueMessages.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+          
+          return uniqueMessages;
+        });
+        
+        setCurrentPage(nextPage);
+        setHasMoreMessages(result.hasMore);
+        
+        return { success: true, hasMore: result.hasMore };
+      } else {
+        // No more messages or failed to load
+        setHasMoreMessages(false);
+        return { success: false };
+      }
+    } catch (error) {
+      console.error('Error loading more messages:', error);
+      setError('Failed to load more messages');
+      return { success: false };
+    } finally {
+      setLoadingMore(false);
+      isLoadingMoreRef.current = false;
+    }
+  }, [user, activeConversation, hasMoreMessages, currentPage, messagePageSize]);
 
   // Get all conversations
   const getConversations = useCallback(() => {
@@ -274,10 +400,10 @@ export const WebSocketProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [user, conversations, saveConversationsToStorage, loadMessages]);
+  }, [user, conversations, saveConversationsToStorage, loadMessages, isConnected]);
 
   // Send a message
-  const sendMessage = useCallback((conversationId, receiverId, content) => {
+  const sendMessage = useCallback(async (conversationId, receiverId, content) => {
     if (!user) return { success: false, message: 'No user logged in' };
     if (!conversationId) return { success: false, message: 'No conversation specified' };
     if (!content.trim()) return { success: false, message: 'Message cannot be empty' };
@@ -286,7 +412,7 @@ export const WebSocketProvider = ({ children }) => {
       // Ensure receiverId is treated as a number
       const numericReceiverId = Number(receiverId);
       
-      console.log(`Sending message to conversation ${conversationId}, receiver: ${numericReceiverId}`);
+      console.log(`Sending message to ${numericReceiverId} in conversation ${conversationId}`);
       
       // Generate truly unique ID with high entropy
       const timestamp = Date.now();
@@ -301,9 +427,9 @@ export const WebSocketProvider = ({ children }) => {
         senderId: user.userId,
         receiverId: numericReceiverId,
         content,
-        createdAt: new Date().toISOString(),
+        timestamp: new Date().toISOString(),
         isRead: false,
-        type: 'chat_message'
+        type: 'CHAT'
       };
       
       // Check if the same message was already sent (prevents duplicates)
@@ -316,7 +442,7 @@ export const WebSocketProvider = ({ children }) => {
           const isDuplicate = existingMessages.some(msg => 
             msg.senderId === user.userId && 
             msg.content === content && 
-            (Date.now() - new Date(msg.createdAt).getTime()) < 5000 // Within last 5 seconds
+            (Date.now() - new Date(msg.timestamp).getTime()) < 5000 // Within last 5 seconds
           );
           
           if (isDuplicate) {
@@ -326,40 +452,51 @@ export const WebSocketProvider = ({ children }) => {
         }
       }
       
-      // Try to send the message through WebSocket if connected
-      let socketSent = false;
-      if (isConnected && socket && socket.readyState === WebSocket.OPEN) {
-        try {
-          console.log('WebSocket connected, sending message through socket');
-          socket.send(JSON.stringify(newMessage));
-          socketSent = true;
-        } catch (socketError) {
-          console.error('Error sending via WebSocket, falling back to local storage:', socketError);
-        }
+      // Send the message using our service
+      const success = await WebSocketService.sendMessage(newMessage);
+      
+      if (success) {
+        return { 
+          success: true, 
+          message: newMessage,
+          delivery: isConnected ? 'server' : 'local'
+        };
       } else {
-        console.log('WebSocket not connected, saving message locally only');
+        // If sending via service failed, handle the message locally
+        handleNewMessage(newMessage);
+        
+        return { 
+          success: true, 
+          message: newMessage,
+          delivery: 'local'
+        };
       }
-      
-      // Always handle the message locally to ensure it's displayed and saved
-      handleNewMessage(newMessage);
-      
-      return { 
-        success: true, 
-        message: newMessage,
-        delivery: socketSent ? 'socket' : 'local'
-      };
     } catch (error) {
       console.error('Error sending message:', error);
       setError('Failed to send message');
       return { success: false, message: 'Failed to send message' };
     }
-  }, [user, socket, isConnected, activeConversation, messages, handleNewMessage]);
+  }, [user, isConnected, activeConversation, messages, handleNewMessage]);
+
+  // Mark a message as read
+  const markMessageAsRead = useCallback(async (messageId, senderId, conversationId) => {
+    if (!isConnected) return false;
+    
+    try {
+      return await WebSocketService.markMessageAsRead(messageId, senderId, conversationId);
+    } catch (error) {
+      console.error('Error marking message as read:', error);
+      return false;
+    }
+  }, [isConnected]);
 
   return (
     <WebSocketContext.Provider
       value={{
         isConnected,
         loading,
+        loadingMore,
+        hasMoreMessages,
         error,
         conversations,
         messages,
@@ -368,7 +505,9 @@ export const WebSocketProvider = ({ children }) => {
         getConversations,
         getOrCreateConversation,
         loadMessages,
-        sendMessage
+        loadMoreMessages,
+        sendMessage,
+        markMessageAsRead
       }}
     >
       {children}
