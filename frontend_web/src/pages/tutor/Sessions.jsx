@@ -104,50 +104,35 @@ const Sessions = () => {
   const fetchAvailabilities = async () => {
     setLoading(true);
     try {
-      // Check if this is a new user by seeing when the account was created
+      // Check if user data exists
       const userData = localStorage.getItem('user');
       if (!userData) {
-        // No user data, return empty list
+        console.log('No user data found in localStorage');
         setAvailabilities([]);
+        setLoading(false);
         return;
       }
       
       const user = JSON.parse(userData);
-      const isNewAccount = user.createdAt ? 
-        (new Date() - new Date(user.createdAt)) < 24 * 60 * 60 * 1000 : // Less than 24 hours old
-        true; // If createdAt is missing, assume it's a new account
-      
-      // For new accounts, don't use mock data - show empty state
-      if (isNewAccount) {
-        console.log('New account detected, showing empty availability state');
-        setAvailabilities([]);
-        return;
-      }
+      console.log('Fetching availabilities for user:', user.userId);
       
       // Use the API to get real availability data
       try {
         const response = await tutorAvailabilityApi.getAvailabilities(user.userId);
-        if (response && response.data && response.data.length > 0) {
-          setAvailabilities(response.data);
-          return;
+        console.log('Availability API response:', response);
+        
+        if (response && response.data) {
+          // Handle both array and single object responses
+          const availabilityData = Array.isArray(response.data) ? response.data : [response.data];
+          console.log('Setting availabilities:', availabilityData);
+          setAvailabilities(availabilityData);
+        } else {
+          console.log('No availability data returned');
+          setAvailabilities([]);
         }
       } catch (apiError) {
         console.error('API error fetching availabilities:', apiError);
-        // Only use mock data for development and existing accounts
-        if (!isNewAccount && process.env.NODE_ENV === 'development') {
-          // Mock data for development
-          const mockAvailabilities = [
-            { availabilityId: 1, dayOfWeek: 'Monday', startTime: '09:00', endTime: '12:00' },
-            { availabilityId: 2, dayOfWeek: 'Monday', startTime: '13:00', endTime: '17:00' },
-            { availabilityId: 3, dayOfWeek: 'Wednesday', startTime: '10:00', endTime: '15:00' },
-            { availabilityId: 4, dayOfWeek: 'Friday', startTime: '09:00', endTime: '17:00' }
-          ];
-          
-          setAvailabilities(mockAvailabilities);
-        } else {
-          // For new accounts or production, show empty state
-          setAvailabilities([]);
-        }
+        setAvailabilities([]);
       }
     } catch (error) {
       console.error('Error fetching availabilities:', error);
@@ -188,35 +173,37 @@ const Sessions = () => {
     }
 
     try {
-      // For development: Skip API call and use mock data
       // Get user ID from localStorage
       const user = JSON.parse(localStorage.getItem('user') || '{}');
-      const userId = user.userId || 1; // Default to 1 for development
+      const userId = user.userId;
       
-      // Add userId to availability data
+      if (!userId) {
+        toast.error('User information not found. Please log in again.');
+        setSubmitting(false);
+        return;
+      }
+      
+      // Add tutorId to availability data
       const availabilityWithUserId = {
         ...availabilityForm,
-        userId
+        tutorId: userId
       };
       
       console.log('Submitting availability data:', availabilityWithUserId);
       
-      // Skip API call for now due to CORS
-      // const response = await tutorAvailabilityApi.createAvailability(availabilityWithUserId);
-      // console.log('Availability creation response:', response);
+      // Call the backend API
+      const response = await tutorAvailabilityApi.createAvailability(availabilityWithUserId);
+      console.log('Availability creation response:', response);
       
-      // Mock a successful response
-      const mockId = Math.floor(Math.random() * 1000) + 5;
-      const newAvailability = {
-        availabilityId: mockId,
-        ...availabilityForm
-      };
-      
-      // Update state with new mock availability
-      const updatedAvailabilities = [...availabilities, newAvailability];
-      setAvailabilities(updatedAvailabilities);
-      
-      toast.success('Availability added successfully (Development Mode)');
+      if (response && response.data) {
+        // Update state with new availability
+        const updatedAvailabilities = [...availabilities, response.data];
+        setAvailabilities(updatedAvailabilities);
+        
+        toast.success('Availability added successfully');
+      } else {
+        toast.error('Failed to add availability: Unexpected response format');
+      }
       
       // Reset form
       setAvailabilityForm({
@@ -249,14 +236,14 @@ const Sessions = () => {
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this availability?')) {
       try {
-        // Skip API call for now
-        // await tutorAvailabilityApi.deleteAvailability(id);
+        // Call the backend API to delete the availability
+        await tutorAvailabilityApi.deleteAvailability(id);
         
         // Remove from local state
         const updatedAvailabilities = availabilities.filter(a => a.availabilityId !== id);
         setAvailabilities(updatedAvailabilities);
         
-        toast.success('Availability deleted successfully (Development Mode)');
+        toast.success('Availability deleted successfully');
       } catch (error) {
         console.error('Error deleting availability:', error);
         toast.error('Failed to delete availability. Please try again.');
