@@ -284,31 +284,48 @@ export const tutorAvailabilityApi = {
         return Promise.resolve({ data: [] });
       }
     }
-    // Use a more direct endpoint that doesn't require path variables
-    return API.get(`/tutor-availability/all`, { params: { tutorId } });
+    
+    // Log the request being made
+    console.log(`Fetching availabilities for tutor ID: ${tutorId}`);
+    
+    // Use the correct endpoint - no /api prefix to avoid duplicates
+    const url = `/tutor-availability/findByTutor/${tutorId}`;
+    console.log(`GET request to: ${url}`);
+    
+    // Make the request and return
+    return API.get(url)
+      .then(response => {
+        console.log('Availability API response successful:', response);
+        return response;
+      })
+      .catch(error => {
+        console.error('Error fetching availabilities:', error);
+        throw error;
+      });
   },
   createAvailability: (availabilityData) => {
     // If userId is not provided in the data, try to get it from localStorage
-    if (!availabilityData.userId) {
+    if (!availabilityData.userId && !availabilityData.tutorId) {
       const user = JSON.parse(localStorage.getItem('user') || '{}');
-      availabilityData = { ...availabilityData, userId: user.userId };
+      availabilityData = { ...availabilityData, tutorId: user.userId };
+    } else if (availabilityData.userId && !availabilityData.tutorId) {
+      // Map userId to tutorId as required by the backend
+      availabilityData = {
+        ...availabilityData,
+        tutorId: availabilityData.userId
+      };
+      
+      // Remove userId as it's not needed by the backend
+      delete availabilityData.userId;
     }
     
-    // Map userId to tutorId as required by the backend
-    const payload = {
-      ...availabilityData,
-      tutorId: availabilityData.userId
-    };
-    
-    // Remove userId as it's not needed by the backend
-    delete payload.userId;
-    
-    console.log('Creating availability with data:', payload);
-    return API.post('/tutor-availability/createAvailability', payload);
+    console.log('Creating availability with data:', availabilityData);
+    return API.post('/tutor-availability/createAvailability', availabilityData);
   },
   updateAvailability: (availabilityId, availabilityData) => 
-    API.put(`/tutor-availability/update/${availabilityId}`, availabilityData),
-  deleteAvailability: (availabilityId) => API.delete(`/tutor-availability/delete/${availabilityId}`),
+    API.put(`/tutor-availability/updateAvailability/${availabilityId}`, availabilityData),
+  deleteAvailability: (availabilityId) => 
+    API.delete(`/tutor-availability/deleteAvailability/${availabilityId}`),
 };
 
 // Google Calendar API endpoints
