@@ -74,20 +74,45 @@ The following API endpoints were added to match the frontend expectations:
 
 ## How to Test
 
-1. Start the backend server:
+1. Set up environment variables:
+   
+   **Frontend (.env.local in frontend_web directory):**
+   ```
+   # OAuth Credentials
+   VITE_OAUTH_CLIENT_ID=your_oauth_client_id_here
+   VITE_OAUTH_CLIENT_SECRET=your_oauth_client_secret_here
+
+   # API URLs
+   VITE_API_URL=http://localhost:8080/api
+   VITE_AUTH_URL=http://localhost:8080/auth
+
+   # Environment
+   NODE_ENV=development
+   ```
+   
+   **Backend (application.properties in backend/src/main/resources):**
+   ```
+   # OAuth Configuration
+   spring.security.oauth2.client.registration.google.client-id=your_google_client_id
+   spring.security.oauth2.client.registration.google.client-secret=your_google_client_secret
+   
+   # Other OAuth configurations as needed
+   ```
+
+2. Start the backend server:
    ```
    cd backend
    mvn spring-boot:run
    ```
 
-2. Start the frontend development server:
+3. Start the frontend development server:
    ```
    cd frontend_web
    npm run dev
    ```
 
-3. Log in to the application and go to the Student Profile page
-4. You should now be able to create, view, and update your student profile
+4. Log in to the application and go to the Student Profile page
+5. You should now be able to create, view, and update your student profile
 
 ## Troubleshooting
 

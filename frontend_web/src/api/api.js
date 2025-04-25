@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create an axios instance with defaults
 const API = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api',
+  baseURL: '/api',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -273,8 +273,39 @@ export const notificationApi = {
 
 // Tutor Availability API endpoints
 export const tutorAvailabilityApi = {
-  getAvailabilities: (tutorId) => API.get(`/tutor-availability/findByTutor/${tutorId}`),
-  createAvailability: (availabilityData) => API.post('/tutor-availability/createAvailability', availabilityData),
+  getAvailabilities: (tutorId) => {
+    // If tutorId is not provided, try to get it from localStorage
+    if (!tutorId) {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      tutorId = user.userId;
+      if (!tutorId) {
+        console.warn('No tutorId provided for getAvailabilities and none found in localStorage');
+        // Return an empty array to prevent errors
+        return Promise.resolve({ data: [] });
+      }
+    }
+    // Use a more direct endpoint that doesn't require path variables
+    return API.get(`/tutor-availability/all`, { params: { tutorId } });
+  },
+  createAvailability: (availabilityData) => {
+    // If userId is not provided in the data, try to get it from localStorage
+    if (!availabilityData.userId) {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      availabilityData = { ...availabilityData, userId: user.userId };
+    }
+    
+    // Map userId to tutorId as required by the backend
+    const payload = {
+      ...availabilityData,
+      tutorId: availabilityData.userId
+    };
+    
+    // Remove userId as it's not needed by the backend
+    delete payload.userId;
+    
+    console.log('Creating availability with data:', payload);
+    return API.post('/tutor-availability/createAvailability', payload);
+  },
   updateAvailability: (availabilityId, availabilityData) => 
     API.put(`/tutor-availability/update/${availabilityId}`, availabilityData),
   deleteAvailability: (availabilityId) => API.delete(`/tutor-availability/delete/${availabilityId}`),

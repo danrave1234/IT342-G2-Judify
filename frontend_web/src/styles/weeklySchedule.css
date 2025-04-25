@@ -1,0 +1,140 @@
+/* Weekly Schedule Styles */
+.weekly-schedule-container {
+  overflow: auto;
+  max-width: 100%;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+}
+
+.weekly-schedule {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  table-layout: fixed;
+}
+
+/* Header styles */
+.weekly-schedule thead th {
+  position: sticky;
+  top: 0;
+  background-color: #f8f9fa;
+  border: 1px solid #ddd;
+  padding: 12px 6px;
+  text-align: center;
+  font-weight: 600;
+  z-index: 10;
+}
+
+.weekly-schedule .time-header {
+  width: 120px;
+  background-color: #f8f9fa;
+  z-index: 20;
+}
+
+.weekly-schedule .day-header {
+  min-width: 120px;
+}
+
+/* Cell styles */
+.weekly-schedule tbody td {
+  border: 1px solid #ddd;
+  height: 40px;
+  padding: 0;
+  position: relative;
+}
+
+.weekly-schedule .time-cell {
+  position: sticky;
+  left: 0;
+  background-color: #e9ecef;
+  text-align: center;
+  z-index: 5;
+  width: 120px;
+  height: 40px;
+  vertical-align: middle;
+  padding: 0;
+}
+
+.weekly-schedule .hour-row {
+  height: 40px;
+}
+
+.weekly-schedule .half-hour-row {
+  height: 30px;
+}
+
+/* Time formatting */
+.weekly-schedule .time-cell .time-main {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.weekly-schedule .time-cell .time-top, 
+.weekly-schedule .time-cell .time-bottom {
+  font-size: 10px;
+  color: #666;
+}
+
+/* Booked slots */
+.weekly-schedule .schedule-cell.booked {
+  background-color: #8dd78d;
+  color: #000;
+}
+
+.weekly-schedule .availability-content {
+  padding: 2px 4px;
+  font-size: 12px;
+  text-align: center;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Dark mode */
+.dark .weekly-schedule thead th {
+  background-color: #2d3748;
+  border-color: #4a5568;
+  color: #e2e8f0;
+}
+
+.dark .weekly-schedule .time-cell {
+  background-color: #2d3748;
+  color: #e2e8f0;
+  border-color: #4a5568;
+}
+
+.dark .weekly-schedule tbody td {
+  border-color: #4a5568;
+  background-color: #1a202c;
+}
+
+.dark .weekly-schedule .time-cell .time-main {
+  color: #e2e8f0;
+}
+
+.dark .weekly-schedule .time-cell .time-top, 
+.dark .weekly-schedule .time-cell .time-bottom {
+  color: #a0aec0;
+}
+
+.dark .weekly-schedule .schedule-cell.booked {
+  background-color: #38a169;
+  color: #e2e8f0;
+}
+
+/* Saturday and Sunday column highlighting */
+.weekly-schedule tr td:nth-child(7),
+.weekly-schedule tr td:nth-child(8),
+.weekly-schedule tr th:nth-child(7),
+.weekly-schedule tr th:nth-child(8) {
+  background-color: #f7f7f7;
+}
+
+.dark .weekly-schedule tr td:nth-child(7),
+.dark .weekly-schedule tr td:nth-child(8),
+.dark .weekly-schedule tr th:nth-child(7),
+.dark .weekly-schedule tr th:nth-child(8) {
+  background-color: #2d3748;
+} 

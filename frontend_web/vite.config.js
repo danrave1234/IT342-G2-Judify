@@ -7,6 +7,15 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['flowbite-react'],
   },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        secure: false
+      }
+    }
+  },
   build: {
     rollupOptions: {
       external: ['tailwindcss/version.js'],
