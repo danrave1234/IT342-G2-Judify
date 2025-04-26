@@ -53,6 +53,11 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
                 response.email ?: "",
                 response.role ?: "LEARNER"
             )
+            
+            // Save user ID to PreferenceUtils
+            response.userId?.let { userId ->
+                com.mobile.utils.PreferenceUtils.saveUserId(context, userId)
+            }
 
             // Also save to local SharedPreferences for backward compatibility
             sharedPreferences.edit().apply {
@@ -95,6 +100,11 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
             response.email ?: "",
             response.role ?: "LEARNER"
         )
+        
+        // Save user ID to PreferenceUtils
+        response.userId?.let { userId ->
+            com.mobile.utils.PreferenceUtils.saveUserId(context, userId)
+        }
 
         // Also save to local SharedPreferences for backward compatibility
         sharedPreferences.edit().apply {

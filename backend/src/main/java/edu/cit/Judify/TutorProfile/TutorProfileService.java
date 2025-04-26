@@ -2,6 +2,7 @@ package edu.cit.Judify.TutorProfile;
 
 import edu.cit.Judify.TutorProfile.DTO.TutorProfileDTO;
 import edu.cit.Judify.TutorProfile.DTO.TutorProfileDTOMapper;
+import edu.cit.Judify.TutorProfile.DTO.TutorRegistrationDTO;
 import edu.cit.Judify.TutorSubject.TutorSubjectService;
 import edu.cit.Judify.User.UserEntity;
 import edu.cit.Judify.User.UserRepository;
@@ -222,5 +223,47 @@ public class TutorProfileService {
         return randomProfiles.stream()
                 .map(dtoMapper::toDTO)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Register a new user as a tutor
+     * 
+     * @param registrationDTO DTO containing user and tutor profile information
+     * @return The created tutor profile DTO
+     */
+    @Transactional
+    public TutorProfileDTO registerTutor(TutorRegistrationDTO registrationDTO) {
+        // Create a new user entity
+        UserEntity user = new UserEntity();
+        user.setUsername(registrationDTO.getUsername());
+        user.setEmail(registrationDTO.getEmail());
+        user.setPassword(registrationDTO.getPassword());
+        user.setFirstName(registrationDTO.getFirstName());
+        user.setLastName(registrationDTO.getLastName());
+        user.setContactDetails(registrationDTO.getContactDetails());
+        user.setRole(UserRole.TUTOR);
+
+        // Save the user
+        UserEntity savedUser = userRepository.save(user);
+
+        // Create a new tutor profile entity
+        TutorProfileEntity tutorProfile = new TutorProfileEntity();
+        tutorProfile.setUser(savedUser);
+        tutorProfile.setBiography(registrationDTO.getBio());
+        tutorProfile.setExpertise(registrationDTO.getExpertise());
+        tutorProfile.setHourlyRate(registrationDTO.getHourlyRate());
+        tutorProfile.setLatitude(registrationDTO.getLatitude());
+        tutorProfile.setLongitude(registrationDTO.getLongitude());
+
+        // Save the tutor profile
+        TutorProfileEntity savedProfile = tutorProfileRepository.save(tutorProfile);
+
+        // Add subjects if provided
+        if (registrationDTO.getSubjects() != null && !registrationDTO.getSubjects().isEmpty()) {
+            savedProfile.setSubjects(registrationDTO.getSubjects());
+            savedProfile = tutorProfileRepository.save(savedProfile);
+        }
+
+        return dtoMapper.toDTO(savedProfile);
     }
 } 

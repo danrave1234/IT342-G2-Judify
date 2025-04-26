@@ -12,6 +12,7 @@ import com.mobile.R
 import com.mobile.data.model.User
 import com.mobile.databinding.ActivityRegisterBinding
 import com.mobile.ui.login.LoginActivity
+import com.mobile.ui.register.TutorRegisterActivity
 import com.mobile.data.repository.AuthRepository
 import com.mobile.utils.NetworkUtils
 import kotlinx.coroutines.CoroutineScope
@@ -46,6 +47,7 @@ class RegisterActivity : AppCompatActivity() {
         val facebookButton = binding.facebookButton
         val googleButton = binding.googleButton
         val signInTextView = binding.signInTextView
+        val tutorRegisterTextView = binding.tutorRegisterTextView
 
         // Set up text watchers for validation
         setupTextWatcher(emailEditText)
@@ -121,6 +123,14 @@ class RegisterActivity : AppCompatActivity() {
         signInTextView.setOnClickListener {
             // Navigate to LoginActivity
             val intent = Intent(this, LoginActivity::class.java)
+            startActivity(intent)
+            finish()
+        }
+
+        // Set up tutor register text view
+        tutorRegisterTextView.setOnClickListener {
+            // Navigate to TutorRegisterActivity
+            val intent = Intent(this, TutorRegisterActivity::class.java)
             startActivity(intent)
             finish()
         }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useUser } from '../../context/UserContext';
+import axios from 'axios';
 
 const Availability = () => {
   const { user } = useUser();
@@ -25,17 +26,9 @@ const Availability = () => {
   const fetchAvailabilities = async () => {
     setLoading(true);
     try {
-      // This would be replaced with actual API call
-      // Mock data for demonstration
-      setTimeout(() => {
-        const mockAvailabilities = [
-          { id: '1', dayOfWeek: 'Monday', startTime: '09:00', endTime: '17:00', recurring: true },
-          { id: '2', dayOfWeek: 'Wednesday', startTime: '13:00', endTime: '19:00', recurring: true },
-          { id: '3', dayOfWeek: 'Friday', startTime: '10:00', endTime: '15:00', recurring: true },
-        ];
-        setAvailabilities(mockAvailabilities);
-        setLoading(false);
-      }, 500);
+      const response = await axios.get(`/api/tutor-availability/findByTutor/${user.userId}`);
+      setAvailabilities(response.data);
+      setLoading(false);
     } catch (err) {
       setError('Failed to fetch availabilities. Please try again.');
       setLoading(false);
@@ -62,25 +55,21 @@ const Availability = () => {
     }
     
     try {
-      // This would be replaced with actual API call
-      // Mock successful response
-      setTimeout(() => {
-        const newId = Math.floor(Math.random() * 1000).toString();
-        const addedAvailability = {
-          id: newId,
-          ...newAvailability
-        };
-        
-        setAvailabilities(prev => [...prev, addedAvailability]);
-        setNewAvailability({
-          dayOfWeek: 'Monday',
-          startTime: '09:00',
-          endTime: '17:00',
-          recurring: true
-        });
-        setShowAddForm(false);
-        setSaving(false);
-      }, 500);
+      const availabilityData = {
+        tutorId: user.userId,
+        ...newAvailability
+      };
+      
+      const response = await axios.post('/api/tutor-availability/createAvailability', availabilityData);
+      setAvailabilities(prev => [...prev, response.data]);
+      setNewAvailability({
+        dayOfWeek: 'Monday',
+        startTime: '09:00',
+        endTime: '17:00',
+        recurring: true
+      });
+      setShowAddForm(false);
+      setSaving(false);
     } catch (err) {
       setError('Failed to add availability. Please try again.');
       setSaving(false);
@@ -90,11 +79,8 @@ const Availability = () => {
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this availability?')) {
       try {
-        // This would be replaced with actual API call
-        // Mock successful deletion
-        setTimeout(() => {
-          setAvailabilities(prev => prev.filter(a => a.id !== id));
-        }, 300);
+        await axios.delete(`/api/tutor-availability/deleteAvailability/${id}`);
+        setAvailabilities(prev => prev.filter(a => a.id !== id));
       } catch (err) {
         setError('Failed to delete availability. Please try again.');
       }

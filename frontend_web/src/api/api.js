@@ -30,12 +30,12 @@ API.interceptors.response.use(
       localStorage.removeItem('user');
       window.location.href = '/login';
     }
-    
+
     // Log details of server errors for debugging
     if (error.response && error.response.status >= 500) {
       console.error('Server error:', error.response.data);
     }
-    
+
     return Promise.reject(error);
   }
 );
@@ -74,14 +74,18 @@ export const tutorProfileApi = {
 export const tutoringSessionApi = {
   getSessions: (params) => API.get('/tutoring-sessions', { params }),
   getSessionById: (sessionId) => API.get(`/tutoring-sessions/${sessionId}`),
-  createSession: (sessionData) => API.post('/tutoring-sessions', sessionData),
+  createSession: (sessionData) => API.post('/tutoring-sessions/createSession', sessionData),
   updateSession: (sessionId, sessionData) => API.put(`/tutoring-sessions/${sessionId}`, sessionData),
   updateSessionStatus: (sessionId, status) => 
     API.patch(`/tutoring-sessions/${sessionId}/status`, { status }),
   getTutorSessions: (tutorId, params) => 
-    API.get(`/tutoring-sessions/tutor/${tutorId}`, { params }),
+    API.get(`/tutoring-sessions/findByTutor/${tutorId}`, { params }),
   getStudentSessions: (studentId, params) => 
     API.get(`/tutoring-sessions/student/${studentId}`, { params }),
+  // New endpoints for negotiation
+  acceptSession: (sessionId) => API.put(`/tutoring-sessions/acceptSession/${sessionId}`),
+  rejectSession: (sessionId) => API.put(`/tutoring-sessions/rejectSession/${sessionId}`),
+  negotiateSession: (sessionId, sessionData) => API.put(`/tutoring-sessions/negotiateSession/${sessionId}`, sessionData),
 };
 
 // Reviews API endpoints

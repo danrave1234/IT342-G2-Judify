@@ -1,5 +1,20 @@
 package edu.cit.Judify.Conversation;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import edu.cit.Judify.Conversation.DTO.ConversationDTO;
 import edu.cit.Judify.Conversation.DTO.ConversationDTOMapper;
 import edu.cit.Judify.User.UserEntity;
@@ -10,12 +25,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/conversations")
@@ -66,7 +75,9 @@ public class ConversationController {
     })
     @GetMapping("/findByUser/{userId}")
     public ResponseEntity<List<ConversationDTO>> getUserConversations(
-            @Parameter(description = "User ID") @PathVariable UserEntity participant) {
+            @Parameter(description = "User ID") @PathVariable("userId") Long userId) {
+        UserEntity participant = new UserEntity();
+        participant.setUserId(userId);
         return ResponseEntity.ok(conversationService.getUserConversations(participant)
                 .stream()
                 .map(conversationDTOMapper::toDTO)

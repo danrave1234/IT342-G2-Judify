@@ -1,6 +1,7 @@
 package edu.cit.Judify.TutorProfile;
 
 import edu.cit.Judify.TutorProfile.DTO.TutorProfileDTO;
+import edu.cit.Judify.TutorProfile.DTO.TutorRegistrationDTO;
 import edu.cit.Judify.TutorSubject.DTO.TutorSubjectDTO;
 import edu.cit.Judify.TutorSubject.TutorSubjectService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -266,5 +267,23 @@ public class TutorProfileController {
             @RequestParam(defaultValue = "10") int limit) {
         List<TutorProfileDTO> randomTutors = tutorProfileService.getRandomTutorProfiles(limit);
         return ResponseEntity.ok(randomTutors);
+    }
+
+    @Operation(summary = "Register a new tutor", description = "Creates a new user with TUTOR role and associated tutor profile")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "201", description = "Tutor successfully registered",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = TutorProfileDTO.class))),
+        @ApiResponse(responseCode = "400", description = "Invalid input data")
+    })
+    @PostMapping("/register")
+    public ResponseEntity<TutorProfileDTO> registerTutor(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Tutor registration data", required = true)
+            @RequestBody TutorRegistrationDTO registrationDTO) {
+        try {
+            TutorProfileDTO createdProfile = tutorProfileService.registerTutor(registrationDTO);
+            return new ResponseEntity<>(createdProfile, HttpStatus.CREATED);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 }

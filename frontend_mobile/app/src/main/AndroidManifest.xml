@@ -58,6 +58,12 @@
             android:theme="@style/Theme.Judify"
             android:windowSoftInputMode="adjustResize" />
 
+        <activity
+            android:name=".ui.register.TutorRegisterActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Judify"
+            android:windowSoftInputMode="adjustResize" />
+
         <!-- Main Activities -->
         <activity
             android:name=".ui.dashboard.LearnerDashboardActivity"
@@ -94,6 +100,27 @@
             android:exported="false"
             android:theme="@style/Theme.Judify"
             android:screenOrientation="portrait" />
+
+        <!-- Add the MapPickerActivity -->
+        <activity
+            android:name=".ui.booking.MapPickerActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Judify"
+            android:parentActivityName=".ui.booking.BookingActivity" />
+
+        <!-- Add the MessageActivity -->
+        <activity
+            android:name=".ui.chat.MessageActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Judify"
+            android:windowSoftInputMode="adjustResize" />
+
+        <!-- Add the UserSelectionActivity -->
+        <activity
+            android:name=".ui.chat.UserSelectionActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Judify"
+            android:parentActivityName=".ui.chat.MessageActivity" />
 
     </application>
 

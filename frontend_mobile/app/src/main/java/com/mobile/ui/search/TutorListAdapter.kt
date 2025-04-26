@@ -33,7 +33,7 @@ class TutorListAdapter(
         private val avatarImageView: CircleImageView = itemView.findViewById(R.id.tutorAvatarImageView)
         private val nameTextView: TextView = itemView.findViewById(R.id.tutorNameTextView)
         private val expertiseTextView: TextView = itemView.findViewById(R.id.tutorExpertiseTextView)
-        private val ratingTextView: TextView = itemView.findViewById(R.id.tutorRatingTextView)
+        private val ratingBadge: TextView = itemView.findViewById(R.id.tutorRatingBadge)
         private val priceTextView: TextView = itemView.findViewById(R.id.tutorPriceTextView)
         private val distanceContainer: LinearLayout = itemView.findViewById(R.id.distanceContainer)
         private val distanceTextView: TextView = itemView.findViewById(R.id.tutorDistanceTextView)
@@ -42,11 +42,16 @@ class TutorListAdapter(
             // Set tutor info
             nameTextView.text = tutor.name
             expertiseTextView.text = tutor.expertise
-            ratingTextView.text = tutor.rating.toString()
+            
+            // Format rating with one decimal place
+            val formattedRating = String.format("%.1f", tutor.rating)
+            ratingBadge.text = formattedRating
+            
+            // Format price with dollar sign
             priceTextView.text = "$${tutor.pricePerHour}/hr"
             
-            // Set first letter of name as avatar placeholder
-            avatarImageView.setImageDrawable(null) // Clear any previous image
+            // Set avatar placeholder
+            // Using default avatar drawable set in XML
             
             // Set distance if available
             if (tutor.distance != null) {

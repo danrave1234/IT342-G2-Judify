@@ -28,13 +28,13 @@ class ChatViewModel : ViewModel() {
      * @param userId ID of the user
      */
     fun loadConversations(userId: Long) {
-        _isLoading.value = true
         viewModelScope.launch {
+            _isLoading.value = true
             try {
-                val result = NetworkUtils.findConversationsByUser(userId)
+                // Use the updated API call method that handles the backend path variable correctly
+                val result = NetworkUtils.getConversationsForUser(userId)
                 _conversations.value = result
             } catch (e: Exception) {
-                Log.e(TAG, "Error loading conversations: ${e.message}", e)
                 _conversations.value = Result.failure(e)
             } finally {
                 _isLoading.value = false
