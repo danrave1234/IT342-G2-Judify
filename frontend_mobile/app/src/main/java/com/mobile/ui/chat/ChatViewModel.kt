@@ -75,8 +75,11 @@ class ChatViewModel : ViewModel() {
                 onComplete(result)
                 // Refresh conversations if deletion was successful
                 result.onSuccess {
-                    val userId = conversations.value?.getOrNull()?.firstOrNull()?.participants?.firstOrNull()
-                    userId?.let { loadConversations(it) }
+                    val currentUserId = conversations.value?.getOrNull()?.firstOrNull()?.let { conv ->
+                        // Use either user1Id or user2Id, whichever is available
+                        conv.user1Id.takeIf { it > 0 } ?: conv.user2Id
+                    }
+                    currentUserId?.let { loadConversations(it) }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error deleting conversation: ${e.message}", e)

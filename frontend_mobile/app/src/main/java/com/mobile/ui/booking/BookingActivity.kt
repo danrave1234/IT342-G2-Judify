@@ -51,6 +51,7 @@ class BookingActivity : AppCompatActivity() {
     private lateinit var summaryDurationText: TextView
     private lateinit var totalPriceText: TextView
     private lateinit var bookButton: Button
+    private lateinit var messageButton: Button
     private lateinit var progressBar: ProgressBar
     private lateinit var errorText: TextView
     private lateinit var timeSlotRecyclerView: RecyclerView
@@ -161,6 +162,7 @@ class BookingActivity : AppCompatActivity() {
         tutorRatingText = findViewById(R.id.mentorRatingBar)
         notesEditText = findViewById(R.id.topicEditText)
         bookButton = findViewById(R.id.bookButton)
+        messageButton = findViewById(R.id.messageButton)
         progressBar = findViewById(R.id.progressBar)
         errorText = findViewById(R.id.errorTextView)
 
@@ -237,6 +239,11 @@ class BookingActivity : AppCompatActivity() {
         // Set up location selection button
         selectLocationButton?.setOnClickListener {
             selectMeetingLocation()
+        }
+
+        // Set up message button click listener
+        messageButton.setOnClickListener {
+            startChatWithTutor()
         }
 
         // Book button
@@ -564,6 +571,75 @@ class BookingActivity : AppCompatActivity() {
                 }
             }
         )
+    }
+
+    /**
+     * Start a conversation with the tutor
+     */
+    private fun startChatWithTutor() {
+        lifecycleScope.launch {
+            try {
+                // Show progress indicator
+                showLoading(true, "Starting conversation...")
+                
+                // Get the current user ID from preferences
+                val currentUserId = com.mobile.utils.PreferenceUtils.getUserId(this@BookingActivity)
+                if (currentUserId == null || currentUserId <= 0) {
+                    Toast.makeText(this@BookingActivity, "You need to be logged in to send messages", Toast.LENGTH_SHORT).show()
+                    showLoading(false)
+                    return@launch
+                }
+                
+                // Create conversation with tutor using the new API method
+                val result = NetworkUtils.createConversationWithTutor(currentUserId, tutorId)
+                
+                // Hide progress indicator
+                showLoading(false)
+                
+                // Handle result
+                result.fold(
+                    onSuccess = { conversation ->
+                        Log.d("BookingActivity", "Created conversation: ${conversation.id}")
+                        
+                        // Navigate to MessageActivity
+                        val intent = Intent(this@BookingActivity, com.mobile.ui.chat.MessageActivity::class.java).apply {
+                            putExtra("CONVERSATION", conversation)
+                        }
+                        startActivity(intent)
+                    },
+                    onFailure = { error ->
+                        Log.e("BookingActivity", "Failed to create conversation", error)
+                        Toast.makeText(
+                            this@BookingActivity,
+                            "Could not start conversation: ${error.message}",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                )
+            } catch (e: Exception) {
+                showLoading(false)
+                Log.e("BookingActivity", "Error starting conversation", e)
+                Toast.makeText(
+                    this@BookingActivity,
+                    "Error: ${e.message}",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+    }
+    
+    /**
+     * Show or hide loading indicators with optional message
+     */
+    private fun showLoading(isLoading: Boolean, message: String = "") {
+        if (isLoading) {
+            progressBar.visibility = View.VISIBLE
+            errorText.text = message
+            errorText.visibility = if (message.isNotEmpty()) View.VISIBLE else View.GONE
+        } else {
+            progressBar.visibility = View.GONE
+            errorText.visibility = View.GONE
+        }
     }
 
     override fun onSupportNavigateUp(): Boolean {

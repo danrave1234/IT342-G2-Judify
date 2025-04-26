@@ -1,10 +1,20 @@
 package edu.cit.Judify.Message;
 
+import java.util.Date;
+
 import edu.cit.Judify.Conversation.ConversationEntity;
 import edu.cit.Judify.User.UserEntity;
-import jakarta.persistence.*;
-
-import java.util.Date;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.Table;
+import jakarta.persistence.Temporal;
+import jakarta.persistence.TemporalType;
 
 @Entity
 @Table(name = "messages")
@@ -21,6 +31,10 @@ public class MessageEntity {
     @ManyToOne
     @JoinColumn(name = "sender_id", nullable = false)
     private UserEntity sender;
+    
+    @ManyToOne
+    @JoinColumn(name = "receiver_id", nullable = false)
+    private UserEntity receiver;
 
     @Column(nullable = false, length = 2000)
     private String content;
@@ -57,6 +71,13 @@ public class MessageEntity {
     }
     public void setSender(UserEntity sender) {
         this.sender = sender;
+    }
+    
+    public UserEntity getReceiver() {
+        return receiver;
+    }
+    public void setReceiver(UserEntity receiver) {
+        this.receiver = receiver;
     }
 
     public String getContent() {

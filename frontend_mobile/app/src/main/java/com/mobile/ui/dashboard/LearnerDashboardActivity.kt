@@ -41,7 +41,7 @@ class LearnerDashboardActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityLearnerDashboardBinding
     private val TAG = "LearnerDashboard"
-    
+
     // Session adapter for the RecyclerView
     private val sessionAdapter = SessionAdapter(emptyList())
 
@@ -62,13 +62,13 @@ class LearnerDashboardActivity : AppCompatActivity() {
 
         // Set up app bar behavior
         setupAppBarBehavior()
-        
+
         // Set up sessions recycler view
         setupSessionsRecyclerView()
 
         // Load top tutors
         loadTopTutors()
-        
+
         // Load learner sessions
         loadLearnerSessions()
 
@@ -417,7 +417,7 @@ class LearnerDashboardActivity : AppCompatActivity() {
                 } else {
                     val error = result.exceptionOrNull()
                     val errorMsg = error?.message ?: "Unknown error"
-                    
+
                     // Check if it's a 404 error which likely means the user just doesn't have any sessions yet
                     if (errorMsg.contains("404")) {
                         Log.d(TAG, "No sessions found for learner (404): likely a new user")
@@ -427,7 +427,7 @@ class LearnerDashboardActivity : AppCompatActivity() {
                         binding.noSessionsText.text = "Unable to load sessions. Pull down to refresh."
                         Toast.makeText(this@LearnerDashboardActivity, "Failed to load sessions", Toast.LENGTH_SHORT).show()
                     }
-                    
+
                     binding.noSessionsText.visibility = View.VISIBLE
                     binding.allSessionsRecyclerView.visibility = View.GONE
                 }
@@ -442,13 +442,13 @@ class LearnerDashboardActivity : AppCompatActivity() {
             }
         }
     }
-    
+
     /**
      * Adapter for the sessions RecyclerView
      */
     private inner class SessionAdapter(private var sessions: List<NetworkUtils.TutoringSession>) : 
         androidx.recyclerview.widget.RecyclerView.Adapter<SessionAdapter.ViewHolder>() {
-        
+
         inner class ViewHolder(view: View) : androidx.recyclerview.widget.RecyclerView.ViewHolder(view) {
             val subject: TextView = view.findViewById(R.id.sessionSubject)
             val date: TextView = view.findViewById(R.id.sessionDate)
@@ -456,33 +456,33 @@ class LearnerDashboardActivity : AppCompatActivity() {
             val status: TextView = view.findViewById(R.id.sessionStatus)
             val tutorName: TextView = view.findViewById(R.id.tutorName)
         }
-        
+
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
             val view = LayoutInflater.from(parent.context)
                 .inflate(R.layout.item_session, parent, false)
             return ViewHolder(view)
         }
-        
+
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             val session = sessions[position]
-            
+
             // Set session details
             holder.subject.text = session.subject
-            
+
             // Format date and time
             val dateTimeFormatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
             val dateFormatter = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
             val timeFormatter = SimpleDateFormat("h:mm a", Locale.getDefault())
-            
+
             try {
                 val startDateTime = dateTimeFormatter.parse(session.startTime)
                 val endDateTime = dateTimeFormatter.parse(session.endTime)
-                
+
                 if (startDateTime != null && endDateTime != null) {
                     val formattedDate = dateFormatter.format(startDateTime)
                     val formattedStartTime = timeFormatter.format(startDateTime)
                     val formattedEndTime = timeFormatter.format(endDateTime)
-                    
+
                     holder.date.text = formattedDate
                     holder.time.text = "$formattedStartTime - $formattedEndTime"
                 }
@@ -491,9 +491,9 @@ class LearnerDashboardActivity : AppCompatActivity() {
                 holder.date.text = "Invalid date"
                 holder.time.text = "Invalid time"
             }
-            
+
             holder.status.text = session.status
-            
+
             // Use tutorName from session if available, otherwise fetch from network
             if (session.tutorName.isNotEmpty()) {
                 holder.tutorName.text = session.tutorName
@@ -517,17 +517,100 @@ class LearnerDashboardActivity : AppCompatActivity() {
                     }
                 }
             }
-            
-            // Set click listener to view session details
+
+            // Set click listener to open conversation with tutor
             holder.itemView.setOnClickListener {
-                // TODO: Navigate to session details
+                // Get the current user ID
+                val currentUserId = PreferenceUtils.getUserId(this@LearnerDashboardActivity) ?: -1L
+
+                if (currentUserId == -1L) {
+                    Toast.makeText(this@LearnerDashboardActivity, 
+                        "Unable to identify current user. Please log in again.", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+
+                // Show loading toast
                 Toast.makeText(this@LearnerDashboardActivity, 
-                    "Session details coming soon!", Toast.LENGTH_SHORT).show()
+                    "Opening conversation...", Toast.LENGTH_SHORT).show()
+
+                // Launch coroutine to handle conversation
+                lifecycleScope.launch {
+                    try {
+                        // Convert tutorId to Long
+                        val tutorId = session.tutorId.toLong()
+                        
+                        // Log the IDs for debugging
+                        Log.d(TAG, "Attempting to create conversation - Learner ID: $currentUserId, Tutor ID: $tutorId")
+
+                        // Try to find existing conversation
+                        val conversationsResult = NetworkUtils.getConversationsForUser(currentUserId)
+
+                        if (conversationsResult.isSuccess) {
+                            val conversations = conversationsResult.getOrNull() ?: emptyList()
+                            
+                            // Log all conversations for debugging
+                            Log.d(TAG, "Found ${conversations.size} conversations for user $currentUserId")
+                            conversations.forEach { conv ->
+                                Log.d(TAG, "Conversation ${conv.id}: user1=${conv.user1Id}, user2=${conv.user2Id}")
+                            }
+
+                            // Look for a conversation with this tutor
+                            val existingConversation = conversations.find { conversation ->
+                                (conversation.user1Id == tutorId && conversation.user2Id == currentUserId) ||
+                                (conversation.user1Id == currentUserId && conversation.user2Id == tutorId)
+                            }
+
+                            if (existingConversation != null) {
+                                // Log the existing conversation
+                                Log.d(TAG, "Using existing conversation ${existingConversation.id} between learner $currentUserId and tutor $tutorId")
+                                
+                                // Open existing conversation
+                                openConversation(existingConversation.id, tutorId, session.tutorName)
+                            } else {
+                                // Create new conversation
+                                Log.d(TAG, "Creating new conversation with participants: [$currentUserId, $tutorId]")
+                                val createResult = NetworkUtils.createConversation(listOf(currentUserId, tutorId))
+
+                                if (createResult.isSuccess) {
+                                    val newConversation = createResult.getOrNull()
+                                    if (newConversation != null) {
+                                        // Log the created conversation
+                                        Log.d(TAG, "Successfully created conversation ${newConversation.id} with user1=${newConversation.user1Id}, user2=${newConversation.user2Id}")
+                                        
+                                        openConversation(newConversation.id, tutorId, session.tutorName)
+                                    } else {
+                                        Log.e(TAG, "Conversation creation succeeded but returned null")
+                                        Toast.makeText(this@LearnerDashboardActivity, 
+                                            "Failed to create conversation", Toast.LENGTH_SHORT).show()
+                                    }
+                                } else {
+                                    // Log the error
+                                    val error = createResult.exceptionOrNull()
+                                    Log.e(TAG, "Failed to create conversation: ${error?.message}", error)
+                                    
+                                    Toast.makeText(this@LearnerDashboardActivity, 
+                                        "Failed to create conversation", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        } else {
+                            // Log the error
+                            val error = conversationsResult.exceptionOrNull()
+                            Log.e(TAG, "Failed to load conversations: ${error?.message}", error)
+                            
+                            Toast.makeText(this@LearnerDashboardActivity, 
+                                "Failed to load conversations", Toast.LENGTH_SHORT).show()
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error opening conversation: ${e.message}", e)
+                        Toast.makeText(this@LearnerDashboardActivity, 
+                            "Error opening conversation: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+                }
             }
         }
-        
+
         override fun getItemCount() = sessions.size
-        
+
         /**
          * Update the list of sessions
          */
@@ -545,6 +628,21 @@ class LearnerDashboardActivity : AppCompatActivity() {
             adapter = sessionAdapter
             layoutManager = LinearLayoutManager(this@LearnerDashboardActivity)
         }
+    }
+
+    /**
+     * Open a conversation with another user
+     * @param conversationId ID of the conversation
+     * @param otherUserId ID of the other user
+     * @param otherUserName Name of the other user
+     */
+    private fun openConversation(conversationId: Long, otherUserId: Long, otherUserName: String) {
+        val intent = Intent(this, com.mobile.ui.chat.MessageActivity::class.java).apply {
+            putExtra("CONVERSATION_ID", conversationId)
+            putExtra("OTHER_USER_ID", otherUserId)
+            putExtra("OTHER_USER_NAME", otherUserName)
+        }
+        startActivity(intent)
     }
 
 }

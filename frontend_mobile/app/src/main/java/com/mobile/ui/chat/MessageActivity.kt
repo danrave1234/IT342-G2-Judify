@@ -51,9 +51,7 @@ class MessageActivity : AppCompatActivity() {
 
         // Get conversation details from intent
         conversationId = intent.getLongExtra("CONVERSATION_ID", -1)
-        otherUserId = intent.getLongExtra("OTHER_USER_ID", -1)
-        otherUserName = intent.getStringExtra("OTHER_USER_NAME") ?: "User"
-
+        
         // Get current user details
         currentUserId = PreferenceUtils.getUserId(this) ?: -1
 
@@ -62,6 +60,22 @@ class MessageActivity : AppCompatActivity() {
             finish()
             return
         }
+        
+        // Extract conversation details - we need to determine other user ID and name
+        val conversation = intent.getParcelableExtra<NetworkUtils.Conversation>("CONVERSATION")
+        if (conversation != null) {
+            determineOtherUserDetails(conversation)
+        } else {
+            // We need to use the passed other user ID and name as fallback
+            otherUserId = intent.getLongExtra("OTHER_USER_ID", -1)
+            otherUserName = intent.getStringExtra("OTHER_USER_NAME") ?: "User"
+            
+            if (otherUserId == -1L) {
+                Log.e(TAG, "Invalid other user ID")
+                finish()
+                return
+            }
+        }
 
         initializeViews()
         setupToolbar()
@@ -69,6 +83,27 @@ class MessageActivity : AppCompatActivity() {
         setupClickListeners()
         loadMessages()
         startMessageRefreshJob()
+    }
+    
+    /**
+     * Determine the other user's details from the conversation
+     */
+    private fun determineOtherUserDetails(conversation: NetworkUtils.Conversation) {
+        otherUserId = if (conversation.user1Id == currentUserId) {
+            // If current user is user1, then other user is user2
+            conversation.user2Id
+        } else {
+            // Otherwise, other user is user1
+            conversation.user1Id
+        }
+        
+        otherUserName = if (conversation.user1Id == currentUserId) {
+            // If current user is user1, show user2's name
+            conversation.user2Name
+        } else {
+            // Otherwise, show user1's name
+            conversation.user1Name
+        }
     }
 
     override fun onDestroy() {
@@ -160,14 +195,17 @@ class MessageActivity : AppCompatActivity() {
     private fun sendMessage(content: String) {
         lifecycleScope.launch {
             try {
-                val result = NetworkUtils.sendMessage(conversationId, currentUserId, content)
+                // Make sure we have the other user ID
+                if (otherUserId == -1L) {
+                    Log.e(TAG, "Error sending message: Other user ID not found")
+                    return@launch
+                }
+
+                val result = NetworkUtils.sendMessage(conversationId, currentUserId, otherUserId, content)
 
                 result.onSuccess { message ->
-                    // Add new message to the adapter
-                    val currentMessages = messageAdapter.currentList.toMutableList()
-                    currentMessages.add(message)
-                    messageAdapter.submitList(currentMessages)
-                    scrollToBottom()
+                    // Instead of manually adding the message, refresh all messages from the server
+                    refreshMessages()
                 }.onFailure { error ->
                     Log.e(TAG, "Error sending message: ${error.message}")
                 }
@@ -180,7 +218,7 @@ class MessageActivity : AppCompatActivity() {
     private fun markMessagesAsRead() {
         lifecycleScope.launch {
             try {
-                NetworkUtils.markAllMessagesAsRead(conversationId)
+                NetworkUtils.markAllMessagesAsRead(conversationId, currentUserId)
             } catch (e: Exception) {
                 Log.e(TAG, "Error marking messages as read: ${e.message}")
             }
@@ -203,12 +241,10 @@ class MessageActivity : AppCompatActivity() {
                 val result = NetworkUtils.getMessages(conversationId)
 
                 result.onSuccess { messages ->
-                    // Only update if there are new messages
-                    if (messages.size > messageAdapter.itemCount) {
-                        messageAdapter.submitList(messages)
-                        scrollToBottom()
-                        markMessagesAsRead()
-                    }
+                    // Always update the message list to ensure we have the latest messages
+                    messageAdapter.submitList(messages)
+                    scrollToBottom()
+                    markMessagesAsRead()
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error refreshing messages: ${e.message}")

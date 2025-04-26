@@ -1,9 +1,7 @@
 package edu.cit.Judify.TutoringSession;
 
 import java.util.Date;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -123,12 +121,9 @@ public class TutoringSessionController {
             System.out.println("Converted DTO to entity, student ID: " + (session.getStudent() != null ? session.getStudent().getUserId() : "null"));
 
             // Create a conversation for negotiation between tutor and student
-            Set<UserEntity> participants = new HashSet<>();
-            participants.add(session.getTutor());
-            participants.add(session.getStudent());
-
             ConversationEntity conversation = new ConversationEntity();
-            conversation.setParticipants(participants);
+            conversation.setUser1(session.getStudent());
+            conversation.setUser2(session.getTutor());
             ConversationEntity savedConversation = conversationService.createConversation(conversation);
 
             // Link the conversation to the session

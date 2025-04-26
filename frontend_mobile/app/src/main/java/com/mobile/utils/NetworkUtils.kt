@@ -32,7 +32,7 @@ object NetworkUtils {
     // Server configuration
     // Use your computer's IP address for physical device (e.g., "192.168.1.100")
     // DONT EVER REPLACE THE SERVER IP AND THIS IS THE PRIMARY IP
-    private const val DEFAULT_SERVER_IP = "192.168.1.10" // Default IP for physical devices
+    private const val DEFAULT_SERVER_IP = "192.168.1.9" // Default IP for physical devices
     private const val SERVER_PORT = "8080"
     private const val API_PATH = "api"
 
@@ -193,13 +193,56 @@ object NetworkUtils {
      */
     data class Conversation(
         val id: Long,
-        val participants: List<Long>,
+        val user1Id: Long,
+        val user2Id: Long,
+        val user1Name: String = "",
+        val user2Name: String = "",
         val lastMessage: String? = null,
         val lastMessageTime: String? = null,
         val unreadCount: Int = 0,
         val createdAt: String = "",
-        val updatedAt: String? = null
-    )
+        val updatedAt: String = ""
+    ) : android.os.Parcelable {
+        constructor(parcel: android.os.Parcel) : this(
+            parcel.readLong(),
+            parcel.readLong(),
+            parcel.readLong(),
+            parcel.readString() ?: "",
+            parcel.readString() ?: "",
+            parcel.readString(),
+            parcel.readString(),
+            parcel.readInt(),
+            parcel.readString() ?: "",
+            parcel.readString() ?: ""
+        )
+
+        override fun writeToParcel(parcel: android.os.Parcel, flags: Int) {
+            parcel.writeLong(id)
+            parcel.writeLong(user1Id)
+            parcel.writeLong(user2Id)
+            parcel.writeString(user1Name)
+            parcel.writeString(user2Name)
+            parcel.writeString(lastMessage)
+            parcel.writeString(lastMessageTime)
+            parcel.writeInt(unreadCount)
+            parcel.writeString(createdAt)
+            parcel.writeString(updatedAt)
+        }
+
+        override fun describeContents(): Int {
+            return 0
+        }
+
+        companion object CREATOR : android.os.Parcelable.Creator<Conversation> {
+            override fun createFromParcel(parcel: android.os.Parcel): Conversation {
+                return Conversation(parcel)
+            }
+
+            override fun newArray(size: Int): Array<Conversation?> {
+                return arrayOfNulls(size)
+            }
+        }
+    }
 
     /**
      * Authenticate user with the API
@@ -807,18 +850,29 @@ object NetworkUtils {
     }
 
     private fun createMockConversations(userId: Long): List<Conversation> {
+        // Create mock conversations with the current user as user1 and different users as user2
+        val otherUser1 = 2L
+        val otherUser2 = 3L
+
+        // Use negative IDs for mock conversations to avoid conflicts with real conversation IDs
         return listOf(
             Conversation(
-                id = 1,
-                participants = listOf(userId, 2),
+                id = -1L,
+                user1Id = userId,
+                user2Id = otherUser1,
+                user1Name = "Current User",
+                user2Name = "John Doe",
                 lastMessage = "Hello, how are you?",
                 lastMessageTime = "2024-03-20T14:30:00",
                 unreadCount = 1,
                 createdAt = "2024-03-20T10:00:00"
             ),
             Conversation(
-                id = 2,
-                participants = listOf(userId, 3),
+                id = -2L,
+                user1Id = userId,
+                user2Id = otherUser2,
+                user1Name = "Current User",
+                user2Name = "Jane Smith",
                 lastMessage = "When is our next session?",
                 lastMessageTime = "2024-03-19T09:15:00",
                 unreadCount = 0,
@@ -902,16 +956,20 @@ object NetworkUtils {
             for (i in 0 until jsonArray.length()) {
                 val json = jsonArray.getJSONObject(i)
 
-                // Parse participants array
-                val participantsArray = json.getJSONArray("participants")
-                val participants = (0 until participantsArray.length()).map { 
-                    participantsArray.getLong(it) 
+                // Ensure we have a valid conversation ID from the backend
+                val conversationId = json.optLong("conversationId", -1L)
+                if (conversationId == -1L) {
+                    Log.w(TAG, "Conversation missing ID, skipping: $json")
+                    continue
                 }
 
                 conversations.add(
                     Conversation(
-                        id = json.optLong("id", i.toLong()),
-                        participants = participants,
+                        id = conversationId,
+                        user1Id = json.optLong("user1Id"),
+                        user2Id = json.optLong("user2Id"),
+                        user1Name = json.optString("user1Name", ""),
+                        user2Name = json.optString("user2Name", ""),
                         lastMessage = json.optString("lastMessage", ""),
                         lastMessageTime = json.optString("lastMessageTime", ""),
                         unreadCount = json.optInt("unreadCount", 0),
@@ -922,6 +980,7 @@ object NetworkUtils {
             }
             Result.success(conversations)
         } catch (e: Exception) {
+            Log.e(TAG, "Error parsing conversations: ${e.message}", e)
             Result.failure(e)
         }
     }
@@ -960,37 +1019,146 @@ object NetworkUtils {
     suspend fun createConversation(participantIds: List<Long>): Result<Conversation> {
         return withContext(Dispatchers.IO) {
             try {
-                // Use the correct endpoint path as defined in the backend ConversationController
-                val url = URL(createApiUrl("conversations/createConversation"))
-                val connection = createPostConnection(url)
-
-                // Create JSON array of participant IDs
-                val participantsJsonArray = JSONArray()
-                participantIds.forEach { participantsJsonArray.put(it) }
-
-                // Create request body
-                val jsonObject = JSONObject().apply {
-                    put("participants", participantsJsonArray)
+                // Validate input
+                if (participantIds.size < 2) {
+                    Log.e(TAG, "Failed to create conversation: At least 2 participants are required")
+                    return@withContext Result.failure(IllegalArgumentException("At least 2 participants are required"))
                 }
 
-                return@withContext handleResponse(connection, jsonObject.toString()) { response ->
-                    val json = parseJsonResponse(response)
+                val user1Id = participantIds[0]
+                val user2Id = participantIds[1]
+                
+                // Ensure participants are different users
+                if (user1Id == user2Id) {
+                    Log.e(TAG, "Failed to create conversation: Cannot create conversation with same user (ID: $user1Id)")
+                    return@withContext Result.failure(IllegalArgumentException("Cannot create conversation with the same user"))
+                }
+                
+                // Log the participant IDs
+                Log.d(TAG, "Creating conversation with user1Id=$user1Id, user2Id=$user2Id")
 
-                    // Parse participants array
-                    val participantsArray = json.getJSONArray("participants")
-                    val participants = (0 until participantsArray.length()).map { 
-                        participantsArray.getLong(it) 
+                // Use the correct endpoint path as defined in the backend ConversationController
+                val url = URL(createApiUrl("conversations/createConversation"))
+                Log.d(TAG, "Making API request to URL: $url")
+                val connection = createPostConnection(url)
+
+                // Create request body with user1Id and user2Id
+                val jsonObject = JSONObject().apply {
+                    put("user1Id", user1Id)
+                    put("user2Id", user2Id)
+                }
+                
+                val requestBody = jsonObject.toString()
+                Log.d(TAG, "Request payload: $requestBody")
+
+                return@withContext handleResponse(connection, requestBody) { response ->
+                    Log.d(TAG, "Received conversation creation response: $response")
+                    val json = parseJsonResponse(response)
+                    
+                    // Log the parsed JSON for debugging
+                    Log.d(TAG, "Parsed JSON response: ${json.toString(2)}")
+                    
+                    val conversationId = json.optLong("conversationId", -1L)
+                    val responseUser1Id = json.optLong("user1Id")
+                    val responseUser2Id = json.optLong("user2Id")
+                    
+                    Log.d(TAG, "Created conversation: id=$conversationId, user1Id=$responseUser1Id, user2Id=$responseUser2Id")
+                    
+                    // Verify that both users are in the response - backend might swap the order
+                    val responseSameUsers = ((responseUser1Id == user1Id && responseUser2Id == user2Id) || 
+                                            (responseUser1Id == user2Id && responseUser2Id == user1Id))
+                    
+                    if (!responseSameUsers) {
+                        Log.e(TAG, "Error: Conversation response user IDs don't match request IDs. " +
+                                 "Request: [$user1Id, $user2Id], Response: [$responseUser1Id, $responseUser2Id]")
+                    }
+                    
+                    // Verify we don't have same user ID for both participants - that would be an error
+                    if (responseUser1Id == responseUser2Id) {
+                        Log.e(TAG, "Backend error: Same user ID for both participants: $responseUser1Id")
+                        // Override the response with correct IDs if backend sends incorrect data
+                        return@handleResponse Conversation(
+                            id = conversationId,
+                            user1Id = user1Id,
+                            user2Id = user2Id,
+                            user1Name = json.optString("user1Name", ""),
+                            user2Name = json.optString("user2Name", ""),
+                            createdAt = json.optString("createdAt", ""),
+                            updatedAt = json.optString("updatedAt", "")
+                        )
                     }
 
                     Conversation(
-                        id = json.optLong("id", System.currentTimeMillis()),
-                        participants = participants,
+                        id = conversationId,
+                        user1Id = responseUser1Id,
+                        user2Id = responseUser2Id,
+                        user1Name = json.optString("user1Name", ""),
+                        user2Name = json.optString("user2Name", ""),
                         createdAt = json.optString("createdAt", ""),
                         updatedAt = json.optString("updatedAt", "")
                     )
                 }
             } catch (e: Exception) {
+                Log.e(TAG, "Failed to create conversation", e)
                 handleNetworkError(e, "creating conversation")
+            }
+        }
+    }
+
+    /**
+     * Create a new conversation with a tutor
+     * @param studentUserId The user ID of the student
+     * @param tutorId The tutor profile ID (not user ID)
+     * @return Result<Conversation> containing the created conversation
+     */
+    suspend fun createConversationWithTutor(studentUserId: Long, tutorId: Long): Result<Conversation> {
+        return withContext(Dispatchers.IO) {
+            try {
+                // Validation
+                if (studentUserId <= 0) {
+                    Log.e(TAG, "Failed to create conversation: Invalid student user ID: $studentUserId")
+                    return@withContext Result.failure(IllegalArgumentException("Invalid student user ID"))
+                }
+                
+                if (tutorId <= 0) {
+                    Log.e(TAG, "Failed to create conversation: Invalid tutor ID: $tutorId")
+                    return@withContext Result.failure(IllegalArgumentException("Invalid tutor ID"))
+                }
+                
+                // Log the IDs
+                Log.d(TAG, "Creating conversation with studentUserId=$studentUserId, tutorId=$tutorId")
+
+                // Use the new endpoint that handles tutorId to userId conversion
+                val url = URL(createApiUrl("conversations/createWithTutor/$studentUserId/$tutorId"))
+                Log.d(TAG, "Making API request to URL: $url")
+                val connection = createPostConnection(url)
+
+                return@withContext handleResponse(connection, "") { response ->
+                    Log.d(TAG, "Received conversation creation response: $response")
+                    val json = parseJsonResponse(response)
+                    
+                    // Log the parsed JSON for debugging
+                    Log.d(TAG, "Parsed JSON response: ${json.toString(2)}")
+                    
+                    val conversationId = json.optLong("conversationId", -1L)
+                    val responseUser1Id = json.optLong("user1Id")
+                    val responseUser2Id = json.optLong("user2Id")
+                    
+                    Log.d(TAG, "Created conversation with tutor: id=$conversationId, user1Id=$responseUser1Id, user2Id=$responseUser2Id")
+                    
+                    Conversation(
+                        id = conversationId,
+                        user1Id = responseUser1Id,
+                        user2Id = responseUser2Id,
+                        user1Name = json.optString("user1Name", ""),
+                        user2Name = json.optString("user2Name", ""),
+                        createdAt = json.optString("createdAt", ""),
+                        updatedAt = json.optString("updatedAt", "")
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to create conversation with tutor", e)
+                handleNetworkError(e, "creating conversation with tutor")
             }
         }
     }
@@ -1089,10 +1257,11 @@ object NetworkUtils {
      * Send a message in a conversation
      * @param conversationId ID of the conversation
      * @param senderId ID of the message sender
+     * @param receiverId ID of the message receiver
      * @param content Message content
      * @return Result<Message> containing the sent message
      */
-    suspend fun sendMessage(conversationId: Long, senderId: Long, content: String): Result<Message> {
+    suspend fun sendMessage(conversationId: Long, senderId: Long, receiverId: Long, content: String): Result<Message> {
         return withContext(Dispatchers.IO) {
             try {
                 val url = URL("$BASE_URL/messages/sendMessage")
@@ -1102,6 +1271,7 @@ object NetworkUtils {
                 val jsonObject = JSONObject().apply {
                     put("conversationId", conversationId)
                     put("senderId", senderId)
+                    put("receiverId", receiverId)
                     put("content", content)
                     put("isRead", false)
                 }
@@ -1132,6 +1302,8 @@ object NetworkUtils {
                         SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(Date())
                     }
 
+                    // The receiverId is sent to the backend but not stored in the Message object
+                    // since the current Message data class doesn't have a receiverId field
                     Message(
                         id = json.optLong("messageId"),
                         conversationId = json.optLong("conversationId"),
@@ -1202,12 +1374,13 @@ object NetworkUtils {
     /**
      * Mark all messages in a conversation as read
      * @param conversationId ID of the conversation
+     * @param userId ID of the user whose messages should be marked as read
      * @return Result<Unit> indicating success or failure
      */
-    suspend fun markAllMessagesAsRead(conversationId: Long): Result<Unit> {
+    suspend fun markAllMessagesAsRead(conversationId: Long, userId: Long): Result<Unit> {
         return withContext(Dispatchers.IO) {
             try {
-                val url = URL("$BASE_URL/messages/markAllAsRead/$conversationId")
+                val url = URL("$BASE_URL/messages/markAllAsRead/$conversationId?userId=$userId")
                 val connection = createPutConnection(url)
 
                 return@withContext handleResponse(connection) { _ -> Unit }
@@ -2194,8 +2367,16 @@ object NetworkUtils {
     ): Result<T> {
         var responseCode: Int
         try {
+            // Log connection details
+            Log.d(TAG, "Making ${connection.requestMethod} request to ${connection.url}")
+            
+            // Log headers for debugging
+            val requestProperties = connection.requestProperties
+            Log.d(TAG, "Request headers: $requestProperties")
+            
             // Write request body if provided
             if (requestBody != null) {
+                Log.d(TAG, "Sending request body: $requestBody")
                 val writer = OutputStreamWriter(connection.outputStream)
                 writer.write(requestBody)
                 writer.flush()
@@ -2213,6 +2394,7 @@ object NetworkUtils {
             val reader = if (responseCode in 200..299) {
                 BufferedReader(InputStreamReader(connection.inputStream))
             } else {
+                Log.e(TAG, "Error response code: $responseCode")
                 BufferedReader(InputStreamReader(connection.errorStream ?: return Result.failure(
                     Exception("HTTP Error: $responseCode")
                 )))
@@ -2226,15 +2408,23 @@ object NetworkUtils {
             reader.close()
 
             val responseStr = response.toString()
-            Log.d(TAG, "Response: $responseStr")
+            Log.d(TAG, "Response body: $responseStr")
 
             // If response code is not successful, return failure
             if (responseCode !in 200..299) {
+                Log.e(TAG, "HTTP Error: $responseCode - $responseStr")
                 return Result.failure(Exception("HTTP Error: $responseCode - $responseStr"))
             }
 
             // Process response with handler
-            return Result.success(handler(responseStr))
+            try {
+                val result = handler(responseStr)
+                Log.d(TAG, "Processed response successfully: $result")
+                return Result.success(result)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error processing response: ${e.message}", e)
+                return Result.failure(e)
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error in handleResponse: ${e.message}", e)
             return Result.failure(e)
@@ -2272,9 +2462,18 @@ object NetworkUtils {
      */
     private fun parseJsonResponse(response: String): JSONObject {
         return try {
-            JSONObject(response)
+            val jsonObject = JSONObject(response)
+            Log.d(TAG, "Successfully parsed JSON response: ${jsonObject.toString(2)}")
+            
+            // Log all keys found in the JSON for debugging
+            val keys = mutableListOf<String>()
+            jsonObject.keys().forEach { keys.add(it) }
+            Log.d(TAG, "JSON keys found: $keys")
+            
+            jsonObject
         } catch (e: Exception) {
             Log.e(TAG, "Error parsing JSON response: ${e.message}", e)
+            Log.e(TAG, "Raw response content: $response")
             JSONObject()
         }
     }
@@ -2287,6 +2486,17 @@ object NetworkUtils {
      */
     private fun parseJsonArrayResponse(response: String, arrayKey: String? = null): JSONArray {
         return try {
+            // Check if response is an empty array
+            if (response.trim() == "[]") {
+                return JSONArray()
+            }
+
+            // Check if response is already a JSON array (starts with '[' and ends with ']')
+            val trimmedResponse = response.trim()
+            if (trimmedResponse.startsWith("[") && trimmedResponse.endsWith("]")) {
+                return JSONArray(trimmedResponse)
+            }
+
             if (arrayKey != null) {
                 val json = JSONObject(response)
                 json.getJSONArray(arrayKey)
@@ -2913,6 +3123,46 @@ object NetworkUtils {
                 } catch (e: Exception) {
                     Log.e(TAG, "Exception fetching learner sessions: ${e.message}", e)
                     handleNetworkError(e, "fetching learner sessions")
+                }
+            }
+        }
+    }
+
+    /**
+     * Find a user by ID
+     * @param userId ID of the user to find
+     * @return Result<User> containing the user if found
+     */
+    suspend fun findUserById(userId: Long): Result<User> {
+        return withContext(Dispatchers.IO) {
+            return@withContext retryWithNextIp {
+                try {
+                    val url = URL("$BASE_URL/users/findById/$userId")
+                    val connection = createGetConnection(url)
+
+                    handleResponse(connection) { response ->
+                        val json = parseJsonResponse(response)
+
+                        // Map backend role to frontend role (STUDENT -> LEARNER)
+                        val backendRole = json.optString("role", "")
+                        val frontendRole = when (backendRole) {
+                            "STUDENT" -> "LEARNER"
+                            else -> backendRole
+                        }
+
+                        User(
+                            userId = json.getLong("userId"),
+                            email = json.getString("email"),
+                            passwordHash = json.optString("password", json.optString("passwordHash", "")),
+                            firstName = json.getString("firstName"),
+                            lastName = json.getString("lastName"),
+                            profilePicture = json.optString("profilePicture"),
+                            contactDetails = json.optString("contactDetails"),
+                            roles = frontendRole
+                        )
+                    }
+                } catch (e: Exception) {
+                    handleNetworkError(e, "finding user by ID")
                 }
             }
         }
