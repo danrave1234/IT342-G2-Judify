@@ -9,6 +9,7 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.mobile.R
 import com.mobile.utils.NetworkUtils
+import com.mobile.utils.PreferenceUtils
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -46,24 +47,39 @@ class ConversationAdapter(
         }
 
         fun bind(conversation: NetworkUtils.Conversation) {
-            // Set participant names (this would need to be enhanced with actual user data)
-            nameText.text = "Conversation ${conversation.id}"
-            
-            // Set last message preview (this would need to be enhanced with actual message data)
-            lastMessageText.text = "Tap to view messages"
-            
+            // Get the current user ID from preferences
+            val currentUserId = itemView.context?.let { PreferenceUtils.getUserId(it) } ?: -1L
+
+            // Determine which user name to display (the one that's not the current user)
+            val otherUserName = if (conversation.user1Id == currentUserId) {
+                // If user1 is the current user, show user2's name
+                conversation.user2Name
+            } else if (conversation.user2Id == currentUserId) {
+                // If user2 is the current user, show user1's name
+                conversation.user1Name
+            } else {
+                // Fallback if current user is not in conversation (shouldn't happen)
+                "Conversation ${conversation.id}"
+            }
+
+            // Set the name text to the other user's name
+            nameText.text = otherUserName
+
+            // Set last message preview
+            lastMessageText.text = conversation.lastMessage ?: "Tap to view messages"
+
             // Format and set time
             conversation.lastMessageTime?.let { timeString ->
                 try {
                     val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
                     val date = inputFormat.parse(timeString)
-                    
+
                     val outputFormat = if (isToday(date)) {
                         SimpleDateFormat("h:mm a", Locale.getDefault())
                     } else {
                         SimpleDateFormat("MMM d", Locale.getDefault())
                     }
-                    
+
                     timeText.text = date?.let { outputFormat.format(it) } ?: ""
                 } catch (e: Exception) {
                     timeText.text = timeString
@@ -82,19 +98,19 @@ class ConversationAdapter(
                     timeText.text = conversation.createdAt
                 }
             }
-            
-            // Hide unread indicator for now (would be set based on message read status)
-            unreadIndicator.visibility = View.GONE
+
+            // Show unread indicator if there are unread messages
+            unreadIndicator.visibility = if (conversation.unreadCount > 0) View.VISIBLE else View.GONE
         }
-        
+
         private fun isToday(date: Date?): Boolean {
             if (date == null) return false
-            
+
             val calendar1 = Calendar.getInstance()
             calendar1.time = date
-            
+
             val calendar2 = Calendar.getInstance()
-            
+
             return calendar1.get(Calendar.YEAR) == calendar2.get(Calendar.YEAR) &&
                    calendar1.get(Calendar.DAY_OF_YEAR) == calendar2.get(Calendar.DAY_OF_YEAR)
         }

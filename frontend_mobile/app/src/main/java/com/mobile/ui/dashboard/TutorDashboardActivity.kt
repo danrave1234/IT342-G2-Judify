@@ -2,6 +2,7 @@ package com.mobile.ui.dashboard
 
 import android.app.AlertDialog
 import android.app.TimePickerDialog
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -497,7 +498,7 @@ class TutorDashboardActivity : AppCompatActivity() {
                                 if (tutorProfile != null) {
                                     // Log successful tutor profile loading
                                     Log.d(TAG, "Loaded tutor profile successfully: ${tutorProfile.id}, name: ${tutorProfile.name}")
-                                    
+
                                     // Set rating
                                     binding.ratingValue.text = tutorProfile.rating.toString()
 
@@ -941,6 +942,114 @@ class TutorDashboardActivity : AppCompatActivity() {
         layoutParams.marginEnd = resources.getDimensionPixelSize(R.dimen.session_card_margin)
         cardView.layoutParams = layoutParams
 
+        // Set click listener to open conversation with learner
+        cardView.setOnClickListener {
+            // Get the current user ID
+            val currentUserId = PreferenceUtils.getUserId(this) ?: -1L
+
+            if (currentUserId == -1L) {
+                Toast.makeText(this, 
+                    "Unable to identify current user. Please log in again.", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            // Show loading toast
+            Toast.makeText(this, "Opening conversation...", Toast.LENGTH_SHORT).show()
+
+            // Launch coroutine to handle conversation
+            lifecycleScope.launch {
+                try {
+                    // Convert learnerId to Long
+                    val learnerId = session.learnerId.toLong()
+                    
+                    // Log the IDs for debugging
+                    Log.d(TAG, "Attempting to create conversation - Tutor ID: $currentUserId, Learner ID: $learnerId")
+
+                    // Get learner's name
+                    var learnerName = "Learner"
+                    try {
+                        val learnerResult = NetworkUtils.findUserById(learnerId)
+                        if (learnerResult.isSuccess) {
+                            val learner = learnerResult.getOrNull()
+                            if (learner != null) {
+                                learnerName = "${learner.firstName} ${learner.lastName}".trim()
+                                Log.d(TAG, "Retrieved learner name: $learnerName for ID: $learnerId")
+                                if (learnerName.isEmpty()) {
+                                    learnerName = "Learner"
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error fetching learner name: ${e.message}", e)
+                        // Continue with default name if fetching fails
+                    }
+
+                    // Try to find existing conversation
+                    val conversationsResult = NetworkUtils.getConversationsForUser(currentUserId)
+
+                    if (conversationsResult.isSuccess) {
+                        val conversations = conversationsResult.getOrNull() ?: emptyList()
+                        
+                        // Log all conversations for debugging
+                        Log.d(TAG, "Found ${conversations.size} conversations for user $currentUserId")
+                        conversations.forEach { conv ->
+                            Log.d(TAG, "Conversation ${conv.id}: user1=${conv.user1Id}, user2=${conv.user2Id}")
+                        }
+
+                        // Look for a conversation with this learner
+                        val existingConversation = conversations.find { conversation ->
+                            (conversation.user1Id == learnerId && conversation.user2Id == currentUserId) ||
+                            (conversation.user1Id == currentUserId && conversation.user2Id == learnerId)
+                        }
+
+                        if (existingConversation != null) {
+                            // Log the existing conversation
+                            Log.d(TAG, "Using existing conversation ${existingConversation.id} between tutor $currentUserId and learner $learnerId")
+                            
+                            // Open existing conversation
+                            openConversation(existingConversation.id, learnerId, learnerName)
+                        } else {
+                            // Create new conversation
+                            Log.d(TAG, "Creating new conversation with participants: [$currentUserId, $learnerId]")
+                            val createResult = NetworkUtils.createConversation(listOf(currentUserId, learnerId))
+
+                            if (createResult.isSuccess) {
+                                val newConversation = createResult.getOrNull()
+                                if (newConversation != null) {
+                                    // Log the created conversation
+                                    Log.d(TAG, "Successfully created conversation ${newConversation.id} with user1=${newConversation.user1Id}, user2=${newConversation.user2Id}")
+                                    
+                                    openConversation(newConversation.id, learnerId, learnerName)
+                                } else {
+                                    Log.e(TAG, "Conversation creation succeeded but returned null")
+                                    Toast.makeText(this@TutorDashboardActivity, 
+                                        "Failed to create conversation", Toast.LENGTH_SHORT).show()
+                                }
+                            } else {
+                                // Log the error
+                                val error = createResult.exceptionOrNull()
+                                Log.e(TAG, "Failed to create conversation: ${error?.message}", error)
+                                
+                                Toast.makeText(this@TutorDashboardActivity, 
+                                    "Failed to create conversation", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    } else {
+                        // Log the error
+                        val error = conversationsResult.exceptionOrNull()
+                        Log.e(TAG, "Failed to load conversations: ${error?.message}", error)
+                        
+                        Toast.makeText(this@TutorDashboardActivity, 
+                            "Failed to load conversations", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error opening conversation: ${e.message}", e)
+                    Toast.makeText(this@TutorDashboardActivity, 
+                        "Error opening conversation: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
         // Add the card to the container
         binding.upcomingSessionsContainer.addView(cardView)
     }
@@ -965,6 +1074,21 @@ class TutorDashboardActivity : AppCompatActivity() {
     private fun showError(message: String) {
         // Show error message to user
         Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+    }
+
+    /**
+     * Open a conversation with another user
+     * @param conversationId ID of the conversation
+     * @param otherUserId ID of the other user
+     * @param otherUserName Name of the other user
+     */
+    private fun openConversation(conversationId: Long, otherUserId: Long, otherUserName: String) {
+        val intent = Intent(this, com.mobile.ui.chat.MessageActivity::class.java).apply {
+            putExtra("CONVERSATION_ID", conversationId)
+            putExtra("OTHER_USER_ID", otherUserId)
+            putExtra("OTHER_USER_NAME", otherUserName)
+        }
+        startActivity(intent)
     }
 
     private fun addSubjectChip(subjectName: String) {

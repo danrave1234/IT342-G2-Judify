@@ -145,6 +145,20 @@
                                     android:textColor="?android:attr/textColorSecondary"
                                     android:layout_marginStart="8dp" />
                             </LinearLayout>
+
+                            <!-- Message Button -->
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/messageButton"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="8dp"
+                                android:layout_marginBottom="24dp"
+                                android:text="Message Tutor"
+                                android:textAllCaps="false"
+                                app:icon="@drawable/ic_message"
+                                app:iconGravity="textStart"
+                                app:backgroundTint="@color/accent_color"
+                                style="@style/Widget.MaterialComponents.Button" />
                         </LinearLayout>
                     </LinearLayout>
                 </LinearLayout>

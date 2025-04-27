@@ -104,7 +104,7 @@ class ChatFragment : BaseFragment() {
             }.onFailure { error ->
                 Log.e(TAG, "Error loading conversations: ${error.message}")
                 progressBar.visibility = View.GONE
-                
+
                 // Show error
                 if (conversationAdapter.itemCount > 0) {
                     // Keep existing data visible if we have any
@@ -150,7 +150,7 @@ class ChatFragment : BaseFragment() {
             val selectedUserId = data.getLongExtra("SELECTED_USER_ID", -1L)
             if (selectedUserId != -1L) {
                 val participantIds = listOf(currentUserId, selectedUserId)
-                
+
                 viewModel.createConversation(participantIds) { result ->
                     result.onSuccess { conversation ->
                         Log.d(TAG, "Created conversation: ${conversation.id}")
@@ -174,13 +174,26 @@ class ChatFragment : BaseFragment() {
 
     private fun navigateToMessageActivity(conversation: NetworkUtils.Conversation) {
         // Determine the other user's ID (not the current user)
-        val otherUserId = conversation.participants.find { it != currentUserId } ?: conversation.participants.firstOrNull() ?: -1L
+        val otherUserId = if (conversation.user1Id == currentUserId) {
+            conversation.user2Id
+        } else {
+            conversation.user1Id
+        }
+
+        // Determine which user name to display (the one that's not the current user)
+        val otherUserName = if (conversation.user1Id == currentUserId) {
+            conversation.user2Name
+        } else {
+            conversation.user1Name
+        }
 
         // Create intent for MessageActivity
         val intent = Intent(requireContext(), MessageActivity::class.java).apply {
             putExtra("CONVERSATION_ID", conversation.id)
             putExtra("OTHER_USER_ID", otherUserId)
-            putExtra("OTHER_USER_NAME", "User $otherUserId") // In a real app, get the actual name
+            putExtra("OTHER_USER_NAME", otherUserName)
+            // Pass the full conversation object for more precise handling
+            putExtra("CONVERSATION", conversation)
         }
         startActivity(intent)
     }

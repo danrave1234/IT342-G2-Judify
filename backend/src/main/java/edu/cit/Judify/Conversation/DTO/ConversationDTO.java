@@ -1,11 +1,13 @@
 package edu.cit.Judify.Conversation.DTO;
 
 import java.util.Date;
-import java.util.Set;
 
 public class ConversationDTO {
     private Long conversationId;
-    private Set<Long> participantIds;
+    private Long user1Id;
+    private Long user2Id;
+    private String user1Name;
+    private String user2Name;
     private Date createdAt;
     private Date updatedAt;
 
@@ -22,12 +24,36 @@ public class ConversationDTO {
         this.conversationId = conversationId;
     }
 
-    public Set<Long> getParticipantIds() {
-        return participantIds;
+    public Long getUser1Id() {
+        return user1Id;
     }
 
-    public void setParticipantIds(Set<Long> participantIds) {
-        this.participantIds = participantIds;
+    public void setUser1Id(Long user1Id) {
+        this.user1Id = user1Id;
+    }
+
+    public Long getUser2Id() {
+        return user2Id;
+    }
+
+    public void setUser2Id(Long user2Id) {
+        this.user2Id = user2Id;
+    }
+
+    public String getUser1Name() {
+        return user1Name;
+    }
+
+    public void setUser1Name(String user1Name) {
+        this.user1Name = user1Name;
+    }
+
+    public String getUser2Name() {
+        return user2Name;
+    }
+
+    public void setUser2Name(String user2Name) {
+        this.user2Name = user2Name;
     }
 
     public Date getCreatedAt() {

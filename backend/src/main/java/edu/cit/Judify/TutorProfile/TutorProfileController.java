@@ -1,5 +1,23 @@
 package edu.cit.Judify.TutorProfile;
 
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import edu.cit.Judify.TutorProfile.DTO.TutorProfileDTO;
 import edu.cit.Judify.TutorProfile.DTO.TutorRegistrationDTO;
 import edu.cit.Judify.TutorSubject.DTO.TutorSubjectDTO;
@@ -12,13 +30,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.persistence.EntityNotFoundException;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/tutors")
@@ -70,13 +81,49 @@ public class TutorProfileController {
         @ApiResponse(responseCode = "200", description = "Successfully retrieved the tutor profile"),
         @ApiResponse(responseCode = "404", description = "Tutor profile not found")
     })
-    @GetMapping("/findById/{id}")
+    @GetMapping("/findById/{tutorId}")
     public ResponseEntity<TutorProfileDTO> getTutorProfileById(
-            @Parameter(description = "Tutor profile ID") @PathVariable Long id) {
+            @Parameter(description = "Tutor profile ID") @PathVariable Long tutorId) {
         try {
-            TutorProfileDTO tutor = tutorProfileService.getTutorProfileById(id);
+            TutorProfileDTO tutor = tutorProfileService.getTutorProfileById(tutorId);
             return ResponseEntity.ok(tutor);
         } catch (EntityNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @Operation(summary = "Get user ID by tutor ID")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Found user ID"),
+            @ApiResponse(responseCode = "404", description = "Tutor profile not found")
+    })
+    @GetMapping("/getUserId/{tutorId}")
+    public ResponseEntity<Long> getUserIdByTutorId(
+            @Parameter(description = "Tutor profile ID") @PathVariable Long tutorId) {
+        try {
+            TutorProfileDTO tutor = tutorProfileService.getTutorProfileById(tutorId);
+            return ResponseEntity.ok(tutor.getUserId());
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @Operation(summary = "Get tutor ID by user ID")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Found tutor ID"),
+            @ApiResponse(responseCode = "404", description = "Tutor profile not found for this user ID")
+    })
+    @GetMapping("/getTutorId/{userId}")
+    public ResponseEntity<Long> getTutorIdByUserId(
+            @Parameter(description = "User ID") @PathVariable Long userId) {
+        try {
+            Optional<TutorProfileEntity> tutorProfileOpt = tutorProfileService.findByUserId(userId);
+            if (tutorProfileOpt.isPresent()) {
+                return ResponseEntity.ok(tutorProfileOpt.get().getId());
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
             return ResponseEntity.notFound().build();
         }
     }
