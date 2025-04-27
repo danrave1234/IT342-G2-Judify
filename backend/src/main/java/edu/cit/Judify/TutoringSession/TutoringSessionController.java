@@ -121,10 +121,9 @@ public class TutoringSessionController {
             System.out.println("Converted DTO to entity, student ID: " + (session.getStudent() != null ? session.getStudent().getUserId() : "null"));
 
             // Create a conversation for negotiation between tutor and student
-            ConversationEntity conversation = new ConversationEntity();
-            conversation.setUser1(session.getStudent());
-            conversation.setUser2(session.getTutor());
-            ConversationEntity savedConversation = conversationService.createConversation(conversation);
+            // Use findOrCreateStudentTutorConversation to ensure consistent use of studentId and tutorId
+            ConversationEntity savedConversation = conversationService.findOrCreateStudentTutorConversation(
+                session.getStudent(), session.getTutor());
 
             // Link the conversation to the session
             session.setConversation(savedConversation);

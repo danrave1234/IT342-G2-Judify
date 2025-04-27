@@ -25,12 +25,12 @@ public class ConversationEntity {
     private Long conversationId;
 
     @ManyToOne
-    @JoinColumn(name = "user1_id", nullable = false)
-    private UserEntity user1;
+    @JoinColumn(name = "student_id", nullable = false)
+    private UserEntity student;
 
     @ManyToOne
-    @JoinColumn(name = "user2_id", nullable = false)
-    private UserEntity user2;
+    @JoinColumn(name = "tutor_id", nullable = false)
+    private UserEntity tutor;
 
     @Temporal(TemporalType.TIMESTAMP)
     @Column(nullable = false, updatable = false)
@@ -52,18 +52,18 @@ public class ConversationEntity {
         this.conversationId = conversationId;
     }
 
-    public UserEntity getUser1() {
-        return user1;
+    public UserEntity getStudent() {
+        return student;
     }
-    public void setUser1(UserEntity user1) {
-        this.user1 = user1;
+    public void setStudent(UserEntity student) {
+        this.student = student;
     }
 
-    public UserEntity getUser2() {
-        return user2;
+    public UserEntity getTutor() {
+        return tutor;
     }
-    public void setUser2(UserEntity user2) {
-        this.user2 = user2;
+    public void setTutor(UserEntity tutor) {
+        this.tutor = tutor;
     }
 
     public Date getCreatedAt() {

@@ -15,14 +15,26 @@ public class ConversationDTOMapper {
 
         ConversationDTO dto = new ConversationDTO();
         dto.setConversationId(entity.getConversationId());
-        dto.setUser1Id(entity.getUser1().getUserId());
-        dto.setUser2Id(entity.getUser2().getUserId());
+        dto.setUser1Id(entity.getStudent().getUserId());
+        dto.setUser2Id(entity.getTutor().getUserId());
 
-        // Set user names with special handling for tutors
-        String user1Name = getUserDisplayName(entity.getUser1());
-        String user2Name = getUserDisplayName(entity.getUser2());
-        dto.setUser1Name(user1Name);
-        dto.setUser2Name(user2Name);
+        // Set student and tutor names with proper display formatting
+        String studentName = entity.getStudent().getFirstName() + " " + entity.getStudent().getLastName();
+        String tutorName = entity.getTutor().getFirstName() + " " + entity.getTutor().getLastName();
+        
+        // If the tutor has expertise, include it in the display name
+        if (entity.getTutor().getRole() == edu.cit.Judify.User.UserRole.TUTOR && 
+            entity.getTutor().getTutorProfile() != null && 
+            entity.getTutor().getTutorProfile().getExpertise() != null && 
+            !entity.getTutor().getTutorProfile().getExpertise().isEmpty()) {
+            tutorName = tutorName + " (" + entity.getTutor().getTutorProfile().getExpertise() + ")";
+        }
+        
+        dto.setUser1Name(studentName);
+        dto.setUser2Name(tutorName);
+        
+        // Log the names to debug
+        System.out.println("DEBUG: Mapped conversation with studentName: " + studentName + ", tutorName: " + tutorName);
 
         dto.setCreatedAt(entity.getCreatedAt());
         dto.setUpdatedAt(entity.getUpdatedAt());
@@ -49,15 +61,15 @@ public class ConversationDTOMapper {
         return displayName;
     }
 
-    public ConversationEntity toEntity(ConversationDTO dto, UserEntity user1, UserEntity user2) {
+    public ConversationEntity toEntity(ConversationDTO dto, UserEntity student, UserEntity tutor) {
         if (dto == null) {
             return null;
         }
 
         ConversationEntity entity = new ConversationEntity();
         entity.setConversationId(dto.getConversationId());
-        entity.setUser1(user1);
-        entity.setUser2(user2);
+        entity.setStudent(student);
+        entity.setTutor(tutor);
         entity.setCreatedAt(dto.getCreatedAt());
         entity.setUpdatedAt(dto.getUpdatedAt());
         return entity;

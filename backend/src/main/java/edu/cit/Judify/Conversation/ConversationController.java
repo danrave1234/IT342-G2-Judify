@@ -1,15 +1,18 @@
 package edu.cit.Judify.Conversation;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -58,13 +61,13 @@ public class ConversationController {
             @RequestBody ConversationDTO conversationDTO) {
         try {
             // Get user entities
-            UserEntity user1 = userService.getUserById(conversationDTO.getUser1Id())
-                    .orElseThrow(() -> new RuntimeException("User not found with ID: " + conversationDTO.getUser1Id()));
-            UserEntity user2 = userService.getUserById(conversationDTO.getUser2Id())
-                    .orElseThrow(() -> new RuntimeException("User not found with ID: " + conversationDTO.getUser2Id()));
+            UserEntity student = userService.getUserById(conversationDTO.getUser1Id())
+                    .orElseThrow(() -> new RuntimeException("Student not found with ID: " + conversationDTO.getUser1Id()));
+            UserEntity tutor = userService.getUserById(conversationDTO.getUser2Id())
+                    .orElseThrow(() -> new RuntimeException("Tutor not found with ID: " + conversationDTO.getUser2Id()));
 
             // Find or create the conversation
-            ConversationEntity savedConversation = conversationService.findOrCreateConversation(user1, user2);
+            ConversationEntity savedConversation = conversationService.findOrCreateConversation(student, tutor);
 
             return ResponseEntity.ok(conversationDTOMapper.toDTO(savedConversation));
         } catch (Exception e) {
@@ -85,14 +88,14 @@ public class ConversationController {
             @Parameter(description = "Second user ID") @PathVariable Long userId2) {
         try {
             // Get user entities
-            UserEntity user1 = userService.getUserById(userId1)
-                    .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId1));
-            UserEntity user2 = userService.getUserById(userId2)
-                    .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId2));
-            
+            UserEntity student = userService.getUserById(userId1)
+                    .orElseThrow(() -> new RuntimeException("Student not found with ID: " + userId1));
+            UserEntity tutor = userService.getUserById(userId2)
+                    .orElseThrow(() -> new RuntimeException("Tutor not found with ID: " + userId2));
+
             // Find or create the conversation
-            ConversationEntity conversation = conversationService.findOrCreateConversation(user1, user2);
-            
+            ConversationEntity conversation = conversationService.findOrCreateConversation(student, tutor);
+
             return ResponseEntity.ok(conversationDTOMapper.toDTO(conversation));
         } catch (Exception e) {
             return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR)
@@ -154,31 +157,82 @@ public class ConversationController {
             // Get student user
             UserEntity studentUser = userService.getUserById(studentUserId)
                     .orElseThrow(() -> new RuntimeException("Student user not found with ID: " + studentUserId));
-            
+
             // Get tutor's userId from tutorId
             Long tutorUserId = tutorProfileService.getUserIdFromTutorId(tutorId);
-            
+
+            // Debug logging to verify IDs
+            System.out.println("DEBUG: Creating conversation between student userId: " + studentUserId +
+                              " and tutor userId: " + tutorUserId + " (from tutorId: " + tutorId + ")");
+
+            // Safety check - ensure the userIds are different
+            if (studentUserId.equals(tutorUserId)) {
+                System.out.println("ERROR: Cannot create conversation between the same user! " +
+                                 "studentUserId: " + studentUserId + ", tutorUserId: " + tutorUserId);
+                return ResponseEntity.badRequest().body(null);
+            }
+
             // Get tutor user
             UserEntity tutorUser = userService.getUserById(tutorUserId)
                     .orElseThrow(() -> new RuntimeException("Tutor user not found with ID: " + tutorUserId));
-            
+
             // Find or create the conversation
             ConversationEntity conversation = conversationService.findOrCreateStudentTutorConversation(studentUser, tutorUser);
-            
+
+            // Verify created conversation
+            System.out.println("DEBUG: Created conversation ID: " + conversation.getConversationId() + 
+                              " between student: " + conversation.getStudent().getUserId() + 
+                              " and tutor: " + conversation.getTutor().getUserId());
+
             return ResponseEntity.ok(conversationDTOMapper.toDTO(conversation));
         } catch (RuntimeException e) {
+            // Log the full error for debugging
+            System.out.println("ERROR in createConversationWithTutor: " + e.getMessage());
+            e.printStackTrace();
+
             // Return 404 for "not found" errors
             if (e.getMessage().contains("not found")) {
                 return ResponseEntity.status(org.springframework.http.HttpStatus.NOT_FOUND)
                     .body(null);
             }
-            
+
             // Return 400 for other runtime exceptions
             return ResponseEntity.badRequest().body(null);
         } catch (Exception e) {
+            // Log the full error for debugging
+            System.out.println("ERROR in createConversationWithTutor: " + e.getMessage());
+            e.printStackTrace();
+
             // Return 500 for unexpected errors
             return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(null);
+        }
+    }
+
+    @Operation(summary = "Update conversation names", description = "Updates the user names for an existing conversation")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Conversation names successfully updated"),
+        @ApiResponse(responseCode = "404", description = "Conversation not found")
+    })
+    @PutMapping("/updateNames/{conversationId}")
+    public ResponseEntity<ConversationDTO> updateConversationNames(
+            @Parameter(description = "Conversation ID") @PathVariable Long conversationId) {
+        try {
+            // Get the conversation
+            Optional<ConversationEntity> conversationOpt = conversationService.getConversationById(conversationId);
+            if (!conversationOpt.isPresent()) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            ConversationEntity conversation = conversationOpt.get();
+            
+            // No need to modify the conversation - the DTO mapper will set the names correctly
+            
+            // Return the conversation with updated names
+            return ResponseEntity.ok(conversationDTOMapper.toDTO(conversation));
+        } catch (Exception e) {
+            System.out.println("Error updating conversation names: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
     }
 } 

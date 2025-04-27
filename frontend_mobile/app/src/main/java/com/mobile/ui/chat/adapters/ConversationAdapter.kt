@@ -49,17 +49,28 @@ class ConversationAdapter(
         fun bind(conversation: NetworkUtils.Conversation) {
             // Get the current user ID from preferences
             val currentUserId = itemView.context?.let { PreferenceUtils.getUserId(it) } ?: -1L
+            val userRole = itemView.context?.let { PreferenceUtils.getUserRole(it) } ?: "LEARNER"
 
-            // Determine which user name to display (the one that's not the current user)
-            val otherUserName = if (conversation.user1Id == currentUserId) {
-                // If user1 is the current user, show user2's name
-                conversation.user2Name
-            } else if (conversation.user2Id == currentUserId) {
-                // If user2 is the current user, show user1's name
-                conversation.user1Name
-            } else {
-                // Fallback if current user is not in conversation (shouldn't happen)
-                "Conversation ${conversation.id}"
+            // Determine which user name to display based on the user's role
+            val otherUserName = when (userRole) {
+                "TUTOR" -> {
+                    // If user is a tutor, show student's name
+                    conversation.studentName.ifEmpty { "Unknown Student" }
+                }
+                "LEARNER" -> {
+                    // If user is a student, show tutor's name
+                    conversation.tutorName.ifEmpty { "Unknown Tutor" }
+                }
+                else -> {
+                    // Fallback to the old logic if role is unknown
+                    if (conversation.studentId == currentUserId) {
+                        conversation.tutorName.ifEmpty { "Unknown Tutor" }
+                    } else if (conversation.tutorId == currentUserId) {
+                        conversation.studentName.ifEmpty { "Unknown Student" }
+                    } else {
+                        "Conversation ${conversation.id}"
+                    }
+                }
             }
 
             // Set the name text to the other user's name

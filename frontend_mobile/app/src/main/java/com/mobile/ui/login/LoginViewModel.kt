@@ -58,6 +58,16 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
             response.userId?.let { userId ->
                 com.mobile.utils.PreferenceUtils.saveUserId(context, userId)
             }
+            
+            // Save studentId if present
+            response.studentId?.let { studentId ->
+                com.mobile.utils.PreferenceUtils.saveStudentId(context, studentId)
+            }
+            
+            // Save tutorId if present
+            response.tutorId?.let { tutorId ->
+                com.mobile.utils.PreferenceUtils.saveTutorId(context, tutorId)
+            }
 
             // Also save to local SharedPreferences for backward compatibility
             sharedPreferences.edit().apply {
@@ -104,6 +114,16 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
         // Save user ID to PreferenceUtils
         response.userId?.let { userId ->
             com.mobile.utils.PreferenceUtils.saveUserId(context, userId)
+        }
+        
+        // Save studentId if present
+        response.studentId?.let { studentId ->
+            com.mobile.utils.PreferenceUtils.saveStudentId(context, studentId)
+        }
+        
+        // Save tutorId if present
+        response.tutorId?.let { tutorId ->
+            com.mobile.utils.PreferenceUtils.saveTutorId(context, tutorId)
         }
 
         // Also save to local SharedPreferences for backward compatibility

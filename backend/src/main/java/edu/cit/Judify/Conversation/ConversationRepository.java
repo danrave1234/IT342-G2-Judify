@@ -11,11 +11,11 @@ import edu.cit.Judify.User.UserEntity;
 
 @Repository
 public interface ConversationRepository extends JpaRepository<ConversationEntity, Long> {
-    List<ConversationEntity> findByUser1OrUser2(UserEntity user1, UserEntity user2);
-    
+    List<ConversationEntity> findByStudentOrTutor(UserEntity student, UserEntity tutor);
+
     /**
-     * Find a conversation between two specific users
+     * Find a conversation between a student and a tutor
      */
-    @Query("SELECT c FROM ConversationEntity c WHERE (c.user1 = :user1 AND c.user2 = :user2) OR (c.user1 = :user2 AND c.user2 = :user1)")
-    List<ConversationEntity> findConversationBetweenUsers(@Param("user1") UserEntity user1, @Param("user2") UserEntity user2);
+    @Query("SELECT c FROM ConversationEntity c WHERE (c.student = :student AND c.tutor = :tutor) OR (c.student = :tutor AND c.tutor = :student)")
+    List<ConversationEntity> findConversationBetweenUsers(@Param("student") UserEntity student, @Param("tutor") UserEntity tutor);
 } 
