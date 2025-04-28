@@ -97,7 +97,30 @@ class ChatFragment : BaseFragment() {
                 } else {
                     emptyStateLayout.visibility = View.GONE
                     conversationsRecyclerView.visibility = View.VISIBLE
-                    conversationAdapter.submitList(conversations)
+
+                    // Sort conversations by lastMessageTime (most recent first)
+                    val sortedConversations = conversations.sortedByDescending { conversation ->
+                        // Try to parse lastMessageTime, fallback to createdAt if null
+                        conversation.lastMessageTime?.let { timeString ->
+                            try {
+                                val format = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.getDefault())
+                                format.parse(timeString)?.time
+                            } catch (e: Exception) {
+                                // If parsing fails, use 0 as fallback
+                                0L
+                            }
+                        } ?: run {
+                            // If lastMessageTime is null, try to use createdAt
+                            try {
+                                val format = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.getDefault())
+                                format.parse(conversation.createdAt)?.time ?: 0L
+                            } catch (e: Exception) {
+                                0L
+                            }
+                        }
+                    }
+
+                    conversationAdapter.submitList(sortedConversations)
                 }
                 progressBar.visibility = View.GONE
                 errorStateLayout.visibility = View.GONE
@@ -169,31 +192,79 @@ class ChatFragment : BaseFragment() {
     }
 
     private fun loadConversations() {
-        viewModel.loadConversations(currentUserId)
+        val userRole = PreferenceUtils.getUserRole(requireContext())
+
+        when (userRole) {
+            "TUTOR" -> {
+                val tutorId = PreferenceUtils.getTutorId(requireContext())
+                if (tutorId != null) {
+                    viewModel.loadConversationsByTutorId(tutorId)
+                } else {
+                    // Fallback to using userId if tutorId is not available
+                    viewModel.loadConversations(currentUserId)
+                }
+            }
+            "LEARNER" -> {
+                val studentId = PreferenceUtils.getStudentId(requireContext())
+                if (studentId != null) {
+                    viewModel.loadConversationsByStudentId(studentId)
+                } else {
+                    // Fallback to using userId if studentId is not available
+                    viewModel.loadConversations(currentUserId)
+                }
+            }
+            else -> {
+                // Default fallback
+                viewModel.loadConversations(currentUserId)
+            }
+        }
     }
 
     private fun navigateToMessageActivity(conversation: NetworkUtils.Conversation) {
-        // Determine the other user's ID (not the current user)
-        val otherUserId = if (conversation.user1Id == currentUserId) {
-            conversation.user2Id
-        } else {
-            conversation.user1Id
+        val userRole = PreferenceUtils.getUserRole(requireContext())
+
+        // Determine the other user's ID based on user role
+        val otherUserId: Long
+        val otherUserName: String
+
+        when (userRole) {
+            "TUTOR" -> {
+                // For tutors, the other user is the student
+                otherUserId = conversation.studentId
+                otherUserName = conversation.studentName
+            }
+            "LEARNER" -> {
+                // For students, the other user is the tutor
+                otherUserId = conversation.tutorId
+                otherUserName = conversation.tutorName
+            }
+            else -> {
+                // Fallback to the old method if role is unknown
+                otherUserId = if (conversation.studentId == currentUserId) {
+                    conversation.tutorId
+                } else {
+                    conversation.studentId
+                }
+
+                otherUserName = if (conversation.studentId == currentUserId) {
+                    conversation.tutorName
+                } else {
+                    conversation.studentName
+                }
+            }
         }
 
-        // Determine which user name to display (the one that's not the current user)
-        val otherUserName = if (conversation.user1Id == currentUserId) {
-            conversation.user2Name
-        } else {
-            conversation.user1Name
-        }
+        // Log the values before starting activity for debugging
+        Log.d(TAG, "Starting MessageActivity with: conversationId=${conversation.id}, otherUserId=$otherUserId, otherUserName=$otherUserName")
 
-        // Create intent for MessageActivity
+        // Create intent for MessageActivity with consistent keys
         val intent = Intent(requireContext(), MessageActivity::class.java).apply {
-            putExtra("CONVERSATION_ID", conversation.id)
-            putExtra("OTHER_USER_ID", otherUserId)
-            putExtra("OTHER_USER_NAME", otherUserName)
-            // Pass the full conversation object for more precise handling
-            putExtra("CONVERSATION", conversation)
+            putExtra("conversationId", conversation.id)
+            putExtra("CONVERSATION_ID", conversation.id)  // Add both versions for compatibility
+            putExtra("otherUserId", otherUserId)
+            putExtra("OTHER_USER_ID", otherUserId)  // Add both versions for compatibility
+            putExtra("otherUserName", otherUserName)
+            putExtra("OTHER_USER_NAME", otherUserName)  // Add both versions for compatibility
         }
         startActivity(intent)
     }

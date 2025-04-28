@@ -536,47 +536,62 @@ class LearnerDashboardActivity : AppCompatActivity() {
                 // Launch coroutine to handle conversation
                 lifecycleScope.launch {
                     try {
-                        // Convert tutorId to Long
-                        val tutorId = session.tutorId.toLong()
-                        
+                        // Get studentId and tutorId from the session
+                        val studentId = session.learnerId.toLongOrNull() ?: currentUserId
+                        val tutorId = session.tutorId
+
                         // Log the IDs for debugging
-                        Log.d(TAG, "Attempting to create conversation - Learner ID: $currentUserId, Tutor ID: $tutorId")
+                        Log.d(TAG, "Attempting to create/find conversation - Student ID: $studentId, Tutor ID: $tutorId")
 
                         // Try to find existing conversation
                         val conversationsResult = NetworkUtils.getConversationsForUser(currentUserId)
 
                         if (conversationsResult.isSuccess) {
                             val conversations = conversationsResult.getOrNull() ?: emptyList()
-                            
+
                             // Log all conversations for debugging
                             Log.d(TAG, "Found ${conversations.size} conversations for user $currentUserId")
                             conversations.forEach { conv ->
-                                Log.d(TAG, "Conversation ${conv.id}: user1=${conv.user1Id}, user2=${conv.user2Id}")
+                                Log.d(TAG, "Conversation ${conv.id}: student=${conv.studentId}, tutor=${conv.tutorId}")
+                            }
+
+                            // Check if session already has a conversationId
+                            val sessionConversationId = session.conversationId
+                            if (sessionConversationId != null && sessionConversationId > 0) {
+                                // Find the conversation with this ID
+                                val sessionConversation = conversations.find { it.id == sessionConversationId }
+                                if (sessionConversation != null) {
+                                    Log.d(TAG, "Using conversation from session: ${sessionConversation.id}")
+                                    openConversation(sessionConversation.id, tutorId, session.tutorName)
+                                    return@launch
+                                }
                             }
 
                             // Look for a conversation with this tutor
                             val existingConversation = conversations.find { conversation ->
-                                (conversation.user1Id == tutorId && conversation.user2Id == currentUserId) ||
-                                (conversation.user1Id == currentUserId && conversation.user2Id == tutorId)
+                                (conversation.tutorId == tutorId && conversation.studentId == currentUserId) ||
+                                (conversation.studentId == currentUserId && conversation.tutorId == tutorId)
                             }
 
                             if (existingConversation != null) {
                                 // Log the existing conversation
-                                Log.d(TAG, "Using existing conversation ${existingConversation.id} between learner $currentUserId and tutor $tutorId")
-                                
+                                Log.d(TAG, "Using existing conversation ${existingConversation.id} between student $studentId and tutor $tutorId")
+
                                 // Open existing conversation
                                 openConversation(existingConversation.id, tutorId, session.tutorName)
                             } else {
-                                // Create new conversation
-                                Log.d(TAG, "Creating new conversation with participants: [$currentUserId, $tutorId]")
-                                val createResult = NetworkUtils.createConversation(listOf(currentUserId, tutorId))
+                                // Create new conversation using tutorId and studentId instead of user IDs
+                                Log.d(TAG, "Creating new conversation with studentId=$studentId, tutorId=$tutorId")
+
+                                // Use createConversationWithTutor which handles the conversion of tutorId to userId
+                                val createResult = NetworkUtils.createConversationWithTutor(studentId, tutorId)
 
                                 if (createResult.isSuccess) {
                                     val newConversation = createResult.getOrNull()
                                     if (newConversation != null) {
                                         // Log the created conversation
-                                        Log.d(TAG, "Successfully created conversation ${newConversation.id} with user1=${newConversation.user1Id}, user2=${newConversation.user2Id}")
-                                        
+                                        Log.d(TAG, "Successfully created conversation ${newConversation.id} with student=${newConversation.studentId}, tutor=${newConversation.tutorId}")
+
                                         openConversation(newConversation.id, tutorId, session.tutorName)
                                     } else {
                                         Log.e(TAG, "Conversation creation succeeded but returned null")
@@ -587,7 +602,7 @@ class LearnerDashboardActivity : AppCompatActivity() {
                                     // Log the error
                                     val error = createResult.exceptionOrNull()
                                     Log.e(TAG, "Failed to create conversation: ${error?.message}", error)
-                                    
+
                                     Toast.makeText(this@LearnerDashboardActivity, 
                                         "Failed to create conversation", Toast.LENGTH_SHORT).show()
                                 }
@@ -596,7 +611,7 @@ class LearnerDashboardActivity : AppCompatActivity() {
                             // Log the error
                             val error = conversationsResult.exceptionOrNull()
                             Log.e(TAG, "Failed to load conversations: ${error?.message}", error)
-                            
+
                             Toast.makeText(this@LearnerDashboardActivity, 
                                 "Failed to load conversations", Toast.LENGTH_SHORT).show()
                         }

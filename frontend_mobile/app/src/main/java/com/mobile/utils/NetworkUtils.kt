@@ -32,7 +32,9 @@ object NetworkUtils {
     // Server configuration
     // Use your computer's IP address for physical device (e.g., "192.168.1.100")
     // DONT EVER REPLACE THE SERVER IP AND THIS IS THE PRIMARY IP
-    private const val DEFAULT_SERVER_IP = "192.168.254.105" // Default IP for physical devices
+
+    private const val DEFAULT_SERVER_IP = "192.168.1.4" // Default IP for physical devices
+
     private const val SERVER_PORT = "8080"
     private const val API_PATH = "api"
 
@@ -88,6 +90,8 @@ object NetworkUtils {
         val success: Boolean = true,
         val isAuthenticated: Boolean,
         val userId: Long? = null,
+        val studentId: Long? = null,
+        val tutorId: Long? = null,
         val username: String = "",
         val email: String = "",
         val firstName: String = "",
@@ -185,7 +189,8 @@ object NetworkUtils {
         val subject: String,
         val sessionType: String,
         val notes: String?,
-        val tutorName: String = "" // Added tutorName field with empty default
+        val tutorName: String = "", // Added tutorName field with empty default
+        val conversationId: Long? = null // Add conversationId field with null default
     )
 
     /**
@@ -193,10 +198,10 @@ object NetworkUtils {
      */
     data class Conversation(
         val id: Long,
-        val user1Id: Long,
-        val user2Id: Long,
-        val user1Name: String = "",
-        val user2Name: String = "",
+        val studentId: Long,
+        val tutorId: Long,
+        val studentName: String = "",
+        val tutorName: String = "",
         val lastMessage: String? = null,
         val lastMessageTime: String? = null,
         val unreadCount: Int = 0,
@@ -218,10 +223,10 @@ object NetworkUtils {
 
         override fun writeToParcel(parcel: android.os.Parcel, flags: Int) {
             parcel.writeLong(id)
-            parcel.writeLong(user1Id)
-            parcel.writeLong(user2Id)
-            parcel.writeString(user1Name)
-            parcel.writeString(user2Name)
+            parcel.writeLong(studentId)
+            parcel.writeLong(tutorId)
+            parcel.writeString(studentName)
+            parcel.writeString(tutorName)
             parcel.writeString(lastMessage)
             parcel.writeString(lastMessageTime)
             parcel.writeInt(unreadCount)
@@ -242,6 +247,19 @@ object NetworkUtils {
                 return arrayOfNulls(size)
             }
         }
+
+        // For backward compatibility with existing code
+        @Deprecated("Use studentId instead", ReplaceWith("studentId"))
+        val user1Id: Long get() = studentId
+
+        @Deprecated("Use tutorId instead", ReplaceWith("tutorId"))
+        val user2Id: Long get() = tutorId
+
+        @Deprecated("Use studentName instead", ReplaceWith("studentName"))
+        val user1Name: String get() = studentName
+
+        @Deprecated("Use tutorName instead", ReplaceWith("tutorName"))
+        val user2Name: String get() = tutorName
     }
 
     /**
@@ -275,6 +293,8 @@ object NetworkUtils {
                         return@handleResponse AuthResponse(
                             isAuthenticated = false,
                             userId = null,
+                            studentId = null,
+                            tutorId = null,
                             username = "",
                             email = "",
                             firstName = "",
@@ -292,9 +312,15 @@ object NetworkUtils {
                         else -> backendRole
                     }
 
+                    // Get studentId or tutorId based on role
+                    val studentId = if (frontendRole == "LEARNER") json.optLong("studentId", 0).takeIf { it > 0 } else null
+                    val tutorId = if (frontendRole == "TUTOR") json.optLong("tutorId", 0).takeIf { it > 0 } else null
+
                     AuthResponse(
                         isAuthenticated = true,
                         userId = json.optLong("userId"),
+                        studentId = studentId,
+                        tutorId = tutorId,
                         username = json.optString("username", ""),
                         email = json.optString("email", ""),
                         firstName = json.optString("firstName", ""),
@@ -850,7 +876,7 @@ object NetworkUtils {
     }
 
     private fun createMockConversations(userId: Long): List<Conversation> {
-        // Create mock conversations with the current user as user1 and different users as user2
+        // Create mock conversations with the current user as student and different users as tutors
         val otherUser1 = 2L
         val otherUser2 = 3L
 
@@ -858,10 +884,10 @@ object NetworkUtils {
         return listOf(
             Conversation(
                 id = -1L,
-                user1Id = userId,
-                user2Id = otherUser1,
-                user1Name = "Current User",
-                user2Name = "John Doe",
+                studentId = userId,
+                tutorId = otherUser1,
+                studentName = "Current User",
+                tutorName = "John Doe",
                 lastMessage = "Hello, how are you?",
                 lastMessageTime = "2024-03-20T14:30:00",
                 unreadCount = 1,
@@ -869,10 +895,10 @@ object NetworkUtils {
             ),
             Conversation(
                 id = -2L,
-                user1Id = userId,
-                user2Id = otherUser2,
-                user1Name = "Current User",
-                user2Name = "Jane Smith",
+                studentId = userId,
+                tutorId = otherUser2,
+                studentName = "Current User",
+                tutorName = "Jane Smith",
                 lastMessage = "When is our next session?",
                 lastMessageTime = "2024-03-19T09:15:00",
                 unreadCount = 0,
@@ -963,13 +989,37 @@ object NetworkUtils {
                     continue
                 }
 
+                // Extract IDs - map from backend's user1/user2 to student/tutor if needed
+                val studentId = json.optLong("studentId", -1L)
+                val tutorId = json.optLong("tutorId", -1L)
+
+                // Handle the case where backend uses user1/user2 instead of student/tutor
+                val finalStudentId = if (studentId != -1L) studentId else json.optLong("user1Id")
+                val finalTutorId = if (tutorId != -1L) tutorId else json.optLong("user2Id")
+
+                // Extract names - prioritize specific names, fallback to user1/user2 names
+                var studentName = json.optString("studentName", "")
+                var tutorName = json.optString("tutorName", "")
+
+                // If student/tutor names are empty, try user1/user2 names
+                if (studentName.isEmpty()) {
+                    studentName = json.optString("user1Name", "Unknown Student")
+                }
+
+                if (tutorName.isEmpty()) {
+                    tutorName = json.optString("user2Name", "Unknown Tutor")
+                }
+
+                Log.d(TAG, "Parsed conversation: id=$conversationId, studentId=$finalStudentId, tutorId=$finalTutorId")
+                Log.d(TAG, "Names: studentName=$studentName, tutorName=$tutorName")
+
                 conversations.add(
                     Conversation(
                         id = conversationId,
-                        user1Id = json.optLong("user1Id"),
-                        user2Id = json.optLong("user2Id"),
-                        user1Name = json.optString("user1Name", ""),
-                        user2Name = json.optString("user2Name", ""),
+                        studentId = finalStudentId,
+                        tutorId = finalTutorId,
+                        studentName = studentName,
+                        tutorName = tutorName,
                         lastMessage = json.optString("lastMessage", ""),
                         lastMessageTime = json.optString("lastMessageTime", ""),
                         unreadCount = json.optInt("unreadCount", 0),
@@ -1025,64 +1075,62 @@ object NetworkUtils {
                     return@withContext Result.failure(IllegalArgumentException("At least 2 participants are required"))
                 }
 
-                val user1Id = participantIds[0]
-                val user2Id = participantIds[1]
-                
+                val studentId = participantIds[0]
+                val tutorId = participantIds[1]
+
                 // Ensure participants are different users
-                if (user1Id == user2Id) {
-                    Log.e(TAG, "Failed to create conversation: Cannot create conversation with same user (ID: $user1Id)")
+                if (studentId == tutorId) {
+                    Log.e(TAG, "Failed to create conversation: Cannot create conversation with same user (ID: $studentId)")
                     return@withContext Result.failure(IllegalArgumentException("Cannot create conversation with the same user"))
                 }
-                
+
                 // Log the participant IDs
-                Log.d(TAG, "Creating conversation with user1Id=$user1Id, user2Id=$user2Id")
+                Log.d(TAG, "Creating conversation with studentId=$studentId, tutorId=$tutorId")
 
                 // Use the correct endpoint path as defined in the backend ConversationController
                 val url = URL(createApiUrl("conversations/createConversation"))
                 Log.d(TAG, "Making API request to URL: $url")
                 val connection = createPostConnection(url)
 
-                // Create request body with user1Id and user2Id
+                // Create request body with studentId and tutorId
                 val jsonObject = JSONObject().apply {
-                    put("user1Id", user1Id)
-                    put("user2Id", user2Id)
+                    put("studentId", studentId)
+                    put("tutorId", tutorId)
                 }
-                
+
                 val requestBody = jsonObject.toString()
                 Log.d(TAG, "Request payload: $requestBody")
 
                 return@withContext handleResponse(connection, requestBody) { response ->
                     Log.d(TAG, "Received conversation creation response: $response")
                     val json = parseJsonResponse(response)
-                    
+
                     // Log the parsed JSON for debugging
                     Log.d(TAG, "Parsed JSON response: ${json.toString(2)}")
-                    
+
                     val conversationId = json.optLong("conversationId", -1L)
-                    val responseUser1Id = json.optLong("user1Id")
-                    val responseUser2Id = json.optLong("user2Id")
-                    
-                    Log.d(TAG, "Created conversation: id=$conversationId, user1Id=$responseUser1Id, user2Id=$responseUser2Id")
-                    
+                    val responseStudentId = json.optLong("studentId")
+                    val responseTutorId = json.optLong("tutorId")
+
+                    Log.d(TAG, "Created conversation: id=$conversationId, studentId=$responseStudentId, tutorId=$responseTutorId")
+
                     // Verify that both users are in the response - backend might swap the order
-                    val responseSameUsers = ((responseUser1Id == user1Id && responseUser2Id == user2Id) || 
-                                            (responseUser1Id == user2Id && responseUser2Id == user1Id))
-                    
+                    val responseSameUsers = ((responseStudentId == studentId && responseTutorId == tutorId) || 
+                                            (responseStudentId == tutorId && responseTutorId == studentId))
+
                     if (!responseSameUsers) {
                         Log.e(TAG, "Error: Conversation response user IDs don't match request IDs. " +
-                                 "Request: [$user1Id, $user2Id], Response: [$responseUser1Id, $responseUser2Id]")
+                                 "Request: [$studentId, $tutorId], Response: [$responseStudentId, $responseTutorId]")
                     }
-                    
+
                     // Verify we don't have same user ID for both participants - that would be an error
-                    if (responseUser1Id == responseUser2Id) {
-                        Log.e(TAG, "Backend error: Same user ID for both participants: $responseUser1Id")
+                    if (responseStudentId == responseTutorId) {
+                        Log.e(TAG, "Backend error: Same user ID for both participants: $responseStudentId")
                         // Override the response with correct IDs if backend sends incorrect data
                         return@handleResponse Conversation(
                             id = conversationId,
-                            user1Id = user1Id,
-                            user2Id = user2Id,
-                            user1Name = json.optString("user1Name", ""),
-                            user2Name = json.optString("user2Name", ""),
+                            studentId = studentId,
+                            tutorId = tutorId,
                             createdAt = json.optString("createdAt", ""),
                             updatedAt = json.optString("updatedAt", "")
                         )
@@ -1090,10 +1138,10 @@ object NetworkUtils {
 
                     Conversation(
                         id = conversationId,
-                        user1Id = responseUser1Id,
-                        user2Id = responseUser2Id,
-                        user1Name = json.optString("user1Name", ""),
-                        user2Name = json.optString("user2Name", ""),
+                        studentId = responseStudentId,
+                        tutorId = responseTutorId,
+                        studentName = json.optString("studentName", ""),
+                        tutorName = json.optString("tutorName", ""),
                         createdAt = json.optString("createdAt", ""),
                         updatedAt = json.optString("updatedAt", "")
                     )
@@ -1119,12 +1167,12 @@ object NetworkUtils {
                     Log.e(TAG, "Failed to create conversation: Invalid student user ID: $studentUserId")
                     return@withContext Result.failure(IllegalArgumentException("Invalid student user ID"))
                 }
-                
+
                 if (tutorId <= 0) {
                     Log.e(TAG, "Failed to create conversation: Invalid tutor ID: $tutorId")
                     return@withContext Result.failure(IllegalArgumentException("Invalid tutor ID"))
                 }
-                
+
                 // Log the IDs
                 Log.d(TAG, "Creating conversation with studentUserId=$studentUserId, tutorId=$tutorId")
 
@@ -1136,22 +1184,27 @@ object NetworkUtils {
                 return@withContext handleResponse(connection, "") { response ->
                     Log.d(TAG, "Received conversation creation response: $response")
                     val json = parseJsonResponse(response)
-                    
+
                     // Log the parsed JSON for debugging
                     Log.d(TAG, "Parsed JSON response: ${json.toString(2)}")
-                    
+
                     val conversationId = json.optLong("conversationId", -1L)
-                    val responseUser1Id = json.optLong("user1Id")
-                    val responseUser2Id = json.optLong("user2Id")
-                    
-                    Log.d(TAG, "Created conversation with tutor: id=$conversationId, user1Id=$responseUser1Id, user2Id=$responseUser2Id")
-                    
+                    val responseStudentId = json.optLong("user1Id") // user1Id is studentId
+                    val responseTutorId = json.optLong("user2Id")   // user2Id is tutorId
+
+                    // Extract names properly - user1Name is student, user2Name is tutor
+                    val studentName = json.optString("user1Name", "")
+                    val tutorName = json.optString("user2Name", "")
+
+                    Log.d(TAG, "Created conversation with tutor: id=$conversationId, studentId=$responseStudentId, tutorId=$responseTutorId")
+                    Log.d(TAG, "Names: studentName=$studentName, tutorName=$tutorName")
+
                     Conversation(
                         id = conversationId,
-                        user1Id = responseUser1Id,
-                        user2Id = responseUser2Id,
-                        user1Name = json.optString("user1Name", ""),
-                        user2Name = json.optString("user2Name", ""),
+                        studentId = responseStudentId,
+                        tutorId = responseTutorId,
+                        studentName = studentName,
+                        tutorName = tutorName,
                         createdAt = json.optString("createdAt", ""),
                         updatedAt = json.optString("updatedAt", "")
                     )
@@ -1216,22 +1269,40 @@ object NetworkUtils {
                         val timestamp = if (createdAt.isNotEmpty()) {
                             try {
                                 if (createdAt.contains("T")) {
-                                    createdAt
+                                    // Parse ISO format timestamp with UTC time zone
+                                    val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).apply {
+                                        timeZone = java.util.TimeZone.getTimeZone("UTC")
+                                    }
+                                    val dateObj = isoFormat.parse(createdAt.substring(0, 19))
+                                    if (dateObj != null) {
+                                        // Format with UTC time zone to ensure consistency
+                                        val outputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).apply {
+                                            timeZone = java.util.TimeZone.getTimeZone("UTC")
+                                        }
+                                        outputFormat.format(dateObj)
+                                    } else {
+                                        createdAt
+                                    }
                                 } else {
                                     val dateFormat = SimpleDateFormat("EEE MMM dd HH:mm:ss zzz yyyy", Locale.US)
                                     val dateObj = dateFormat.parse(createdAt)
                                     if (dateObj != null) {
-                                        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(dateObj)
+                                        val outputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+                                        outputFormat.timeZone = java.util.TimeZone.getTimeZone("UTC")
+                                        outputFormat.format(dateObj)
                                     } else {
                                         // Fallback if parsing fails
                                         createdAt
                                     }
                                 }
                             } catch (e: Exception) {
+                                Log.e(TAG, "Error parsing timestamp: $createdAt", e)
                                 createdAt
                             }
                         } else {
-                            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(Date())
+                            val outputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+                            outputFormat.timeZone = java.util.TimeZone.getTimeZone("UTC")
+                            outputFormat.format(Date())
                         }
 
                         messages.add(
@@ -1284,22 +1355,40 @@ object NetworkUtils {
                     val timestamp = if (createdAt.isNotEmpty()) {
                         try {
                             if (createdAt.contains("T")) {
-                                createdAt
+                                // Parse ISO format timestamp with UTC time zone
+                                val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).apply {
+                                    timeZone = java.util.TimeZone.getTimeZone("UTC")
+                                }
+                                val dateObj = isoFormat.parse(createdAt.substring(0, 19))
+                                if (dateObj != null) {
+                                    // Format with UTC time zone to ensure consistency
+                                    val outputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).apply {
+                                        timeZone = java.util.TimeZone.getTimeZone("UTC")
+                                    }
+                                    outputFormat.format(dateObj)
+                                } else {
+                                    createdAt
+                                }
                             } else {
                                 val dateFormat = SimpleDateFormat("EEE MMM dd HH:mm:ss zzz yyyy", Locale.US)
                                 val dateObj = dateFormat.parse(createdAt)
                                 if (dateObj != null) {
-                                    SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(dateObj)
+                                    val outputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+                                    outputFormat.timeZone = java.util.TimeZone.getTimeZone("UTC")
+                                    outputFormat.format(dateObj)
                                 } else {
                                     // Fallback if parsing fails
                                     createdAt
                                 }
                             }
                         } catch (e: Exception) {
+                            Log.e(TAG, "Error parsing timestamp: $createdAt", e)
                             createdAt
                         }
                     } else {
-                        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(Date())
+                        val outputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+                        outputFormat.timeZone = java.util.TimeZone.getTimeZone("UTC")
+                        outputFormat.format(Date())
                     }
 
                     // The receiverId is sent to the backend but not stored in the Message object
@@ -1338,22 +1427,40 @@ object NetworkUtils {
                     val timestamp = if (createdAt.isNotEmpty()) {
                         try {
                             if (createdAt.contains("T")) {
-                                createdAt
+                                // Parse ISO format timestamp with UTC time zone
+                                val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).apply {
+                                    timeZone = java.util.TimeZone.getTimeZone("UTC")
+                                }
+                                val dateObj = isoFormat.parse(createdAt.substring(0, 19))
+                                if (dateObj != null) {
+                                    // Format with UTC time zone to ensure consistency
+                                    val outputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).apply {
+                                        timeZone = java.util.TimeZone.getTimeZone("UTC")
+                                    }
+                                    outputFormat.format(dateObj)
+                                } else {
+                                    createdAt
+                                }
                             } else {
                                 val dateFormat = SimpleDateFormat("EEE MMM dd HH:mm:ss zzz yyyy", Locale.US)
                                 val dateObj = dateFormat.parse(createdAt)
                                 if (dateObj != null) {
-                                    SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(dateObj)
+                                    val outputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+                                    outputFormat.timeZone = java.util.TimeZone.getTimeZone("UTC")
+                                    outputFormat.format(dateObj)
                                 } else {
                                     // Fallback if parsing fails
                                     createdAt
                                 }
                             }
                         } catch (e: Exception) {
+                            Log.e(TAG, "Error parsing timestamp: $createdAt", e)
                             createdAt
                         }
                     } else {
-                        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(Date())
+                        val outputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+                        outputFormat.timeZone = java.util.TimeZone.getTimeZone("UTC")
+                        outputFormat.format(Date())
                     }
 
                     Message(
@@ -2369,11 +2476,11 @@ object NetworkUtils {
         try {
             // Log connection details
             Log.d(TAG, "Making ${connection.requestMethod} request to ${connection.url}")
-            
+
             // Log headers for debugging
             val requestProperties = connection.requestProperties
             Log.d(TAG, "Request headers: $requestProperties")
-            
+
             // Write request body if provided
             if (requestBody != null) {
                 Log.d(TAG, "Sending request body: $requestBody")
@@ -2464,12 +2571,12 @@ object NetworkUtils {
         return try {
             val jsonObject = JSONObject(response)
             Log.d(TAG, "Successfully parsed JSON response: ${jsonObject.toString(2)}")
-            
+
             // Log all keys found in the JSON for debugging
             val keys = mutableListOf<String>()
             jsonObject.keys().forEach { keys.add(it) }
             Log.d(TAG, "JSON keys found: $keys")
-            
+
             jsonObject
         } catch (e: Exception) {
             Log.e(TAG, "Error parsing JSON response: ${e.message}", e)
@@ -2541,7 +2648,8 @@ object NetworkUtils {
                                     subject = sessionJson.optString("subject"),
                                     sessionType = sessionJson.optString("sessionType"),
                                     notes = sessionJson.optString("notes", ""),
-                                    tutorName = sessionJson.optString("tutorName", "")
+                                    tutorName = sessionJson.optString("tutorName", ""),
+                                    conversationId = sessionJson.optLong("conversationId")
                                 )
                             )
                         }
@@ -2854,7 +2962,8 @@ object NetworkUtils {
                         subject = json.optString("subject"),
                         sessionType = json.optString("sessionType"),
                         notes = json.optString("notes", ""),
-                        tutorName = json.optString("tutorName", "")
+                        tutorName = json.optString("tutorName", ""),
+                        conversationId = json.optLong("conversationId")
                     )
                 }
             } catch (e: Exception) {
@@ -3110,7 +3219,8 @@ object NetworkUtils {
                                     subject = sessionJson.optString("subject"),
                                     sessionType = sessionJson.optString("sessionType"),
                                     notes = sessionJson.optString("notes", ""),
-                                    tutorName = tutorName
+                                    tutorName = tutorName,
+                                    conversationId = sessionJson.optLong("conversationId")
                                 )
                             )
                         }
@@ -3164,6 +3274,284 @@ object NetworkUtils {
                 } catch (e: Exception) {
                     handleNetworkError(e, "finding user by ID")
                 }
+            }
+        }
+    }
+
+    /**
+     * Get conversations for a tutor 
+     * @param tutorId ID of the tutor
+     * @return Result<List<Conversation>> containing the tutor's conversations
+     */
+    suspend fun getConversationsByTutorId(tutorId: Long): Result<List<Conversation>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val url = URL(createApiUrl("conversations/findByTutor/$tutorId"))
+                Log.d(TAG, "Creating GET connection to URL: $url")
+                val connection = createGetConnection(url)
+
+                return@withContext handleResponse(connection) { response ->
+                    val jsonArray = parseJsonArrayResponse(response)
+                    val conversations = mutableListOf<Conversation>()
+
+                    for (i in 0 until jsonArray.length()) {
+                        val json = jsonArray.getJSONObject(i)
+
+                        // Extract IDs - map from backend's user1/user2 to student/tutor if needed
+                        val studentId = json.optLong("studentId", -1L)
+                        val tutorId = json.optLong("tutorId", -1L)
+
+                        // Handle the case where backend uses user1/user2 instead of student/tutor
+                        val finalStudentId = if (studentId != -1L) studentId else json.optLong("user1Id")
+                        val finalTutorId = if (tutorId != -1L) tutorId else json.optLong("user2Id")
+
+                        // Extract names - prioritize specific names, fallback to user1/user2 names
+                        var studentName = json.optString("studentName", "")
+                        var tutorName = json.optString("tutorName", "")
+
+                        // If student/tutor names are empty, try user1/user2 names
+                        if (studentName.isEmpty()) {
+                            studentName = json.optString("user1Name", "Unknown Student")
+                        }
+
+                        if (tutorName.isEmpty()) {
+                            tutorName = json.optString("user2Name", "Unknown Tutor")
+                        }
+
+                        Log.d(TAG, "Tutor conversation: id=${json.optLong("id")}, studentId=$finalStudentId, tutorId=$finalTutorId")
+                        Log.d(TAG, "Names: studentName=$studentName, tutorName=$tutorName")
+
+                        conversations.add(
+                            Conversation(
+                                id = json.optLong("id"),
+                                studentId = finalStudentId,
+                                tutorId = finalTutorId,
+                                studentName = studentName,
+                                tutorName = tutorName,
+                                lastMessage = json.optString("lastMessage"),
+                                lastMessageTime = json.optString("lastMessageTime"),
+                                unreadCount = json.optInt("unreadCount", 0),
+                                createdAt = json.optString("createdAt", ""),
+                                updatedAt = json.optString("updatedAt", "")
+                            )
+                        )
+                    }
+                    conversations
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error getting conversations by tutor ID: ${e.message}", e)
+                handleNetworkError(e, "getting conversations by tutor ID")
+            }
+        }
+    }
+
+    /**
+     * Get conversations for a student
+     * @param studentId ID of the student
+     * @return Result<List<Conversation>> containing the student's conversations
+     */
+    suspend fun getConversationsByStudentId(studentId: Long): Result<List<Conversation>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val url = URL(createApiUrl("conversations/findByStudent/$studentId"))
+                Log.d(TAG, "Creating GET connection to URL: $url")
+                val connection = createGetConnection(url)
+
+                return@withContext handleResponse(connection) { response ->
+                    val jsonArray = parseJsonArrayResponse(response)
+                    val conversations = mutableListOf<Conversation>()
+
+                    for (i in 0 until jsonArray.length()) {
+                        val json = jsonArray.getJSONObject(i)
+
+                        // Extract IDs - map from backend's user1/user2 to student/tutor if needed
+                        val studentId = json.optLong("studentId", -1L)
+                        val tutorId = json.optLong("tutorId", -1L)
+
+                        // Handle the case where backend uses user1/user2 instead of student/tutor
+                        val finalStudentId = if (studentId != -1L) studentId else json.optLong("user1Id")
+                        val finalTutorId = if (tutorId != -1L) tutorId else json.optLong("user2Id")
+
+                        // Extract names - prioritize specific names, fallback to user1/user2 names
+                        var studentName = json.optString("studentName", "")
+                        var tutorName = json.optString("tutorName", "")
+
+                        // If student/tutor names are empty, try user1/user2 names
+                        if (studentName.isEmpty()) {
+                            studentName = json.optString("user1Name", "Unknown Student")
+                        }
+
+                        if (tutorName.isEmpty()) {
+                            tutorName = json.optString("user2Name", "Unknown Tutor")
+                        }
+
+                        Log.d(TAG, "Student conversation: id=${json.optLong("id")}, studentId=$finalStudentId, tutorId=$finalTutorId")
+                        Log.d(TAG, "Names: studentName=$studentName, tutorName=$tutorName")
+
+                        conversations.add(
+                            Conversation(
+                                id = json.optLong("id"),
+                                studentId = finalStudentId,
+                                tutorId = finalTutorId,
+                                studentName = studentName,
+                                tutorName = tutorName,
+                                lastMessage = json.optString("lastMessage"),
+                                lastMessageTime = json.optString("lastMessageTime"),
+                                unreadCount = json.optInt("unreadCount", 0),
+                                createdAt = json.optString("createdAt", ""),
+                                updatedAt = json.optString("updatedAt", "")
+                            )
+                        )
+                    }
+                    conversations
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error getting conversations by student ID: ${e.message}", e)
+                handleNetworkError(e, "getting conversations by student ID")
+            }
+        }
+    }
+
+    /**
+     * Update names for an existing conversation
+     * @param conversationId ID of the conversation to update
+     * @return Result<Conversation> containing the updated conversation with correct names
+     */
+    suspend fun updateConversationNames(conversationId: Long): Result<Conversation> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val url = URL(createApiUrl("conversations/updateNames/$conversationId"))
+                Log.d(TAG, "Creating PUT connection to URL: $url")
+                val connection = createPutConnection(url)
+
+                return@withContext handleResponse(connection, "") { response ->
+                    Log.d(TAG, "Received update conversation names response: $response")
+                    val json = parseJsonResponse(response)
+
+                    // Extract IDs - map from backend's user1/user2 to student/tutor if needed
+                    val studentId = json.optLong("studentId", -1L)
+                    val tutorId = json.optLong("tutorId", -1L)
+
+                    // Handle the case where backend uses user1/user2 instead of student/tutor
+                    val finalStudentId = if (studentId != -1L) studentId else json.optLong("user1Id")
+                    val finalTutorId = if (tutorId != -1L) tutorId else json.optLong("user2Id")
+
+                    // Extract names - prioritize specific names, fallback to user1/user2 names
+                    var studentName = json.optString("studentName", "")
+                    var tutorName = json.optString("tutorName", "")
+
+                    // If student/tutor names are empty, try user1/user2 names
+                    if (studentName.isEmpty()) {
+                        studentName = json.optString("user1Name", "Unknown Student")
+                    }
+
+                    if (tutorName.isEmpty()) {
+                        tutorName = json.optString("user2Name", "Unknown Tutor")
+                    }
+
+                    Log.d(TAG, "Updated conversation names: studentName=$studentName, tutorName=$tutorName")
+
+                    Conversation(
+                        id = conversationId,
+                        studentId = finalStudentId,
+                        tutorId = finalTutorId,
+                        studentName = studentName,
+                        tutorName = tutorName,
+                        createdAt = json.optString("createdAt", ""),
+                        updatedAt = json.optString("updatedAt", "")
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to update conversation names", e)
+                handleNetworkError(e, "updating conversation names")
+            }
+        }
+    }
+
+    /**
+     * Get a conversation by its ID
+     * @param conversationId ID of the conversation
+     * @return Result<Conversation> containing the conversation
+     */
+    suspend fun getConversation(conversationId: Long): Result<Conversation> {
+        return withContext(Dispatchers.IO) {
+            try {
+                Log.d(TAG, "Getting conversation with ID: $conversationId")
+
+                // The correct endpoint should be specifed - try these in sequence
+                // The error suggests there's confusion with static resources
+                val endpointOptions = listOf(
+                    "conversations/getConversation/$conversationId",
+                    "conversations/findById/$conversationId",
+                    "conversations/get/$conversationId",
+                    "conversations/conversation/$conversationId"
+                )
+
+                var lastException: Exception? = null
+
+                // Try each endpoint option
+                for (endpoint in endpointOptions) {
+                    try {
+                        val url = URL("$BASE_URL/$endpoint")
+                        Log.d(TAG, "Trying URL: $url")
+
+                        val connection = createGetConnection(url)
+                        connection.connectTimeout = 10000 // 10 seconds
+                        connection.readTimeout = 10000 // 10 seconds
+                        connection.setRequestProperty("User-Agent", "Judify-Android-App")
+
+                        // Connect and get response code
+                        connection.connect()
+                        val responseCode = connection.responseCode
+                        Log.d(TAG, "Response code for $endpoint: $responseCode")
+
+                        if (responseCode in 200..299) {
+                            val responseBody = connection.inputStream.bufferedReader().use { it.readText() }
+                            Log.d(TAG, "Response body: $responseBody")
+
+                            val json = parseJsonResponse(responseBody)
+
+                            // Extract student and tutor IDs
+                            val studentId = json.optLong("studentId", json.optLong("user1Id", 0))
+                            val tutorId = json.optLong("tutorId", json.optLong("user2Id", 0))
+
+                            // Extract names
+                            val studentName = json.optString("studentName", json.optString("user1Name", ""))
+                            val tutorName = json.optString("tutorName", json.optString("user2Name", ""))
+
+                            Log.d(TAG, "Parsed conversation: studentId=$studentId, tutorId=$tutorId, studentName=$studentName, tutorName=$tutorName")
+
+                            return@withContext Result.success(
+                                Conversation(
+                                    id = json.optLong("id"),
+                                    studentId = studentId,
+                                    tutorId = tutorId,
+                                    studentName = studentName,
+                                    tutorName = tutorName,
+                                    lastMessage = json.optString("lastMessage"),
+                                    lastMessageTime = json.optString("lastMessageTime"),
+                                    unreadCount = json.optInt("unreadCount", 0),
+                                    createdAt = json.optString("createdAt", ""),
+                                    updatedAt = json.optString("updatedAt", "")
+                                )
+                            )
+                        } else {
+                            // Log error but continue trying other endpoints
+                            val errorResponse = connection.errorStream?.bufferedReader()?.use { it.readText() } ?: "No error details available"
+                            Log.e(TAG, "Error response for $endpoint: $errorResponse")
+                            lastException = Exception("HTTP error: $responseCode - $errorResponse")
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error with $endpoint request: ${e.message}", e)
+                        lastException = e
+                    }
+                }
+
+                // If we get here, all endpoints failed
+                return@withContext Result.failure(lastException ?: Exception("All conversation endpoints failed"))
+            } catch (e: Exception) {
+                Log.e(TAG, "Error getting conversation by ID: ${e.message}", e)
+                Result.failure(e)
             }
         }
     }

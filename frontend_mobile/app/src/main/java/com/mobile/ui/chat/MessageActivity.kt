@@ -3,270 +3,396 @@ package com.mobile.ui.chat
 import android.os.Bundle
 import android.util.Log
 import android.view.View
-import android.widget.EditText
-import android.widget.ImageButton
-import android.widget.LinearLayout
-import android.widget.ProgressBar
-import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.Toolbar
-import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.mobile.R
+import com.mobile.databinding.ActivityMessageBinding
+import com.mobile.model.Conversation
+import com.mobile.model.Message
+import com.mobile.repository.MessageRepository
 import com.mobile.ui.chat.adapters.MessageAdapter
 import com.mobile.utils.NetworkUtils
 import com.mobile.utils.PreferenceUtils
-import de.hdodenhof.circleimageview.CircleImageView
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
+import java.util.concurrent.TimeUnit
 
 /**
  * Activity for displaying and sending messages in a conversation
  */
 class MessageActivity : AppCompatActivity() {
-    private val TAG = "MessageActivity"
+    private lateinit var binding: ActivityMessageBinding
+    private lateinit var adapter: MessageAdapter
+    private lateinit var messageRepository: MessageRepository
 
-    // UI components
-    private lateinit var toolbar: Toolbar
-    private lateinit var profileImage: CircleImageView
-    private lateinit var contactNameText: TextView
-    private lateinit var messagesRecyclerView: RecyclerView
-    private lateinit var messageEditText: EditText
-    private lateinit var sendButton: ImageButton
-    private lateinit var emptyStateLayout: LinearLayout
-    private lateinit var progressBar: ProgressBar
-
-    private lateinit var messageAdapter: MessageAdapter
     private var conversationId: Long = -1
     private var otherUserId: Long = -1
-    private var currentUserId: Long = -1
     private var otherUserName: String = ""
-    private var messagesRefreshJob: Job? = null
+    private var currentUserId: Long = -1
+    private var userRole: String = ""
+
+    // Polling variables
+    private var pollingJob: Job? = null
+    private val pollingInterval = 5000L // 5 seconds
+    private var lastMessageId: Long = -1
+    private var messageList: List<Message> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_message)
+        binding = ActivityMessageBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
         // Get conversation details from intent
-        conversationId = intent.getLongExtra("CONVERSATION_ID", -1)
-        
-        // Get current user details
-        currentUserId = PreferenceUtils.getUserId(this) ?: -1
+        conversationId = intent.getLongExtra("CONVERSATION_ID", -1L)
+        if (conversationId == -1L) {
+            // Try alternative key for backward compatibility
+            conversationId = intent.getLongExtra("conversationId", -1L)
+        }
 
-        if (conversationId == -1L || currentUserId == -1L) {
-            Log.e(TAG, "Invalid conversation ID or user ID")
+        otherUserId = intent.getLongExtra("OTHER_USER_ID", -1L)
+        if (otherUserId == -1L) {
+            // Try alternative key for backward compatibility
+            otherUserId = intent.getLongExtra("otherUserId", -1L)
+        }
+
+        otherUserName = intent.getStringExtra("OTHER_USER_NAME") ?: 
+                         intent.getStringExtra("otherUserName") ?: "User"
+
+        // Log the values for debugging
+        Log.d("MessageActivity", "conversationId: $conversationId, otherUserId: $otherUserId, otherUserName: $otherUserName")
+
+        // Get current user ID
+        currentUserId = PreferenceUtils.getUserId(this) ?: -1L
+        userRole = PreferenceUtils.getUserRole(this)
+
+        if (conversationId == -1L) {
+            // No valid conversation ID
+            Toast.makeText(this, "Error: Invalid conversation ID", Toast.LENGTH_SHORT).show()
             finish()
             return
         }
-        
-        // Extract conversation details - we need to determine other user ID and name
-        val conversation = intent.getParcelableExtra<NetworkUtils.Conversation>("CONVERSATION")
-        if (conversation != null) {
-            determineOtherUserDetails(conversation)
-        } else {
-            // We need to use the passed other user ID and name as fallback
-            otherUserId = intent.getLongExtra("OTHER_USER_ID", -1)
-            otherUserName = intent.getStringExtra("OTHER_USER_NAME") ?: "User"
-            
-            if (otherUserId == -1L) {
-                Log.e(TAG, "Invalid other user ID")
-                finish()
-                return
+
+        // Initialize repository and adapter
+        messageRepository = MessageRepository()
+        adapter = MessageAdapter(currentUserId)
+
+        // Set up RecyclerView
+        setupRecyclerView()
+
+        // Set up UI with initial conversation name
+        binding.toolbar.title = otherUserName
+        binding.contactNameText.text = otherUserName
+        setSupportActionBar(binding.toolbar)
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+
+        // Fetch conversation details to get the correct IDs and names
+        fetchConversationDetails()
+
+        // Load messages
+        refreshMessages()
+
+        // Set up send button
+        binding.sendButton.setOnClickListener {
+            val content = binding.messageEditText.text.toString().trim()
+            if (content.isNotEmpty()) {
+                sendMessage(content)
+                binding.messageEditText.text.clear()
             }
         }
-
-        initializeViews()
-        setupToolbar()
-        setupRecyclerView()
-        setupClickListeners()
-        loadMessages()
-        startMessageRefreshJob()
     }
-    
-    /**
-     * Determine the other user's details from the conversation
-     */
-    private fun determineOtherUserDetails(conversation: NetworkUtils.Conversation) {
-        otherUserId = if (conversation.user1Id == currentUserId) {
-            // If current user is user1, then other user is user2
-            conversation.user2Id
-        } else {
-            // Otherwise, other user is user1
-            conversation.user1Id
+
+    private fun fetchConversationDetails() {
+        // Show loading indicator
+        binding.progressBar.visibility = View.VISIBLE
+
+        CoroutineScope(Dispatchers.IO).launch {
+            Log.d("MessageActivity", "Fetching conversation details for ID: $conversationId")
+            val response = messageRepository.getConversation(conversationId)
+
+            withContext(Dispatchers.Main) {
+                binding.progressBar.visibility = View.GONE
+
+                response.onSuccess { conversation ->
+                    Log.d("MessageActivity", "Successfully fetched conversation: ${conversation.id}")
+                    updateConversationNames(conversation)
+
+                    // Determine the other user ID based on roles if not already set
+                    if (otherUserId == -1L) {
+                        otherUserId = if (currentUserId == conversation.studentId) {
+                            conversation.tutorId
+                        } else {
+                            conversation.studentId
+                        }
+                        Log.d("MessageActivity", "Updated otherUserId to: $otherUserId")
+                    }
+                }.onFailure { error ->
+                    Log.e("MessageActivity", "Failed to load conversation details: ${error.message}", error)
+
+                    // Show a shorter version of the error since the full stack trace is already logged
+                    val shortErrorMessage = error.message?.let {
+                        if (it.length > 100) it.substring(0, 100) + "..." else it
+                    } ?: "Unknown error"
+
+                    Toast.makeText(this@MessageActivity, 
+                                  "Failed to load conversation details: $shortErrorMessage",
+                                  Toast.LENGTH_SHORT).show()
+
+                    // Even if conversation details failed to load, we should still proceed
+                    // with loading messages if we have a valid conversation ID
+                    if (conversationId > 0) {
+                        Log.d("MessageActivity", "Proceeding to load messages despite conversation load failure")
+                        refreshMessages()
+                    }
+                }
+            }
         }
-        
-        otherUserName = if (conversation.user1Id == currentUserId) {
-            // If current user is user1, show user2's name
-            conversation.user2Name
-        } else {
-            // Otherwise, show user1's name
-            conversation.user1Name
-        }
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        messagesRefreshJob?.cancel()
-    }
+    private fun updateConversationNames(conversation: Conversation) {
+        try {
+            // First determine if the current user is the tutor or the student in this conversation
+            val isCurrentUserTutor = currentUserId == conversation.tutorId
+            val isCurrentUserStudent = currentUserId == conversation.studentId
 
-    private fun initializeViews() {
-        toolbar = findViewById(R.id.toolbar)
-        profileImage = findViewById(R.id.profileImage)
-        contactNameText = findViewById(R.id.contactNameText)
-        messagesRecyclerView = findViewById(R.id.messagesRecyclerView)
-        messageEditText = findViewById(R.id.messageEditText)
-        sendButton = findViewById(R.id.sendButton)
-        emptyStateLayout = findViewById(R.id.emptyStateLayout)
-        progressBar = findViewById(R.id.progressBar)
+            Log.d("MessageActivity", "Current user ID: $currentUserId, Role: $userRole")
+            Log.d("MessageActivity", "Conversation tutorId: ${conversation.tutorId}, studentId: ${conversation.studentId}")
+            Log.d("MessageActivity", "Is current user tutor: $isCurrentUserTutor, Is current user student: $isCurrentUserStudent")
 
-        // Set other user name
-        contactNameText.text = otherUserName
-    }
+            // Determine which name to show based on who the current user is in this conversation
+            val updatedName = if (isCurrentUserTutor) {
+                // If current user is the tutor in this conversation, show the student's name
+                conversation.studentName.takeIf { it.isNotEmpty() } ?: "Student"
+            } else if (isCurrentUserStudent) {
+                // If current user is the student in this conversation, show the tutor's name
+                conversation.tutorName.takeIf { it.isNotEmpty() } ?: "Tutor"
+            } else {
+                // Fallback if user is neither the tutor nor the student (shouldn't happen)
+                when (userRole) {
+                    "TUTOR" -> conversation.studentName.takeIf { it.isNotEmpty() } ?: "Student"
+                    "LEARNER" -> conversation.tutorName.takeIf { it.isNotEmpty() } ?: "Tutor"
+                    else -> "Unknown User"
+                }
+            }
 
-    private fun setupToolbar() {
-        setSupportActionBar(toolbar)
-        supportActionBar?.apply {
-            setDisplayHomeAsUpEnabled(true)
-            setDisplayShowTitleEnabled(false)
-        }
+            // Update the toolbar title with the correct name
+            binding.toolbar.title = updatedName
+            // Update the contact name text in the toolbar
+            binding.contactNameText.text = updatedName
+            otherUserName = updatedName
 
-        toolbar.setNavigationOnClickListener {
-            finish()
+            Log.d("MessageActivity", "Updated conversation name to: $updatedName")
+        } catch (e: Exception) {
+            Log.e("MessageActivity", "Error updating conversation names: ${e.message}", e)
         }
     }
 
     private fun setupRecyclerView() {
-        messageAdapter = MessageAdapter(currentUserId)
-
         val layoutManager = LinearLayoutManager(this).apply {
-            stackFromEnd = true // Show newest messages at the bottom
+            // We want newest messages at the bottom, oldest at top - the standard layout for messaging apps
+            stackFromEnd = true      // Start from the bottom of the view
+            reverseLayout = true     // Reverse chronological order (newest at bottom)
         }
 
-        messagesRecyclerView.apply {
-            this.layoutManager = layoutManager
-            adapter = messageAdapter
-            itemAnimator = null // Disable animations for better performance
-        }
-    }
+        // Apply the layout manager
+        binding.messagesRecyclerView.layoutManager = layoutManager
+        binding.messagesRecyclerView.adapter = adapter
 
-    private fun setupClickListeners() {
-        sendButton.setOnClickListener {
-            val message = messageEditText.text.toString().trim()
-            if (message.isNotEmpty()) {
-                sendMessage(message)
-                messageEditText.text.clear()
+        // Auto-scroll to bottom when new messages are added
+        adapter.registerAdapterDataObserver(object : RecyclerView.AdapterDataObserver() {
+            override fun onItemRangeInserted(positionStart: Int, itemCount: Int) {
+                binding.messagesRecyclerView.post {
+                    binding.messagesRecyclerView.scrollToPosition(adapter.itemCount - 1)
+                }
             }
-        }
+        })
+
+        // Add some padding at bottom to ensure messages don't get hidden behind the input box
+        binding.messagesRecyclerView.setPadding(
+            binding.messagesRecyclerView.paddingLeft,
+            binding.messagesRecyclerView.paddingTop,
+            binding.messagesRecyclerView.paddingRight,
+            resources.getDimensionPixelSize(R.dimen.message_list_bottom_padding) // Define this in dimens.xml
+        )
+        binding.messagesRecyclerView.clipToPadding = false
     }
 
-    private fun loadMessages() {
-        showLoading(true)
+    private fun refreshMessages() {
+        // Show loading indicator
+        binding.progressBar.visibility = View.VISIBLE
 
-        lifecycleScope.launch {
-            try {
-                val result = NetworkUtils.getMessages(conversationId)
+        CoroutineScope(Dispatchers.IO).launch {
+            Log.d("MessageActivity", "Refreshing messages for conversation: $conversationId")
+            val result = messageRepository.getMessages(conversationId)
+
+            withContext(Dispatchers.Main) {
+                binding.progressBar.visibility = View.GONE
 
                 result.onSuccess { messages ->
-                    showLoading(false)
+                    Log.d("MessageActivity", "Successfully loaded ${messages.size} messages")
 
-                    if (messages.isEmpty()) {
-                        showEmptyState(true)
-                    } else {
-                        showEmptyState(false)
-                        messageAdapter.submitList(messages)
-                        scrollToBottom()
+                    // Ensure messages are sorted by timestamp (newest first for reversed layout)
+                    val sortedMessages = messages.sortedByDescending { it.timestamp }
 
-                        // Mark messages as read
-                        markMessagesAsRead()
+                    // Update the message list
+                    messageList = sortedMessages
+
+                    // Update the last message ID if we have messages
+                    if (sortedMessages.isNotEmpty()) {
+                        lastMessageId = sortedMessages.first().id
                     }
+
+                    // Update the UI
+                    updateMessageList(sortedMessages)
                 }.onFailure { error ->
-                    Log.e(TAG, "Error loading messages: ${error.message}")
-                    showLoading(false)
+                    Log.e("MessageActivity", "Failed to load messages: ${error.message}", error)
+                    Toast.makeText(this@MessageActivity, "Failed to load messages: ${error.message}", Toast.LENGTH_SHORT).show()
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error loading messages: ${e.message}")
-                showLoading(false)
             }
         }
     }
 
     private fun sendMessage(content: String) {
-        lifecycleScope.launch {
-            try {
-                // Make sure we have the other user ID
-                if (otherUserId == -1L) {
-                    Log.e(TAG, "Error sending message: Other user ID not found")
-                    return@launch
+        // Check if we have valid otherUserId
+        if (otherUserId == -1L) {
+            Toast.makeText(this, "Error: Invalid recipient", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        CoroutineScope(Dispatchers.IO).launch {
+            val message = Message(
+                id = 0, // Will be assigned by the server
+                conversationId = conversationId,
+                senderId = currentUserId,
+                receiverId = otherUserId,
+                content = content,
+                timestamp = System.currentTimeMillis(),
+                readStatus = false
+            )
+
+            val result = messageRepository.sendMessage(message)
+
+            withContext(Dispatchers.Main) {
+                result.onSuccess { sentMessage ->
+                    Log.d("MessageActivity", "Message sent successfully: ${sentMessage.id}")
+
+                    // The polling mechanism will automatically fetch the new message
+                    // No need to call refreshMessages() here
+
+                    // Optionally, we can add the sent message to the UI immediately for better UX
+                    // This creates a more responsive feel while waiting for the polling to fetch it
+                    val updatedList = ArrayList(messageList)
+                    updatedList.add(0, sentMessage) // Add at the beginning (newest first)
+                    messageList = updatedList
+
+                    // Update the last message ID
+                    if (sentMessage.id > lastMessageId) {
+                        lastMessageId = sentMessage.id
+                    }
+
+                    // Update the UI
+                    updateMessageList(messageList)
+                }
+                result.onFailure { error ->
+                    Log.e("MessageActivity", "Failed to send message: ${error.message}", error)
+                    Toast.makeText(this@MessageActivity, "Failed to send message: ${error.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    override fun onSupportNavigateUp(): Boolean {
+        finish()
+        return true
+    }
+
+    /**
+     * Start polling for new messages
+     */
+    private fun startPolling() {
+        // Cancel any existing job
+        pollingJob?.cancel()
+
+        // Start a new polling job
+        pollingJob = CoroutineScope(Dispatchers.IO).launch {
+            while (isActive) {
+                try {
+                    Log.d("MessageActivity", "Polling for new messages")
+                    val result = messageRepository.getMessages(conversationId)
+
+                    result.onSuccess { messages ->
+                        // Sort messages by timestamp (newest first)
+                        val sortedMessages = messages.sortedByDescending { it.timestamp }
+
+                        // Check if we have new messages
+                        if (sortedMessages.isNotEmpty() && 
+                            (messageList.isEmpty() || sortedMessages.first().id > lastMessageId)) {
+
+                            // Update the last message ID
+                            lastMessageId = sortedMessages.first().id
+
+                            // Update the message list
+                            messageList = sortedMessages
+
+                            // Update the UI on the main thread
+                            withContext(Dispatchers.Main) {
+                                updateMessageList(sortedMessages)
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("MessageActivity", "Error polling for messages: ${e.message}", e)
                 }
 
-                val result = NetworkUtils.sendMessage(conversationId, currentUserId, otherUserId, content)
-
-                result.onSuccess { message ->
-                    // Instead of manually adding the message, refresh all messages from the server
-                    refreshMessages()
-                }.onFailure { error ->
-                    Log.e(TAG, "Error sending message: ${error.message}")
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error sending message: ${e.message}")
+                // Wait for the polling interval
+                delay(pollingInterval)
             }
         }
     }
 
-    private fun markMessagesAsRead() {
-        lifecycleScope.launch {
-            try {
-                NetworkUtils.markAllMessagesAsRead(conversationId, currentUserId)
-            } catch (e: Exception) {
-                Log.e(TAG, "Error marking messages as read: ${e.message}")
+    /**
+     * Stop polling for new messages
+     */
+    private fun stopPolling() {
+        pollingJob?.cancel()
+        pollingJob = null
+    }
+
+    /**
+     * Update the message list in the UI
+     */
+    private fun updateMessageList(messages: List<Message>) {
+        if (messages.isEmpty()) {
+            // Show empty state if needed
+            binding.emptyStateLayout?.visibility = View.VISIBLE
+            binding.messagesRecyclerView.visibility = View.GONE
+        } else {
+            // Hide empty state if present
+            binding.emptyStateLayout?.visibility = View.GONE
+            binding.messagesRecyclerView.visibility = View.VISIBLE
+
+            // Submit the list to the adapter
+            adapter.submitList(messages) {
+                // Execute after the list is updated
+                // Scroll to the most recent message
+                binding.messagesRecyclerView.postDelayed({
+                    if (messages.isNotEmpty()) {
+                        binding.messagesRecyclerView.scrollToPosition(0)
+                    }
+                }, 100)
             }
         }
     }
 
-    private fun startMessageRefreshJob() {
-        messagesRefreshJob?.cancel()
-        messagesRefreshJob = lifecycleScope.launch {
-            while (true) {
-                delay(5000) // Refresh every 5 seconds
-                refreshMessages()
-            }
-        }
+    override fun onResume() {
+        super.onResume()
+        // Start polling when the activity is resumed
+        startPolling()
     }
 
-    private fun refreshMessages() {
-        lifecycleScope.launch {
-            try {
-                val result = NetworkUtils.getMessages(conversationId)
-
-                result.onSuccess { messages ->
-                    // Always update the message list to ensure we have the latest messages
-                    messageAdapter.submitList(messages)
-                    scrollToBottom()
-                    markMessagesAsRead()
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error refreshing messages: ${e.message}")
-            }
-        }
+    override fun onPause() {
+        super.onPause()
+        // Stop polling when the activity is paused
+        stopPolling()
     }
-
-    private fun scrollToBottom() {
-        if (messageAdapter.itemCount > 0) {
-            messagesRecyclerView.post {
-                messagesRecyclerView.smoothScrollToPosition(messageAdapter.itemCount - 1)
-            }
-        }
-    }
-
-    private fun showLoading(isLoading: Boolean) {
-        progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
-        messagesRecyclerView.visibility = if (isLoading) View.GONE else View.VISIBLE
-    }
-
-    private fun showEmptyState(isEmpty: Boolean) {
-        emptyStateLayout.visibility = if (isEmpty) View.VISIBLE else View.GONE
-        messagesRecyclerView.visibility = if (isEmpty) View.GONE else View.VISIBLE
-    }
-} 
+}

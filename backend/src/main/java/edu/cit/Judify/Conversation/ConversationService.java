@@ -20,17 +20,17 @@ public class ConversationService {
     }
 
     /**
-     * Find or create a conversation between two users
-     * @param user1 The first user
-     * @param user2 The second user
+     * Find or create a conversation between a student and a tutor
+     * @param student The student user
+     * @param tutor The tutor user
      * @return The existing or newly created conversation
      */
     @Transactional
-    public ConversationEntity findOrCreateConversation(UserEntity user1, UserEntity user2) {
+    public ConversationEntity findOrCreateConversation(UserEntity student, UserEntity tutor) {
         // First, try to find an existing conversation with exactly these users
         // The order of users doesn't matter - check both ways
         List<ConversationEntity> existingConversations = 
-            conversationRepository.findConversationBetweenUsers(user1, user2);
+            conversationRepository.findConversationBetweenUsers(student, tutor);
 
         // If found, return the first one
         if (!existingConversations.isEmpty()) {
@@ -39,30 +39,30 @@ public class ConversationService {
 
         // Otherwise, create a new conversation
         ConversationEntity conversation = new ConversationEntity();
-        conversation.setUser1(user1);
-        conversation.setUser2(user2);
+        conversation.setStudent(student);
+        conversation.setTutor(tutor);
         return conversationRepository.save(conversation);
     }
-    
+
     /**
-     * Find a conversation between two users by their user IDs
-     * @param user1Id The ID of the first user
-     * @param user2Id The ID of the second user
-     * @param user1 The first user entity
-     * @param user2 The second user entity
+     * Find a conversation between a student and a tutor by their user IDs
+     * @param studentId The ID of the student user
+     * @param tutorId The ID of the tutor user
+     * @param student The student user entity
+     * @param tutor The tutor user entity
      * @return The existing or newly created conversation
      */
     @Transactional
-    public ConversationEntity findOrCreateConversationByUserIds(Long user1Id, Long user2Id, UserEntity user1, UserEntity user2) {
-        if (user1 == null || user2 == null) {
+    public ConversationEntity findOrCreateConversationByUserIds(Long studentId, Long tutorId, UserEntity student, UserEntity tutor) {
+        if (student == null || tutor == null) {
             throw new IllegalArgumentException("Both user entities must be provided");
         }
-        
-        if (!user1.getUserId().equals(user1Id) || !user2.getUserId().equals(user2Id)) {
+
+        if (!student.getUserId().equals(studentId) || !tutor.getUserId().equals(tutorId)) {
             throw new IllegalArgumentException("User IDs must match the provided user entities");
         }
-        
-        return findOrCreateConversation(user1, user2);
+
+        return findOrCreateConversation(student, tutor);
     }
 
     /**
@@ -90,7 +90,7 @@ public class ConversationService {
      * @return List of conversations
      */
     public List<ConversationEntity> getUserConversations(UserEntity user) {
-        return conversationRepository.findByUser1OrUser2(user, user);
+        return conversationRepository.findByStudentOrTutor(user, user);
     }
 
     /**

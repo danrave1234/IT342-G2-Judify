@@ -49,17 +49,26 @@ class ConversationAdapter(
         fun bind(conversation: NetworkUtils.Conversation) {
             // Get the current user ID from preferences
             val currentUserId = itemView.context?.let { PreferenceUtils.getUserId(it) } ?: -1L
+            val userRole = itemView.context?.let { PreferenceUtils.getUserRole(it) } ?: "LEARNER"
 
-            // Determine which user name to display (the one that's not the current user)
-            val otherUserName = if (conversation.user1Id == currentUserId) {
-                // If user1 is the current user, show user2's name
-                conversation.user2Name
-            } else if (conversation.user2Id == currentUserId) {
-                // If user2 is the current user, show user1's name
-                conversation.user1Name
+            // First determine if the current user is the tutor or the student in this conversation
+            val isCurrentUserTutor = conversation.tutorId == currentUserId
+            val isCurrentUserStudent = conversation.studentId == currentUserId
+
+            // Determine which user name to display based on who the current user is in this conversation
+            val otherUserName = if (isCurrentUserTutor) {
+                // If current user is the tutor in this conversation, show the student's name
+                conversation.studentName.ifEmpty { "Unknown Student" }
+            } else if (isCurrentUserStudent) {
+                // If current user is the student in this conversation, show the tutor's name
+                conversation.tutorName.ifEmpty { "Unknown Tutor" }
             } else {
-                // Fallback if current user is not in conversation (shouldn't happen)
-                "Conversation ${conversation.id}"
+                // Fallback to role-based logic if user is neither the tutor nor the student (shouldn't happen)
+                when (userRole) {
+                    "TUTOR" -> conversation.studentName.ifEmpty { "Unknown Student" }
+                    "LEARNER" -> conversation.tutorName.ifEmpty { "Unknown Tutor" }
+                    else -> "Conversation ${conversation.id}"
+                }
             }
 
             // Set the name text to the other user's name

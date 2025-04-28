@@ -43,6 +43,42 @@ class ChatViewModel : ViewModel() {
     }
 
     /**
+     * Load conversations by tutorId
+     * @param tutorId ID of the tutor
+     */
+    fun loadConversationsByTutorId(tutorId: Long) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val result = NetworkUtils.getConversationsByTutorId(tutorId)
+                _conversations.value = result
+            } catch (e: Exception) {
+                _conversations.value = Result.failure(e)
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    /**
+     * Load conversations by studentId
+     * @param studentId ID of the student
+     */
+    fun loadConversationsByStudentId(studentId: Long) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val result = NetworkUtils.getConversationsByStudentId(studentId)
+                _conversations.value = result
+            } catch (e: Exception) {
+                _conversations.value = Result.failure(e)
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    /**
      * Create a new conversation
      * @param participantIds List of user IDs who are participants in the conversation
      * @return Result<Conversation> containing the created conversation
@@ -76,8 +112,8 @@ class ChatViewModel : ViewModel() {
                 // Refresh conversations if deletion was successful
                 result.onSuccess {
                     val currentUserId = conversations.value?.getOrNull()?.firstOrNull()?.let { conv ->
-                        // Use either user1Id or user2Id, whichever is available
-                        conv.user1Id.takeIf { it > 0 } ?: conv.user2Id
+                        // Use either studentId or tutorId, whichever is available
+                        conv.studentId.takeIf { it > 0 } ?: conv.tutorId
                     }
                     currentUserId?.let { loadConversations(it) }
                 }
