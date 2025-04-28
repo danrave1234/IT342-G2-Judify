@@ -52,7 +52,7 @@ class MessageAdapter(private val currentUserId: Long) :
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         val message = getItem(position)
-        
+
         when (holder) {
             is SentMessageViewHolder -> holder.bind(message)
             is ReceivedMessageViewHolder -> holder.bind(message)
@@ -82,21 +82,25 @@ class MessageAdapter(private val currentUserId: Long) :
     private fun formatTime(timestamp: Long): String {
         val messageDate = Date(timestamp)
         val calendar = Calendar.getInstance()
-        
+
         val today = Calendar.getInstance()
         today.set(Calendar.HOUR_OF_DAY, 0)
         today.set(Calendar.MINUTE, 0)
         today.set(Calendar.SECOND, 0)
         today.set(Calendar.MILLISECOND, 0)
-        
+
         calendar.time = messageDate
-        
+
+        // Create formatters with the device's time zone to ensure correct local time display
+        val timeFormatter = SimpleDateFormat("h:mm a", Locale.getDefault())
+        val dateTimeFormatter = SimpleDateFormat("MMM d, h:mm a", Locale.getDefault())
+
         return if (calendar.timeInMillis >= today.timeInMillis) {
             // Message is from today, show only time
-            SimpleDateFormat("h:mm a", Locale.getDefault()).format(messageDate)
+            timeFormatter.format(messageDate)
         } else {
             // Message is from a different day, show date and time
-            SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()).format(messageDate)
+            dateTimeFormatter.format(messageDate)
         }
 
     }

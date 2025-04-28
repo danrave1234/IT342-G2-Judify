@@ -17,15 +17,30 @@ import java.util.Locale
 class MessageRepository {
     // Define multiple date formats to try when parsing timestamps
     private val timeFormats = listOf(
-        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()),
-        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()),
-        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault()),
-        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()),
-        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()).apply { 
+            timeZone = java.util.TimeZone.getTimeZone("UTC") 
+        },
+        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).apply { 
+            timeZone = java.util.TimeZone.getTimeZone("UTC") 
+        },
+        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault()).apply { 
+            timeZone = java.util.TimeZone.getTimeZone("UTC") 
+        },
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).apply { 
+            timeZone = java.util.TimeZone.getTimeZone("UTC") 
+        },
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault()).apply { 
+            timeZone = java.util.TimeZone.getTimeZone("UTC") 
+        },
+        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).apply { 
+            timeZone = java.util.TimeZone.getTimeZone("UTC") 
+        }
     )
 
     // Primary format for formatting timestamps when sending messages
-    private val primaryTimeFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault())
+    private val primaryTimeFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()).apply {
+        timeZone = java.util.TimeZone.getTimeZone("UTC")
+    }
 
     /**
      * Helper method to parse a timestamp string using multiple formats

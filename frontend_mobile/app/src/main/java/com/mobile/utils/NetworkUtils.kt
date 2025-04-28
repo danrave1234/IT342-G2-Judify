@@ -990,24 +990,24 @@ object NetworkUtils {
                 // Extract IDs - map from backend's user1/user2 to student/tutor if needed
                 val studentId = json.optLong("studentId", -1L)
                 val tutorId = json.optLong("tutorId", -1L)
-                
+
                 // Handle the case where backend uses user1/user2 instead of student/tutor
                 val finalStudentId = if (studentId != -1L) studentId else json.optLong("user1Id")
                 val finalTutorId = if (tutorId != -1L) tutorId else json.optLong("user2Id")
-                
+
                 // Extract names - prioritize specific names, fallback to user1/user2 names
                 var studentName = json.optString("studentName", "")
                 var tutorName = json.optString("tutorName", "")
-                
+
                 // If student/tutor names are empty, try user1/user2 names
                 if (studentName.isEmpty()) {
                     studentName = json.optString("user1Name", "Unknown Student")
                 }
-                
+
                 if (tutorName.isEmpty()) {
                     tutorName = json.optString("user2Name", "Unknown Tutor")
                 }
-                
+
                 Log.d(TAG, "Parsed conversation: id=$conversationId, studentId=$finalStudentId, tutorId=$finalTutorId")
                 Log.d(TAG, "Names: studentName=$studentName, tutorName=$tutorName")
 
@@ -1189,7 +1189,7 @@ object NetworkUtils {
                     val conversationId = json.optLong("conversationId", -1L)
                     val responseStudentId = json.optLong("user1Id") // user1Id is studentId
                     val responseTutorId = json.optLong("user2Id")   // user2Id is tutorId
-                    
+
                     // Extract names properly - user1Name is student, user2Name is tutor
                     val studentName = json.optString("user1Name", "")
                     val tutorName = json.optString("user2Name", "")
@@ -1267,22 +1267,40 @@ object NetworkUtils {
                         val timestamp = if (createdAt.isNotEmpty()) {
                             try {
                                 if (createdAt.contains("T")) {
-                                    createdAt
+                                    // Parse ISO format timestamp with UTC time zone
+                                    val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).apply {
+                                        timeZone = java.util.TimeZone.getTimeZone("UTC")
+                                    }
+                                    val dateObj = isoFormat.parse(createdAt.substring(0, 19))
+                                    if (dateObj != null) {
+                                        // Format with UTC time zone to ensure consistency
+                                        val outputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).apply {
+                                            timeZone = java.util.TimeZone.getTimeZone("UTC")
+                                        }
+                                        outputFormat.format(dateObj)
+                                    } else {
+                                        createdAt
+                                    }
                                 } else {
                                     val dateFormat = SimpleDateFormat("EEE MMM dd HH:mm:ss zzz yyyy", Locale.US)
                                     val dateObj = dateFormat.parse(createdAt)
                                     if (dateObj != null) {
-                                        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(dateObj)
+                                        val outputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+                                        outputFormat.timeZone = java.util.TimeZone.getTimeZone("UTC")
+                                        outputFormat.format(dateObj)
                                     } else {
                                         // Fallback if parsing fails
                                         createdAt
                                     }
                                 }
                             } catch (e: Exception) {
+                                Log.e(TAG, "Error parsing timestamp: $createdAt", e)
                                 createdAt
                             }
                         } else {
-                            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(Date())
+                            val outputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+                            outputFormat.timeZone = java.util.TimeZone.getTimeZone("UTC")
+                            outputFormat.format(Date())
                         }
 
                         messages.add(
@@ -1335,22 +1353,40 @@ object NetworkUtils {
                     val timestamp = if (createdAt.isNotEmpty()) {
                         try {
                             if (createdAt.contains("T")) {
-                                createdAt
+                                // Parse ISO format timestamp with UTC time zone
+                                val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).apply {
+                                    timeZone = java.util.TimeZone.getTimeZone("UTC")
+                                }
+                                val dateObj = isoFormat.parse(createdAt.substring(0, 19))
+                                if (dateObj != null) {
+                                    // Format with UTC time zone to ensure consistency
+                                    val outputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).apply {
+                                        timeZone = java.util.TimeZone.getTimeZone("UTC")
+                                    }
+                                    outputFormat.format(dateObj)
+                                } else {
+                                    createdAt
+                                }
                             } else {
                                 val dateFormat = SimpleDateFormat("EEE MMM dd HH:mm:ss zzz yyyy", Locale.US)
                                 val dateObj = dateFormat.parse(createdAt)
                                 if (dateObj != null) {
-                                    SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(dateObj)
+                                    val outputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+                                    outputFormat.timeZone = java.util.TimeZone.getTimeZone("UTC")
+                                    outputFormat.format(dateObj)
                                 } else {
                                     // Fallback if parsing fails
                                     createdAt
                                 }
                             }
                         } catch (e: Exception) {
+                            Log.e(TAG, "Error parsing timestamp: $createdAt", e)
                             createdAt
                         }
                     } else {
-                        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(Date())
+                        val outputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+                        outputFormat.timeZone = java.util.TimeZone.getTimeZone("UTC")
+                        outputFormat.format(Date())
                     }
 
                     // The receiverId is sent to the backend but not stored in the Message object
@@ -1389,22 +1425,40 @@ object NetworkUtils {
                     val timestamp = if (createdAt.isNotEmpty()) {
                         try {
                             if (createdAt.contains("T")) {
-                                createdAt
+                                // Parse ISO format timestamp with UTC time zone
+                                val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).apply {
+                                    timeZone = java.util.TimeZone.getTimeZone("UTC")
+                                }
+                                val dateObj = isoFormat.parse(createdAt.substring(0, 19))
+                                if (dateObj != null) {
+                                    // Format with UTC time zone to ensure consistency
+                                    val outputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).apply {
+                                        timeZone = java.util.TimeZone.getTimeZone("UTC")
+                                    }
+                                    outputFormat.format(dateObj)
+                                } else {
+                                    createdAt
+                                }
                             } else {
                                 val dateFormat = SimpleDateFormat("EEE MMM dd HH:mm:ss zzz yyyy", Locale.US)
                                 val dateObj = dateFormat.parse(createdAt)
                                 if (dateObj != null) {
-                                    SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(dateObj)
+                                    val outputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+                                    outputFormat.timeZone = java.util.TimeZone.getTimeZone("UTC")
+                                    outputFormat.format(dateObj)
                                 } else {
                                     // Fallback if parsing fails
                                     createdAt
                                 }
                             }
                         } catch (e: Exception) {
+                            Log.e(TAG, "Error parsing timestamp: $createdAt", e)
                             createdAt
                         }
                     } else {
-                        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(Date())
+                        val outputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+                        outputFormat.timeZone = java.util.TimeZone.getTimeZone("UTC")
+                        outputFormat.format(Date())
                     }
 
                     Message(
@@ -3240,31 +3294,31 @@ object NetworkUtils {
 
                     for (i in 0 until jsonArray.length()) {
                         val json = jsonArray.getJSONObject(i)
-                        
+
                         // Extract IDs - map from backend's user1/user2 to student/tutor if needed
                         val studentId = json.optLong("studentId", -1L)
                         val tutorId = json.optLong("tutorId", -1L)
-                        
+
                         // Handle the case where backend uses user1/user2 instead of student/tutor
                         val finalStudentId = if (studentId != -1L) studentId else json.optLong("user1Id")
                         val finalTutorId = if (tutorId != -1L) tutorId else json.optLong("user2Id")
-                        
+
                         // Extract names - prioritize specific names, fallback to user1/user2 names
                         var studentName = json.optString("studentName", "")
                         var tutorName = json.optString("tutorName", "")
-                        
+
                         // If student/tutor names are empty, try user1/user2 names
                         if (studentName.isEmpty()) {
                             studentName = json.optString("user1Name", "Unknown Student")
                         }
-                        
+
                         if (tutorName.isEmpty()) {
                             tutorName = json.optString("user2Name", "Unknown Tutor")
                         }
-                        
+
                         Log.d(TAG, "Tutor conversation: id=${json.optLong("id")}, studentId=$finalStudentId, tutorId=$finalTutorId")
                         Log.d(TAG, "Names: studentName=$studentName, tutorName=$tutorName")
-                        
+
                         conversations.add(
                             Conversation(
                                 id = json.optLong("id"),
@@ -3307,31 +3361,31 @@ object NetworkUtils {
 
                     for (i in 0 until jsonArray.length()) {
                         val json = jsonArray.getJSONObject(i)
-                        
+
                         // Extract IDs - map from backend's user1/user2 to student/tutor if needed
                         val studentId = json.optLong("studentId", -1L)
                         val tutorId = json.optLong("tutorId", -1L)
-                        
+
                         // Handle the case where backend uses user1/user2 instead of student/tutor
                         val finalStudentId = if (studentId != -1L) studentId else json.optLong("user1Id")
                         val finalTutorId = if (tutorId != -1L) tutorId else json.optLong("user2Id")
-                        
+
                         // Extract names - prioritize specific names, fallback to user1/user2 names
                         var studentName = json.optString("studentName", "")
                         var tutorName = json.optString("tutorName", "")
-                        
+
                         // If student/tutor names are empty, try user1/user2 names
                         if (studentName.isEmpty()) {
                             studentName = json.optString("user1Name", "Unknown Student")
                         }
-                        
+
                         if (tutorName.isEmpty()) {
                             tutorName = json.optString("user2Name", "Unknown Tutor")
                         }
-                        
+
                         Log.d(TAG, "Student conversation: id=${json.optLong("id")}, studentId=$finalStudentId, tutorId=$finalTutorId")
                         Log.d(TAG, "Names: studentName=$studentName, tutorName=$tutorName")
-                        
+
                         conversations.add(
                             Conversation(
                                 id = json.optLong("id"),
@@ -3375,24 +3429,24 @@ object NetworkUtils {
                     // Extract IDs - map from backend's user1/user2 to student/tutor if needed
                     val studentId = json.optLong("studentId", -1L)
                     val tutorId = json.optLong("tutorId", -1L)
-                    
+
                     // Handle the case where backend uses user1/user2 instead of student/tutor
                     val finalStudentId = if (studentId != -1L) studentId else json.optLong("user1Id")
                     val finalTutorId = if (tutorId != -1L) tutorId else json.optLong("user2Id")
-                    
+
                     // Extract names - prioritize specific names, fallback to user1/user2 names
                     var studentName = json.optString("studentName", "")
                     var tutorName = json.optString("tutorName", "")
-                    
+
                     // If student/tutor names are empty, try user1/user2 names
                     if (studentName.isEmpty()) {
                         studentName = json.optString("user1Name", "Unknown Student")
                     }
-                    
+
                     if (tutorName.isEmpty()) {
                         tutorName = json.optString("user2Name", "Unknown Tutor")
                     }
-                    
+
                     Log.d(TAG, "Updated conversation names: studentName=$studentName, tutorName=$tutorName")
 
                     Conversation(
@@ -3421,7 +3475,7 @@ object NetworkUtils {
         return withContext(Dispatchers.IO) {
             try {
                 Log.d(TAG, "Getting conversation with ID: $conversationId")
-                
+
                 // The correct endpoint should be specifed - try these in sequence
                 // The error suggests there's confusion with static resources
                 val endpointOptions = listOf(
@@ -3430,41 +3484,41 @@ object NetworkUtils {
                     "conversations/get/$conversationId",
                     "conversations/conversation/$conversationId"
                 )
-                
+
                 var lastException: Exception? = null
-                
+
                 // Try each endpoint option
                 for (endpoint in endpointOptions) {
                     try {
                         val url = URL("$BASE_URL/$endpoint")
                         Log.d(TAG, "Trying URL: $url")
-                        
+
                         val connection = createGetConnection(url)
                         connection.connectTimeout = 10000 // 10 seconds
                         connection.readTimeout = 10000 // 10 seconds
                         connection.setRequestProperty("User-Agent", "Judify-Android-App")
-                        
+
                         // Connect and get response code
                         connection.connect()
                         val responseCode = connection.responseCode
                         Log.d(TAG, "Response code for $endpoint: $responseCode")
-                        
+
                         if (responseCode in 200..299) {
                             val responseBody = connection.inputStream.bufferedReader().use { it.readText() }
                             Log.d(TAG, "Response body: $responseBody")
-                            
+
                             val json = parseJsonResponse(responseBody)
-                            
+
                             // Extract student and tutor IDs
                             val studentId = json.optLong("studentId", json.optLong("user1Id", 0))
                             val tutorId = json.optLong("tutorId", json.optLong("user2Id", 0))
-                            
+
                             // Extract names
                             val studentName = json.optString("studentName", json.optString("user1Name", ""))
                             val tutorName = json.optString("tutorName", json.optString("user2Name", ""))
-                            
+
                             Log.d(TAG, "Parsed conversation: studentId=$studentId, tutorId=$tutorId, studentName=$studentName, tutorName=$tutorName")
-                            
+
                             return@withContext Result.success(
                                 Conversation(
                                     id = json.optLong("id"),
@@ -3490,7 +3544,7 @@ object NetworkUtils {
                         lastException = e
                     }
                 }
-                
+
                 // If we get here, all endpoints failed
                 return@withContext Result.failure(lastException ?: Exception("All conversation endpoints failed"))
             } catch (e: Exception) {

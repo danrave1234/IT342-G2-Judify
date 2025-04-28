@@ -15,10 +15,8 @@ import com.mobile.repository.MessageRepository
 import com.mobile.ui.chat.adapters.MessageAdapter
 import com.mobile.utils.NetworkUtils
 import com.mobile.utils.PreferenceUtils
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
+import java.util.concurrent.TimeUnit
 
 /**
  * Activity for displaying and sending messages in a conversation
@@ -33,6 +31,12 @@ class MessageActivity : AppCompatActivity() {
     private var otherUserName: String = ""
     private var currentUserId: Long = -1
     private var userRole: String = ""
+
+    // Polling variables
+    private var pollingJob: Job? = null
+    private val pollingInterval = 5000L // 5 seconds
+    private var lastMessageId: Long = -1
+    private var messageList: List<Message> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -227,29 +231,19 @@ class MessageActivity : AppCompatActivity() {
                 result.onSuccess { messages ->
                     Log.d("MessageActivity", "Successfully loaded ${messages.size} messages")
 
-                    if (messages.isEmpty()) {
-                        // Show empty state if needed
-                        binding.emptyStateLayout?.visibility = View.VISIBLE
-                        binding.messagesRecyclerView.visibility = View.GONE
-                    } else {
-                        // Hide empty state if present
-                        binding.emptyStateLayout?.visibility = View.GONE
-                        binding.messagesRecyclerView.visibility = View.VISIBLE
+                    // Ensure messages are sorted by timestamp (newest first for reversed layout)
+                    val sortedMessages = messages.sortedByDescending { it.timestamp }
 
-                        // Ensure messages are sorted by timestamp (newest first for reversed layout)
-                        val sortedMessages = messages.sortedByDescending { it.timestamp }
+                    // Update the message list
+                    messageList = sortedMessages
 
-                        // Submit the sorted list to the adapter
-                        adapter.submitList(sortedMessages) {
-                            // Execute after the list is updated
-                            // Scroll to the most recent message
-                            binding.messagesRecyclerView.postDelayed({
-                                if (sortedMessages.isNotEmpty()) {
-                                    binding.messagesRecyclerView.scrollToPosition(sortedMessages.size - 1)
-                                }
-                            }, 100)
-                        }
+                    // Update the last message ID if we have messages
+                    if (sortedMessages.isNotEmpty()) {
+                        lastMessageId = sortedMessages.first().id
                     }
+
+                    // Update the UI
+                    updateMessageList(sortedMessages)
                 }.onFailure { error ->
                     Log.e("MessageActivity", "Failed to load messages: ${error.message}", error)
                     Toast.makeText(this@MessageActivity, "Failed to load messages: ${error.message}", Toast.LENGTH_SHORT).show()
@@ -279,12 +273,29 @@ class MessageActivity : AppCompatActivity() {
             val result = messageRepository.sendMessage(message)
 
             withContext(Dispatchers.Main) {
-                result.onSuccess { message ->
-                    // Instead of manually adding the message, refresh all messages from the server
-                    refreshMessages()
+                result.onSuccess { sentMessage ->
+                    Log.d("MessageActivity", "Message sent successfully: ${sentMessage.id}")
+
+                    // The polling mechanism will automatically fetch the new message
+                    // No need to call refreshMessages() here
+
+                    // Optionally, we can add the sent message to the UI immediately for better UX
+                    // This creates a more responsive feel while waiting for the polling to fetch it
+                    val updatedList = ArrayList(messageList)
+                    updatedList.add(0, sentMessage) // Add at the beginning (newest first)
+                    messageList = updatedList
+
+                    // Update the last message ID
+                    if (sentMessage.id > lastMessageId) {
+                        lastMessageId = sentMessage.id
+                    }
+
+                    // Update the UI
+                    updateMessageList(messageList)
                 }
-                result.onFailure {
-                    Toast.makeText(this@MessageActivity, "Failed to send message", Toast.LENGTH_SHORT).show()
+                result.onFailure { error ->
+                    Log.e("MessageActivity", "Failed to send message: ${error.message}", error)
+                    Toast.makeText(this@MessageActivity, "Failed to send message: ${error.message}", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -294,4 +305,94 @@ class MessageActivity : AppCompatActivity() {
         finish()
         return true
     }
-} 
+
+    /**
+     * Start polling for new messages
+     */
+    private fun startPolling() {
+        // Cancel any existing job
+        pollingJob?.cancel()
+
+        // Start a new polling job
+        pollingJob = CoroutineScope(Dispatchers.IO).launch {
+            while (isActive) {
+                try {
+                    Log.d("MessageActivity", "Polling for new messages")
+                    val result = messageRepository.getMessages(conversationId)
+
+                    result.onSuccess { messages ->
+                        // Sort messages by timestamp (newest first)
+                        val sortedMessages = messages.sortedByDescending { it.timestamp }
+
+                        // Check if we have new messages
+                        if (sortedMessages.isNotEmpty() && 
+                            (messageList.isEmpty() || sortedMessages.first().id > lastMessageId)) {
+
+                            // Update the last message ID
+                            lastMessageId = sortedMessages.first().id
+
+                            // Update the message list
+                            messageList = sortedMessages
+
+                            // Update the UI on the main thread
+                            withContext(Dispatchers.Main) {
+                                updateMessageList(sortedMessages)
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("MessageActivity", "Error polling for messages: ${e.message}", e)
+                }
+
+                // Wait for the polling interval
+                delay(pollingInterval)
+            }
+        }
+    }
+
+    /**
+     * Stop polling for new messages
+     */
+    private fun stopPolling() {
+        pollingJob?.cancel()
+        pollingJob = null
+    }
+
+    /**
+     * Update the message list in the UI
+     */
+    private fun updateMessageList(messages: List<Message>) {
+        if (messages.isEmpty()) {
+            // Show empty state if needed
+            binding.emptyStateLayout?.visibility = View.VISIBLE
+            binding.messagesRecyclerView.visibility = View.GONE
+        } else {
+            // Hide empty state if present
+            binding.emptyStateLayout?.visibility = View.GONE
+            binding.messagesRecyclerView.visibility = View.VISIBLE
+
+            // Submit the list to the adapter
+            adapter.submitList(messages) {
+                // Execute after the list is updated
+                // Scroll to the most recent message
+                binding.messagesRecyclerView.postDelayed({
+                    if (messages.isNotEmpty()) {
+                        binding.messagesRecyclerView.scrollToPosition(0)
+                    }
+                }, 100)
+            }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Start polling when the activity is resumed
+        startPolling()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // Stop polling when the activity is paused
+        stopPolling()
+    }
+}
