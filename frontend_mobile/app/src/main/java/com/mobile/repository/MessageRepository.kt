@@ -7,13 +7,43 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.Date
 import android.util.Log
+import java.text.ParseException
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 /**
  * Repository for handling message operations
  */
 class MessageRepository {
-    private val timeFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.getDefault())
-    
+    // Define multiple date formats to try when parsing timestamps
+    private val timeFormats = listOf(
+        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()),
+        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()),
+        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault()),
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()),
+        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    )
+
+    // Primary format for formatting timestamps when sending messages
+    private val primaryTimeFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault())
+
+    /**
+     * Helper method to parse a timestamp string using multiple formats
+     * @param timestampStr The timestamp string to parse
+     * @return The timestamp in milliseconds, or null if parsing failed
+     */
+    private fun parseTimestamp(timestampStr: String): Long? {
+        for (format in timeFormats) {
+            try {
+                return format.parse(timestampStr)?.time
+            } catch (e: ParseException) {
+                // Try next format
+            }
+        }
+        Log.w("MessageRepository", "Failed to parse timestamp: $timestampStr")
+        return null
+    }
+
     /**
      * Get conversation details
      * @param conversationId ID of the conversation
@@ -24,12 +54,12 @@ class MessageRepository {
             try {
                 Log.d("MessageRepository", "Getting conversation with ID: $conversationId")
                 val networkResult = NetworkUtils.getConversation(conversationId)
-                
+
                 Log.d("MessageRepository", "Conversation result: ${networkResult.isSuccess}")
                 if (networkResult.isFailure) {
                     Log.e("MessageRepository", "Error: ${networkResult.exceptionOrNull()?.message}")
                 }
-                
+
                 networkResult.map { networkConversation ->
                     Log.d("MessageRepository", "Mapping conversation: studentId=${networkConversation.studentId}, tutorId=${networkConversation.tutorId}")
                     Conversation(
@@ -40,9 +70,7 @@ class MessageRepository {
                         tutorName = networkConversation.tutorName,
                         lastMessage = networkConversation.lastMessage,
                         // Convert timestamp string to Long if available
-                        lastMessageTime = networkConversation.lastMessageTime?.let {
-                            try { timeFormat.parse(it)?.time } catch (e: Exception) { null }
-                        },
+                        lastMessageTime = networkConversation.lastMessageTime?.let { parseTimestamp(it) },
                         unreadCount = networkConversation.unreadCount
                     )
                 }
@@ -52,7 +80,7 @@ class MessageRepository {
             }
         }
     }
-    
+
     /**
      * Get messages for a conversation
      * @param conversationId ID of the conversation
@@ -63,15 +91,15 @@ class MessageRepository {
             try {
                 Log.d("MessageRepository", "Getting messages for conversation ID: $conversationId")
                 val networkResult = NetworkUtils.getMessages(conversationId)
-                
+
                 Log.d("MessageRepository", "Messages result: ${networkResult.isSuccess}")
                 if (networkResult.isFailure) {
                     Log.e("MessageRepository", "Error getting messages: ${networkResult.exceptionOrNull()?.message}")
                 }
-                
+
                 networkResult.map { networkMessages ->
                     Log.d("MessageRepository", "Processing ${networkMessages.size} messages")
-                    
+
                     networkMessages.map { networkMessage ->
                         Message(
                             id = networkMessage.id,
@@ -80,12 +108,7 @@ class MessageRepository {
                             // Use a placeholder for receiverId since the NetworkUtils.Message doesn't include it
                             receiverId = 0, // Will be updated later if needed
                             content = networkMessage.content,
-                            timestamp = try {
-                                timeFormat.parse(networkMessage.timestamp)?.time ?: System.currentTimeMillis()
-                            } catch (e: Exception) {
-                                Log.w("MessageRepository", "Error parsing timestamp: ${networkMessage.timestamp}", e)
-                                System.currentTimeMillis()
-                            },
+                            timestamp = parseTimestamp(networkMessage.timestamp) ?: System.currentTimeMillis(),
                             readStatus = networkMessage.isRead
                         )
                     }
@@ -97,7 +120,7 @@ class MessageRepository {
             }
         }
     }
-    
+
     /**
      * Send a message
      * @param message Message to send
@@ -106,15 +129,15 @@ class MessageRepository {
     suspend fun sendMessage(message: Message): Result<Message> {
         return withContext(Dispatchers.IO) {
             try {
-                val timestamp = timeFormat.format(Date(message.timestamp))
-                
+                val timestamp = primaryTimeFormat.format(Date(message.timestamp))
+
                 val networkResult = NetworkUtils.sendMessage(
                     message.conversationId,
                     message.senderId,
                     message.receiverId,
                     message.content
                 )
-                
+
                 networkResult.map { networkMessage ->
                     Message(
                         id = networkMessage.id,
@@ -122,11 +145,7 @@ class MessageRepository {
                         senderId = networkMessage.senderId,
                         receiverId = message.receiverId, // Use the receiver ID from the original message
                         content = networkMessage.content,
-                        timestamp = try {
-                            timeFormat.parse(networkMessage.timestamp)?.time ?: System.currentTimeMillis()
-                        } catch (e: Exception) {
-                            System.currentTimeMillis()
-                        },
+                        timestamp = parseTimestamp(networkMessage.timestamp) ?: System.currentTimeMillis(),
                         readStatus = networkMessage.isRead
                     )
                 }
