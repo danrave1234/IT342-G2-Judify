@@ -32,7 +32,9 @@ object NetworkUtils {
     // Server configuration
     // Use your computer's IP address for physical device (e.g., "192.168.1.100")
     // DONT EVER REPLACE THE SERVER IP AND THIS IS THE PRIMARY IP
+
     private const val DEFAULT_SERVER_IP = "192.168.1.4" // Default IP for physical devices
+
     private const val SERVER_PORT = "8080"
     private const val API_PATH = "api"
 
@@ -1765,7 +1767,7 @@ object NetworkUtils {
     suspend fun updateUser(user: User): Result<User> {
         return withContext(Dispatchers.IO) {
             try {
-                val url = URL("$BASE_URL/users/update/${user.userId}")
+                val url = URL("$BASE_URL/users/updateUser/${user.userId}") // Correct path
                 val connection = createPutConnection(url)
 
                 // Map frontend role to backend role (LEARNER -> STUDENT)
@@ -1777,7 +1779,7 @@ object NetworkUtils {
                 // Create request body with updated user information
                 val jsonObject = JSONObject().apply {
                     put("userId", user.userId)
-                    put("username", user.email) // Using email as username
+                    put("username", user.username) // Using email as username
                     put("email", user.email)
                     // Don't include password when updating user info
                     // Only include it when specifically changing password
