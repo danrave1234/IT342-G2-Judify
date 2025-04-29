@@ -144,16 +144,20 @@ class MessageRepository {
     suspend fun sendMessage(message: Message): Result<Message> {
         return withContext(Dispatchers.IO) {
             try {
+                Log.d("MessageRepository", "Sending message: ${message.content} from ${message.senderId} to ${message.receiverId} in conversation ${message.conversationId}")
+                
+                // Format timestamp correctly
                 val timestamp = primaryTimeFormat.format(Date(message.timestamp))
 
                 val networkResult = NetworkUtils.sendMessage(
                     message.conversationId,
                     message.senderId,
-                    message.receiverId,
+                    message.receiverId,  // Make sure this is correctly passed to the backend
                     message.content
                 )
 
                 networkResult.map { networkMessage ->
+                    Log.d("MessageRepository", "Message sent with ID: ${networkMessage.id}")
                     Message(
                         id = networkMessage.id,
                         conversationId = networkMessage.conversationId,
@@ -165,6 +169,7 @@ class MessageRepository {
                     )
                 }
             } catch (e: Exception) {
+                Log.e("MessageRepository", "Failed to send message: ${e.message}", e)
                 Result.failure(e)
             }
         }

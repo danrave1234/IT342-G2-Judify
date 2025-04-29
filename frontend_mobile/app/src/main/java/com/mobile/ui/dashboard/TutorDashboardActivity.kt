@@ -26,6 +26,7 @@ import com.mobile.databinding.ActivityTutorDashboardBinding
 import com.mobile.ui.chat.ChatFragment
 import com.mobile.ui.map.MapFragment
 import com.mobile.ui.profile.ProfileFragment
+import com.mobile.ui.sessions.SessionsFragment
 import com.mobile.utils.NetworkUtils
 import com.mobile.utils.PreferenceUtils
 import kotlinx.coroutines.delay
@@ -320,9 +321,9 @@ class TutorDashboardActivity : AppCompatActivity() {
                     return@setOnItemSelectedListener true
                 }
                 R.id.navigation_sessions -> {
-                    // Show the map fragment instead of sessions
+                    // Show the sessions/booking fragment instead of map
                     showMainContent(false)
-                    loadFragment(MapFragment())
+                    loadFragment(SessionsFragment())
                     return@setOnItemSelectedListener true
                 }
                 R.id.navigation_map -> {
