@@ -1,42 +1,49 @@
 <?xml version="1.0" encoding="utf-8"?>
-<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/timeSlotCard"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:layout_margin="6dp"
-    app:cardCornerRadius="10dp"
+    android:layout_margin="4dp"
+    app:cardCornerRadius="12dp"
     app:cardElevation="2dp"
-    app:contentPadding="12dp"
-    app:cardBackgroundColor="?attr/colorSurface"
     app:strokeWidth="1dp"
-    app:strokeColor="@color/primary_blue">
+    app:strokeColor="#DDDDDD"
+    app:cardBackgroundColor="?attr/colorSurface">
 
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="vertical"
+        android:padding="12dp"
         android:gravity="center">
 
+        <ImageView
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:src="@drawable/ic_time"
+            app:tint="@color/primary_blue"
+            android:layout_marginBottom="6dp" />
+
         <TextView
-            android:id="@+id/timeSlotTextView"
-            android:layout_width="80dp"
+            android:id="@+id/timeSlotText"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="9:00 AM"
-            android:textSize="16sp"
+            android:minWidth="100dp"
+            android:gravity="center"
+            android:textSize="14sp"
+            android:textStyle="bold"
             android:textColor="?android:attr/textColorPrimary"
-            android:gravity="center"
-            android:textStyle="bold" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Available"
-            android:textSize="12sp"
-            android:textColor="@color/success"
-            android:gravity="center"
-            android:layout_marginTop="4dp"/>
-
+            tools:text="9:00 AM - 9:30 AM" />
     </LinearLayout>
 
+    <!-- Selected indicator -->
+    <View
+        android:id="@+id/selectedIndicator"
+        android:layout_width="match_parent"
+        android:layout_height="4dp"
+        android:background="@color/primary_blue"
+        android:layout_gravity="bottom"
+        android:visibility="gone" />
 </com.google.android.material.card.MaterialCardView>

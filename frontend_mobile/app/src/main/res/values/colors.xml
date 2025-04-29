@@ -15,7 +15,7 @@
     <!-- Primary brand colors -->
     <color name="primary_blue">#4F6CFF</color>
     <color name="primary_blue_dark">#1E40AF</color>
-    <color name="primary_blue_light">#93A7FF</color>
+    <color name="primary_blue_light">#E3F2FD</color>
     
     <!-- Secondary colors -->
     <color name="secondary_color">#03A9F4</color>
@@ -43,4 +43,7 @@
     <color name="warning">#FF9800</color>
     <color name="error">#F44336</color>
     <color name="info">#2196F3</color>
+    
+    <!-- New color values -->
+    <color name="light_gray">#DDDDDD</color>
 </resources>
