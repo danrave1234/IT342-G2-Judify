@@ -115,10 +115,10 @@ class MessageActivity : AppCompatActivity() {
 
                 response.onSuccess { conversation ->
                     Log.d("MessageActivity", "Successfully fetched conversation: ${conversation.id}")
-                    updateConversationNames(conversation)
-
-                    // Determine the other user ID based on roles if not already set
-                    if (otherUserId == -1L) {
+                    
+                    // Determine the other user ID based on roles if not already set or incorrectly set
+                    // This is crucial when opening from sessions where otherUserId might not be passed correctly
+                    if (otherUserId == -1L || otherUserId == currentUserId) {
                         otherUserId = if (currentUserId == conversation.studentId) {
                             conversation.tutorId
                         } else {
@@ -126,6 +126,8 @@ class MessageActivity : AppCompatActivity() {
                         }
                         Log.d("MessageActivity", "Updated otherUserId to: $otherUserId")
                     }
+                    
+                    updateConversationNames(conversation)
                 }.onFailure { error ->
                     Log.e("MessageActivity", "Failed to load conversation details: ${error.message}", error)
 
@@ -253,12 +255,49 @@ class MessageActivity : AppCompatActivity() {
     }
 
     private fun sendMessage(content: String) {
-        // Check if we have valid otherUserId
-        if (otherUserId == -1L) {
-            Toast.makeText(this, "Error: Invalid recipient", Toast.LENGTH_SHORT).show()
+        // Even if otherUserId is not determined yet, try to find it
+        if (otherUserId == -1L || otherUserId == currentUserId) {
+            // Try to determine other user ID in case it wasn't set properly
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val conversation = messageRepository.getConversation(conversationId).getOrNull()
+                    if (conversation != null) {
+                        withContext(Dispatchers.Main) {
+                            otherUserId = if (currentUserId == conversation.studentId) {
+                                conversation.tutorId
+                            } else {
+                                conversation.studentId
+                            }
+                            Log.d("MessageActivity", "Determined otherUserId before sending: $otherUserId")
+                            // Now try to send the message with the updated receiverId
+                            if (otherUserId != -1L && otherUserId != currentUserId) {
+                                sendMessageInternal(content)
+                            } else {
+                                Toast.makeText(this@MessageActivity, "Error: Could not determine recipient", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    } else {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(this@MessageActivity, "Error: Could not load conversation", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        Log.e("MessageActivity", "Error determining message recipient: ${e.message}", e)
+                        Toast.makeText(this@MessageActivity, "Error: Could not determine recipient", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
             return
         }
 
+        // If we already have a valid otherUserId, send the message directly
+        sendMessageInternal(content)
+    }
+
+    private fun sendMessageInternal(content: String) {
+        Log.d("MessageActivity", "Sending message to user ID: $otherUserId in conversation: $conversationId")
+        
         CoroutineScope(Dispatchers.IO).launch {
             val message = Message(
                 id = 0, // Will be assigned by the server
@@ -275,6 +314,9 @@ class MessageActivity : AppCompatActivity() {
             withContext(Dispatchers.Main) {
                 result.onSuccess { sentMessage ->
                     Log.d("MessageActivity", "Message sent successfully: ${sentMessage.id}")
+
+                    // Clear the input field
+                    binding.messageEditText.setText("")
 
                     // The polling mechanism will automatically fetch the new message
                     // No need to call refreshMessages() here

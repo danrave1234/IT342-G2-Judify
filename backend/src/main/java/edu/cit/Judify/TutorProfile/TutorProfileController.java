@@ -46,6 +46,22 @@ public class TutorProfileController {
         this.tutorSubjectService = tutorSubjectService;
     }
 
+    /**
+     * Root endpoint for /api/tutors to match the mobile app's request
+     * This is needed specifically for the map functionality on the mobile app
+     */
+    @Operation(summary = "Get all tutor profiles (mobile endpoint)", 
+               description = "Returns all tutor profiles for the mobile app map")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Successfully retrieved all tutor profiles",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = TutorProfileDTO.class)))
+    })
+    @GetMapping
+    public ResponseEntity<List<TutorProfileDTO>> getAllTutorProfilesForMobile() {
+        List<TutorProfileDTO> tutors = tutorProfileService.getAllTutorProfiles();
+        return ResponseEntity.ok(tutors);
+    }
+
     @Operation(summary = "Get all tutor profiles", description = "Returns a list of all tutor profiles")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Successfully retrieved all tutor profiles",
