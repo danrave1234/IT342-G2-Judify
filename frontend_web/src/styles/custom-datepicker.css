@@ -1,0 +1,129 @@
+/* src/styles/custom-datepicker.css */
+
+/* Style the input field */
+.judify-datepicker-input {
+    @apply w-full p-2.5 rounded-lg border border-light-700 dark:border-dark-600 bg-white dark:bg-dark-800 focus:outline-none focus:ring-2 focus:ring-primary-500 shadow-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400;
+    /* Add any additional input styling needed */
+    cursor: pointer;
+}
+
+/* Style the calendar popup container */
+.judify-datepicker-calendar {
+    @apply bg-white dark:bg-dark-800 border border-light-700 dark:border-dark-600 rounded-lg shadow-lg font-sans;
+    font-size: 0.9rem;
+}
+
+/* Header: Month/Year navigation */
+.judify-datepicker-calendar .react-datepicker__header {
+    @apply bg-primary-50 dark:bg-dark-700 border-b border-light-700 dark:border-dark-600 rounded-t-lg p-2;
+}
+
+.judify-datepicker-calendar .react-datepicker__current-month,
+.judify-datepicker-calendar .react-datepicker-time__header,
+.judify-datepicker-calendar .react-datepicker__header__dropdown {
+    @apply text-gray-900 dark:text-white font-semibold text-base;
+}
+
+.judify-datepicker-calendar .react-datepicker__navigation {
+    @apply top-3; /* Adjust vertical position */
+}
+
+.judify-datepicker-calendar .react-datepicker__navigation--previous {
+    @apply border-r-gray-600 dark:border-r-gray-300 hover:border-r-primary-600 dark:hover:border-r-primary-500;
+    border-right-width: 2px;
+    border-top-width: 2px;
+}
+
+.judify-datepicker-calendar .react-datepicker__navigation--next {
+    @apply border-l-gray-600 dark:border-l-gray-300 hover:border-l-primary-600 dark:hover:border-l-primary-500;
+    border-left-width: 2px;
+    border-top-width: 2px;
+}
+
+/* Day names (Sun, Mon, etc.) */
+.judify-datepicker-calendar .react-datepicker__day-names {
+    @apply mb-1;
+}
+
+.judify-datepicker-calendar .react-datepicker__day-name {
+    @apply text-gray-500 dark:text-gray-400 font-medium text-xs w-9 h-9 leading-9; /* Adjust size and line-height */
+}
+
+/* Individual day cells */
+.judify-datepicker-calendar .react-datepicker__day {
+    @apply w-9 h-9 leading-9 rounded-full text-gray-800 dark:text-gray-200 hover:bg-primary-100 dark:hover:bg-primary-900/30; /* Adjust size and line-height */
+    transition: background-color 0.2s ease-in-out;
+}
+
+/* Disabled day styling */
+.judify-datepicker-calendar .react-datepicker__day--disabled {
+    @apply text-gray-400 dark:text-gray-600 cursor-not-allowed opacity-50 hover:bg-transparent dark:hover:bg-transparent;
+}
+
+/* More specific styling for disabled dates */
+.judify-datepicker-calendar .react-datepicker__day--disabled {
+    @apply text-gray-300 dark:text-gray-700 bg-gray-100 dark:bg-dark-800 cursor-not-allowed opacity-60 hover:bg-gray-100 dark:hover:bg-dark-800;
+    /* Ensure it looks clearly disabled */
+    pointer-events: none; /* Prevent clicking */
+}
+
+/* Highlighted (available) day styling */
+.judify-datepicker-calendar .react-datepicker__day--highlighted {
+    @apply bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 font-semibold;
+}
+.judify-datepicker-calendar .react-datepicker__day--highlighted:hover {
+    @apply bg-green-200 dark:bg-green-800/50;
+}
+
+/* Styling for highlighted available dates */
+.judify-datepicker-calendar .react-datepicker__day--highlighted {
+    @apply bg-primary-100 dark:bg-primary-900/30 border border-primary-300 dark:border-primary-700 rounded-full font-medium;
+    /* Make them stand out */
+}
+
+/* Selected day styling */
+.judify-datepicker-calendar .react-datepicker__day--selected {
+    @apply bg-primary-600 text-white font-bold hover:bg-primary-700;
+}
+
+.judify-datepicker-calendar .react-datepicker__day--highlighted:hover {
+    @apply bg-primary-200 dark:bg-primary-800/50;
+}
+
+/* Ensure selected + highlighted looks correct */
+.judify-datepicker-calendar .react-datepicker__day--selected.react-datepicker__day--highlighted {
+    @apply bg-primary-600 text-white font-bold;
+}
+
+/* Today's date styling */
+.judify-datepicker-calendar .react-datepicker__day--today {
+    @apply font-bold ring-1 ring-primary-500 dark:ring-primary-400;
+}
+
+/* Styling for days outside the current month */
+.judify-datepicker-calendar .react-datepicker__day--outside-month {
+    @apply text-gray-400 dark:text-gray-600;
+}
+
+/* Custom classes added in DatePicker.jsx if you used renderDayContents */
+.judify-datepicker-calendar .highlighted-available {
+    /* Example: Add a green dot or underline */
+    position: relative;
+}
+.judify-datepicker-calendar .highlighted-available::after {
+    content: '';
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background-color: theme('colors.green.500'); /* Use Tailwind theme color */
+}
+
+.judify-datepicker-calendar .disabled-date {
+    /* Example: strike-through or different background */
+    /* text-decoration: line-through; */
+    @apply text-gray-300 dark:text-gray-700 bg-gray-50 dark:bg-dark-800/50 cursor-not-allowed;
+}

@@ -1,5 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useUser } from '../../context/UserContext';
+import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 
 /**
@@ -7,6 +8,7 @@ import LoadingSpinner from '../common/LoadingSpinner';
  */
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useUser();
+  const { currentUser, loading: authLoading } = useAuth();
   const location = useLocation();
 
   // Direct localStorage check as a fallback
@@ -35,7 +37,7 @@ const PrivateRoute = ({ children }) => {
   };
 
   // If we're still loading the user data, show a loading spinner
-  if (loading) {
+  if (loading || authLoading) {
     return (
       <div className="flex justify-center items-center h-screen">
         <LoadingSpinner size="xl" />
@@ -43,8 +45,8 @@ const PrivateRoute = ({ children }) => {
     );
   }
 
-  // First check context, then fallback to localStorage
-  const isAuthenticated = !!user || checkLocalStorage();
+  // First check both contexts, then fallback to localStorage
+  const isAuthenticated = !!currentUser || !!user || checkLocalStorage();
   
   // If user is not authenticated, redirect to login
   if (!isAuthenticated) {

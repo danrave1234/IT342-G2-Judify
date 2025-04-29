@@ -203,7 +203,11 @@ export const tutorProfileApi = {
 export const tutoringSessionApi = {
   getSessions: (params) => API.get('/tutoring-sessions', { params }),
   getSessionById: (sessionId) => API.get(`/tutoring-sessions/${sessionId}`),
-  createSession: (sessionData) => API.post('/tutoring-sessions', sessionData),
+  createSession: (sessionData) => {
+    console.log('API: Creating session with data:', sessionData);
+    // *** CHANGED: Use the correct endpoint '/createSession' ***
+    return API.post('/tutoring-sessions/createSession', sessionData);
+  },
   updateSession: (sessionId, sessionData) => API.put(`/tutoring-sessions/${sessionId}`, sessionData),
   updateSessionStatus: (sessionId, status) => 
     API.patch(`/tutoring-sessions/${sessionId}/status`, { status }),

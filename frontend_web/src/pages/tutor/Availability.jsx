@@ -110,19 +110,18 @@ const Availability = () => {
   const [selectedTimeSlots, setSelectedTimeSlots] = useState([]);
 
   // Handle date selection
-  const handleDateSelection = (e) => {
-    const date = e.target.value;
+  const handleDateSelection = (date) => {
     setSelectedDate(date);
-    
+
     // Pre-select time slots that are already available for this date
     const existingSlots = availabilities
-      .filter(avail => avail.date === date)
+      .filter(avail => avail.date === date.toLocaleDateString())
       .map(avail => ({
         startTime: avail.startTime,
         endTime: avail.endTime,
         id: avail.availabilityId
       }));
-    
+
     setSelectedTimeSlots(existingSlots);
   };
 
@@ -194,6 +193,16 @@ const Availability = () => {
       setSaving(false);
     }
   };
+
+  // DatePicker Component for selecting dates
+  const DatePickerInput = ({ selected, onChange }) => (
+    <DatePicker
+      selected={selected}
+      onChange={date => onChange(date)}
+      className="form-control"
+      dateFormat="MM/dd/yyyy"
+    />
+  );
 
   // Group availabilities by date for display
   const groupedAvailabilities = availabilities.reduce((acc, avail) => {

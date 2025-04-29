@@ -4,6 +4,7 @@ import 'react-toastify/dist/ReactToastify.css';
 
 // Context providers
 import { UserProvider } from './context/UserContext';
+import { AuthProvider } from './context/AuthContext';
 import { WebSocketProvider } from './context/WebSocketContext';
 import { TutorProfileProvider } from './context/TutorProfileContext';
 import { SessionProvider } from './context/SessionContext';
@@ -59,75 +60,77 @@ import TutorRoute from './components/guards/TutorRoute';
 function App() {
   return (
     <BrowserRouter>
-      <UserProvider>
-        <WebSocketProvider>
-          <TutorProfileProvider>
-            <SessionProvider>
-              <MessageProvider>
-                <NotificationProvider>
-                  <StudentProfileProvider>
-                    <PaymentProvider>
-                      <ToastContainer position="top-right" autoClose={3000} />
-                      <Routes>
-                        {/* Public Routes */}
-                        <Route path="/" element={<LandingPage />} />
-                        <Route path="/how-it-works" element={<HowItWorks />} />
-                        <Route path="/find-tutors" element={<FindTutors />} />
-                        <Route path="/tutors/:tutorId" element={<TutorDetails />} />
-                        <Route path="/pricing" element={<Pricing />} />
+      <AuthProvider>
+        <UserProvider>
+          <WebSocketProvider>
+            <TutorProfileProvider>
+              <SessionProvider>
+                <MessageProvider>
+                  <NotificationProvider>
+                    <StudentProfileProvider>
+                      <PaymentProvider>
+                        <ToastContainer position="top-right" autoClose={3000} />
+                        <Routes>
+                          {/* Public Routes */}
+                          <Route path="/" element={<LandingPage />} />
+                          <Route path="/how-it-works" element={<HowItWorks />} />
+                          <Route path="/find-tutors" element={<FindTutors />} />
+                          <Route path="/tutors/:tutorId" element={<TutorDetails />} />
+                          <Route path="/pricing" element={<Pricing />} />
 
-                        {/* Auth Routes */}
-                        <Route element={<AuthLayout />}>
-                          <Route path="/auth/login" element={<Login />} />
-                          <Route path="/login" element={<Login />} />
-                          <Route path="/auth/register" element={<Register />} />
-                          <Route path="/register" element={<Register />} />
-                          <Route path="/auth/forgot-password" element={<ForgotPassword />} />
-                          <Route path="/forgot-password" element={<ForgotPassword />} />
-                          <Route path="/oauth2-register" element={<OAuth2Register />} />
-                        </Route>
+                          {/* Auth Routes */}
+                          <Route element={<AuthLayout />}>
+                            <Route path="/auth/login" element={<Login />} />
+                            <Route path="/login" element={<Login />} />
+                            <Route path="/auth/register" element={<Register />} />
+                            <Route path="/register" element={<Register />} />
+                            <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+                            <Route path="/forgot-password" element={<ForgotPassword />} />
+                            <Route path="/oauth2-register" element={<OAuth2Register />} />
+                          </Route>
 
-                        {/* OAuth2 Routes */}
-                        <Route path="/oauth2-callback" element={<OAuth2Callback />} />
+                          {/* OAuth2 Routes */}
+                          <Route path="/oauth2-callback" element={<OAuth2Callback />} />
 
-                        {/* Protected Layout for all authenticated routes */}
-                        <Route element={<PrivateRoute><MainLayout /></PrivateRoute>}>
-                          {/* Common Routes */}
-                          <Route path="/profile" element={<ProfilePage />} />
+                          {/* Protected Layout for all authenticated routes */}
+                          <Route element={<PrivateRoute><MainLayout /></PrivateRoute>}>
+                            {/* Common Routes */}
+                            <Route path="/profile" element={<ProfilePage />} />
 
-                          {/* Student Routes */}
-                          <Route path="/student" element={<StudentRoute><StudentDashboard /></StudentRoute>} />
-                          <Route path="/student/profile" element={<StudentRoute><ProfilePage /></StudentRoute>} />
-                          <Route path="/student/find-tutors" element={<StudentRoute><FindTutors /></StudentRoute>} />
-                          <Route path="/student/tutors/:tutorId" element={<StudentRoute><TutorDetails /></StudentRoute>} />
-                          <Route path="/student/sessions" element={<StudentRoute><StudentSessions /></StudentRoute>} />
-                          <Route path="/student/sessions/:sessionId" element={<StudentRoute><SessionDetail /></StudentRoute>} />
-                          <Route path="/student/review/session/:sessionId" element={<StudentRoute><SessionReview /></StudentRoute>} />
-                          <Route path="/student/book/:tutorId" element={<StudentRoute><BookSession /></StudentRoute>} />
-                          <Route path="/student/messages" element={<StudentRoute><Messages /></StudentRoute>} />
-                          <Route path="/student/payments" element={<StudentRoute><StudentPayments /></StudentRoute>} />
+                            {/* Student Routes */}
+                            <Route path="/student" element={<StudentRoute><StudentDashboard /></StudentRoute>} />
+                            <Route path="/student/profile" element={<StudentRoute><ProfilePage /></StudentRoute>} />
+                            <Route path="/student/find-tutors" element={<StudentRoute><FindTutors /></StudentRoute>} />
+                            <Route path="/student/tutors/:tutorId" element={<StudentRoute><TutorDetails /></StudentRoute>} />
+                            <Route path="/student/sessions" element={<StudentRoute><StudentSessions /></StudentRoute>} />
+                            <Route path="/student/sessions/:sessionId" element={<StudentRoute><SessionDetail /></StudentRoute>} />
+                            <Route path="/student/review/session/:sessionId" element={<StudentRoute><SessionReview /></StudentRoute>} />
+                            <Route path="/student/book/:tutorId" element={<StudentRoute><BookSession /></StudentRoute>} />
+                            <Route path="/student/messages" element={<StudentRoute><Messages /></StudentRoute>} />
+                            <Route path="/student/payments" element={<StudentRoute><StudentPayments /></StudentRoute>} />
 
-                          {/* Tutor Routes */}
-                          <Route path="/tutor" element={<TutorRoute><TutorDashboard /></TutorRoute>} />
-                          <Route path="/tutor/profile" element={<TutorRoute><ProfilePage /></TutorRoute>} />
-                          <Route path="/tutor/sessions" element={<TutorRoute><TutorSessions /></TutorRoute>} />
-                          <Route path="/tutor/sessions/:sessionId" element={<TutorRoute><TutorSessionDetails /></TutorRoute>} />
-                          <Route path="/tutor/availability" element={<TutorRoute><TutorAvailability /></TutorRoute>} />
-                          <Route path="/tutor/messages" element={<TutorRoute><TutorMessages /></TutorRoute>} />
-                          <Route path="/tutor/payments" element={<TutorRoute><TutorPayments /></TutorRoute>} />
-                        </Route>
+                            {/* Tutor Routes */}
+                            <Route path="/tutor" element={<TutorRoute><TutorDashboard /></TutorRoute>} />
+                            <Route path="/tutor/profile" element={<TutorRoute><ProfilePage /></TutorRoute>} />
+                            <Route path="/tutor/sessions" element={<TutorRoute><TutorSessions /></TutorRoute>} />
+                            <Route path="/tutor/sessions/:sessionId" element={<TutorRoute><TutorSessionDetails /></TutorRoute>} />
+                            <Route path="/tutor/availability" element={<TutorRoute><TutorAvailability /></TutorRoute>} />
+                            <Route path="/tutor/messages" element={<TutorRoute><TutorMessages /></TutorRoute>} />
+                            <Route path="/tutor/payments" element={<TutorRoute><TutorPayments /></TutorRoute>} />
+                          </Route>
 
-                        {/* 404 Route */}
-                        <Route path="*" element={<NotFound />} />
-                      </Routes>
-                    </PaymentProvider>
-                  </StudentProfileProvider>
-                </NotificationProvider>
-              </MessageProvider>
-            </SessionProvider>
-          </TutorProfileProvider>
-        </WebSocketProvider>
-      </UserProvider>
+                          {/* 404 Route */}
+                          <Route path="*" element={<NotFound />} />
+                        </Routes>
+                      </PaymentProvider>
+                    </StudentProfileProvider>
+                  </NotificationProvider>
+                </MessageProvider>
+              </SessionProvider>
+            </TutorProfileProvider>
+          </WebSocketProvider>
+        </UserProvider>
+      </AuthProvider>
     </BrowserRouter>
   );
 }
