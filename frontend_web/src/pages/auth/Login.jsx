@@ -6,25 +6,91 @@ import { FaGoogle, FaApple, FaFacebook } from 'react-icons/fa';
 import { useUser } from '../../context/UserContext';
 
 const Login = () => {
-  const { login } = useUser();
+  const { login, isTutor, isStudent } = useUser();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loginError, setLoginError] = useState('');
   const navigate = useNavigate();
-  const { register, handleSubmit, formState: { errors } } = useForm();
+  const { register, handleSubmit, setValue, formState: { errors } } = useForm();
 
-  const onSubmit = async (data) => {
+  // Function to use test account for quick login
+  const useTestAccount = (role) => {
+    const email = role === 'tutor' ? 'tutor@example.com' : 'student@example.com';
+    const password = 'password123';
+    
+    // Set form values
+    setValue('email', email);
+    setValue('password', password);
+    
+    // Submit the form
+    handleLogin({ email, password });
+  };
+
+  const onSubmit = (data) => {
+    handleLogin(data);
+  };
+
+  const handleLogin = async (data) => {
     setIsSubmitting(true);
+    setLoginError('');
+    
     try {
+      console.log('Submitting login form...', data.email);
       const result = await login(data.email, data.password);
+      
       if (result.success) {
         toast.success('Login successful');
+        
+        // Extra safety check - guarantee we have user data in localStorage
+        let userData = null;
+        try {
+          const storedUser = localStorage.getItem('user');
+          if (storedUser) {
+            userData = JSON.parse(storedUser);
+            console.log('User data retrieved from localStorage after login:', userData);
+          }
+        } catch (e) {
+          console.error("Error parsing stored user:", e);
+        }
+        
+        // Handle missing user data - should not happen with proper backend integration
+        if (!userData) {
+          console.error("No user data in localStorage after login - this should not happen");
+          setLoginError('Authentication error - please try again');
+          setIsSubmitting(false);
+          return;
+        }
+        
+        // Immediately navigate to appropriate dashboard
+        const role = (userData.role || '').toUpperCase();
+        console.log(`Login successful - navigating to ${role} dashboard`);
+        
+        if (role.includes('TUTOR')) {
+          navigate('/tutor', { replace: true });
+        } else {
+          navigate('/student', { replace: true });
+        }
       } else {
+        // Handle failed login
+        console.error('Login failed:', result.message);
+        setLoginError(result.message || 'Invalid email or password');
         toast.error(result.message || 'Login failed');
       }
     } catch (error) {
+      console.error("Login error:", error);
+      setLoginError(error.message || 'An error occurred during login');
       toast.error('An error occurred during login');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Function to handle Google OAuth login
+  const handleGoogleLogin = () => {
+    // Use direct URL to the OAuth2 endpoint
+    const googleAuthUrl = 'http://localhost:8080/oauth2/authorization/google';
+    
+    console.log('Redirecting to Google OAuth:', googleAuthUrl);
+    window.location.href = googleAuthUrl;
   };
 
   return (
@@ -34,6 +100,12 @@ const Login = () => {
         <h2 className="mt-6 text-xl font-bold text-gray-800 dark:text-white">Sign in to your account</h2>
         <p className="auth-subtitle">Access your personalized tutoring dashboard</p>
       </div>
+
+      {loginError && (
+        <div className="mb-4 p-3 bg-red-100 border border-red-400 rounded text-red-700 dark:bg-red-900/30 dark:text-red-400 dark:border-red-700">
+          {loginError}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
@@ -70,8 +142,8 @@ const Login = () => {
             {...register('password', {
               required: 'Password is required',
               minLength: {
-                value: 8,
-                message: 'Password must be at least 8 characters',
+                value: 6,
+                message: 'Password must be at least 6 characters',
               },
             })}
           />
@@ -106,10 +178,41 @@ const Login = () => {
             disabled={isSubmitting}
             className="auth-form-button disabled:opacity-50"
           >
-            {isSubmitting ? 'Signing in...' : 'Sign in'}
+            {isSubmitting ? (
+              <span className="flex items-center justify-center">
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Signing in...
+              </span>
+            ) : 'Sign in'}
           </button>
         </div>
       </form>
+
+      {/* Test account buttons for development */}
+      {process.env.NODE_ENV !== 'production' && (
+        <div className="mt-4 flex flex-col space-y-2">
+          <div className="text-xs text-gray-500 dark:text-gray-400 text-center">Development test accounts:</div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              className="text-xs py-1 px-2 border border-gray-300 dark:border-gray-700 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+              onClick={() => useTestAccount('student')}
+            >
+              Use Student Account
+            </button>
+            <button
+              type="button"
+              className="text-xs py-1 px-2 border border-gray-300 dark:border-gray-700 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+              onClick={() => useTestAccount('tutor')}
+            >
+              Use Tutor Account
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="mt-6">
         <div className="relative">
@@ -122,7 +225,11 @@ const Login = () => {
         </div>
 
         <div className="mt-6 grid grid-cols-3 gap-3">
-          <button type="button" className="auth-social-button">
+          <button 
+            type="button" 
+            className="auth-social-button"
+            onClick={handleGoogleLogin}
+          >
             <FaGoogle className="text-red-500" />
           </button>
           <button type="button" className="auth-social-button">

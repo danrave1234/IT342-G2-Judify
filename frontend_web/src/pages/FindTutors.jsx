@@ -39,7 +39,7 @@ const FindTutors = () => {
     <div className="page-container py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">Find Tutors</h1>
-        
+
         {/* Search Filters */}
         <div className="card mb-8">
           <form onSubmit={handleSearch} className="p-4">
@@ -58,7 +58,7 @@ const FindTutors = () => {
                   onChange={handleInputChange}
                 />
               </div>
-              
+
               <div>
                 <label htmlFor="minRating" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Minimum Rating
@@ -76,7 +76,7 @@ const FindTutors = () => {
                   <option value="4.5">4.5+ Stars</option>
                 </select>
               </div>
-              
+
               <div>
                 <label htmlFor="maxPrice" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Maximum Price/Hour
@@ -92,7 +92,7 @@ const FindTutors = () => {
                 />
               </div>
             </div>
-            
+
             <div className="mt-4 flex justify-end">
               <button type="submit" className="btn-primary" disabled={loading}>
                 {loading ? 'Searching...' : 'Search Tutors'}
@@ -100,14 +100,14 @@ const FindTutors = () => {
             </div>
           </form>
         </div>
-        
+
         {/* Error Message */}
         {error && (
           <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
             {error}
           </div>
         )}
-        
+
         {/* Results */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {tutors.length > 0 ? (
@@ -132,7 +132,7 @@ const FindTutors = () => {
                     </p>
                   </div>
                 </div>
-                
+
                 <div className="mt-4">
                   <h4 className="text-sm font-medium text-gray-900 dark:text-white">Subjects:</h4>
                   <div className="flex flex-wrap gap-2 mt-1">
@@ -143,14 +143,18 @@ const FindTutors = () => {
                     ))}
                   </div>
                 </div>
-                
+
                 <div className="mt-4">
-                  <Link 
-                    to={`/tutors/${tutor.profileId}`} 
-                    className="text-primary-600 dark:text-primary-500 hover:text-primary-800 dark:hover:text-primary-400 font-medium text-sm"
-                  >
-                    View Profile
-                  </Link>
+                  {tutor.profileId ? (
+                    <Link 
+                      to={`/tutors/${tutor.profileId}`} 
+                      className="text-primary-600 dark:text-primary-500 hover:text-primary-800 dark:hover:text-primary-400 font-medium text-sm"
+                    >
+                      View Profile
+                    </Link>
+                  ) : (
+                    <span className="text-gray-400 dark:text-gray-600 text-sm">Profile not available</span>
+                  )}
                 </div>
               </div>
             ))

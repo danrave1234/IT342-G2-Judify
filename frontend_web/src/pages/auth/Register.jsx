@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { toast } from 'react-toastify';
 import { FaGoogle, FaApple, FaFacebook } from 'react-icons/fa';
 import { useUser } from '../../context/UserContext';
+import { studentProfileApi, tutorProfileApi } from '../../api/api';
 
 const Register = () => {
   const { register: registerUser } = useUser();
+  const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [step, setStep] = useState(1);
   const { register, handleSubmit, watch, formState: { errors }, setValue } = useForm();
@@ -23,6 +25,67 @@ const Register = () => {
     setValue('userType', type);
   };
 
+  const createStudentProfile = async (userId) => {
+    try {
+      // Create a basic student profile
+      const studentProfileData = {
+        userId: userId,
+        bio: "I'm a new student on the platform",
+        gradeLevel: "College",
+        school: "To be updated",
+        interests: ["General Learning"]
+      };
+      
+      const response = await studentProfileApi.createProfile(studentProfileData);
+      if (response && response.data) {
+        console.log("Student profile created successfully:", response.data);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error("Error creating student profile:", error);
+      // Don't fail the whole registration process if student profile creation fails
+      // User can create it later from their profile page
+      return false;
+    }
+  };
+
+  const createTutorProfile = async (userId) => {
+    try {
+      // Create a basic tutor profile
+      const tutorProfileData = {
+        userId: userId,
+        bio: "I'm a new tutor on the platform",
+        expertise: "New to tutoring",
+        hourlyRate: 20.00,
+        subjects: ["General"],
+        rating: 0.0,
+        totalReviews: 0
+      };
+      
+      const response = await tutorProfileApi.createProfile(tutorProfileData);
+      if (response && response.data) {
+        console.log("Tutor profile created successfully:", response.data);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error("Error creating tutor profile:", error);
+      // Don't fail the whole registration process if tutor profile creation fails
+      // User can create it later from their profile page
+      return false;
+    }
+  };
+
+  // Function to handle Google OAuth signup
+  const handleGoogleSignup = () => {
+    // Use direct URL to the OAuth2 endpoint
+    const googleAuthUrl = 'http://localhost:8080/oauth2/authorization/google';
+    
+    console.log('Redirecting to Google OAuth for signup:', googleAuthUrl);
+    window.location.href = googleAuthUrl;
+  };
+
   const onSubmit = async (data) => {
     if (step === 1) {
       setStep(2);
@@ -31,25 +94,108 @@ const Register = () => {
     
     setIsSubmitting(true);
     try {
-      // Create a username from email (before the @ symbol)
-      const username = data.email.split('@')[0];
+      // IMPORTANT: Ensure password is correctly set
+      if (!data.password || data.password.trim() === '') {
+        toast.error('Password is required for registration');
+        setIsSubmitting(false);
+        return;
+      }
       
-      const result = await registerUser({
+      // Validate password length
+      if (data.password.length < 8) {
+        toast.error('Password must be at least 8 characters long');
+        setIsSubmitting(false);
+        return;
+      }
+      
+      // Construct the complete user data object
+      const userData = {
         firstName: data.firstName,
         lastName: data.lastName,
         email: data.email,
-        username: username,
-        password: data.password,
-        role: data.userType === 'student' ? 'STUDENT' : 'TUTOR' // Map to enum value expected by backend
-      });
+        username: data.username,
+        password: data.password, // Make sure this is set and not empty
+        role: data.userType === 'student' ? 'STUDENT' : 'TUTOR',
+        profilePicture: '',
+        contactDetails: ''
+      };
+      
+      console.log('Sending registration data:', JSON.stringify(userData));
+      
+      // Try direct API call first (for debugging)
+      try {
+        console.log('Trying direct API call to /api/users/register');
+        const directResponse = await fetch('http://localhost:8080/api/users/register', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(userData)
+        });
+        
+        if (directResponse.ok) {
+          const result = await directResponse.json();
+          console.log('Direct API call successful:', result);
+          
+          // Create the appropriate profile based on selected role
+          if (result.userId) {
+            if (data.userType === 'student') {
+              await createStudentProfile(result.userId);
+            } else if (data.userType === 'tutor') {
+              await createTutorProfile(result.userId);
+            }
+          }
+          
+          toast.success('Registration successful! You can now log in.');
+          setTimeout(() => {
+            navigate('/auth/login');
+          }, 2000);
+          setIsSubmitting(false);
+          return;
+        } else {
+          const errorText = await directResponse.text();
+          console.error('Direct API call failed:', errorText);
+          toast.error('Registration failed: ' + errorText);
+          // Fall back to regular registration
+        }
+      } catch (directError) {
+        console.error('Direct API call error:', directError);
+        // Fall back to regular registration
+      }
+      
+      // Regular registration through UserContext
+      const result = await registerUser(userData);
       
       if (result.success) {
-        toast.success('Registration successful! Please verify your email.');
+        // Create the appropriate profile based on selected role
+        if (result.userId) {
+          if (data.userType === 'student') {
+            await createStudentProfile(result.userId);
+          } else if (data.userType === 'tutor') {
+            await createTutorProfile(result.userId);
+          }
+        }
+        
+        toast.success('Registration successful! You can now log in.');
+        setTimeout(() => {
+          navigate('/auth/login');
+        }, 2000);
       } else {
-        toast.error(result.message || 'Registration failed');
+        toast.error(result.message || 'Registration failed. Please try again.');
       }
     } catch (error) {
-      toast.error('An error occurred during registration');
+      console.error('Registration error:', error);
+      
+      // Detailed error logging
+      if (error.response) {
+        console.error('Error response:', {
+          status: error.response.status,
+          data: error.response.data,
+          headers: error.response.headers
+        });
+      }
+      
+      toast.error('Registration failed. Please check your information and try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -93,6 +239,11 @@ const Register = () => {
                     Tutor
                   </button>
                 </div>
+                <input 
+                  type="hidden" 
+                  {...register('userType')} 
+                  value={userType} 
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -151,6 +302,32 @@ const Register = () => {
                 />
                 {errors.email && (
                   <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.email.message}</p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="username" className="auth-form-label">Username</label>
+                <input
+                  id="username"
+                  type="text"
+                  placeholder="YourUsername"
+                  className={`auth-form-input ${
+                    errors.username ? 'border-red-500 dark:border-red-400' : ''
+                  }`}
+                  {...register('username', {
+                    required: 'Username is required',
+                    minLength: {
+                      value: 3,
+                      message: 'Username must be at least 3 characters'
+                    },
+                    pattern: {
+                      value: /^[a-zA-Z0-9_-]+$/,
+                      message: 'Username can only contain letters, numbers, underscores and hyphens'
+                    }
+                  })}
+                />
+                {errors.username && (
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.username.message}</p>
                 )}
               </div>
 
@@ -243,7 +420,15 @@ const Register = () => {
                   disabled={isSubmitting}
                   className="auth-form-button max-w-[200px]"
                 >
-                  {isSubmitting ? 'Creating account...' : 'Create account'}
+                  {isSubmitting ? (
+                    <span className="flex items-center justify-center">
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Creating account...
+                    </span>
+                  ) : 'Create account'}
                 </button>
               </div>
             </div>
@@ -251,10 +436,37 @@ const Register = () => {
         )}
       </form>
 
+      <div className="mt-6">
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-300 dark:border-dark-600"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-white dark:bg-dark-800 text-gray-500 dark:text-gray-400">Or continue with</span>
+          </div>
+        </div>
+
+        <div className="mt-6 grid grid-cols-3 gap-3">
+          <button 
+            type="button" 
+            className="auth-social-button"
+            onClick={handleGoogleSignup}
+          >
+            <FaGoogle className="text-red-500" />
+          </button>
+          <button type="button" className="auth-social-button">
+            <FaApple className="text-gray-800 dark:text-white" />
+          </button>
+          <button type="button" className="auth-social-button">
+            <FaFacebook className="text-primary-700" />
+          </button>
+        </div>
+      </div>
+
       <div className="text-center mt-6">
         <p className="text-sm text-gray-600 dark:text-gray-400">
           Already have an account?{' '}
-          <Link to="/login" className="auth-form-link">
+          <Link to="/auth/login" className="auth-form-link">
             Sign in
           </Link>
         </p>

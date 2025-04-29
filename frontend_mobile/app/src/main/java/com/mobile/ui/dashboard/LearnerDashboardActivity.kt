@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.util.Log
 import android.view.MenuItem
 import android.view.View
+import android.view.ViewGroup
 import android.widget.HorizontalScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
@@ -17,9 +18,6 @@ import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.mobile.R
 import com.mobile.databinding.ActivityLearnerDashboardBinding
 import com.mobile.ui.chat.ChatFragment
-import com.mobile.ui.courses.CoursesFragment
-import com.mobile.ui.courses.adapters.CourseAdapter
-import com.mobile.ui.courses.models.Course
 import com.mobile.ui.map.MapFragment
 import com.mobile.ui.profile.ProfileFragment
 import com.mobile.utils.NetworkUtils
@@ -37,13 +35,15 @@ import com.mobile.utils.NetworkUtils.TutorProfile
 import de.hdodenhof.circleimageview.CircleImageView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.delay
 
 class LearnerDashboardActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityLearnerDashboardBinding
     private val TAG = "LearnerDashboard"
 
-    private lateinit var allCoursesAdapter: CourseAdapter
+    // Session adapter for the RecyclerView
+    private val sessionAdapter = SessionAdapter(emptyList())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,14 +63,20 @@ class LearnerDashboardActivity : AppCompatActivity() {
         // Set up app bar behavior
         setupAppBarBehavior()
 
+        // Set up sessions recycler view
+        setupSessionsRecyclerView()
+
         // Load top tutors
         loadTopTutors()
 
-        // Set up courses
-        setupCourses()
+        // Load learner sessions
+        loadLearnerSessions()
 
         // Set up bottom navigation
         setupBottomNavigation()
+
+        // Handle navigation from other activities
+        handleNavigationExtras()
     }
 
     // Load tutors from the network
@@ -135,15 +141,20 @@ class LearnerDashboardActivity : AppCompatActivity() {
             // Set tutor data
             val tutorImageView = tutorView.findViewById<CircleImageView>(R.id.tutorImageView)
             val tutorNameTextView = tutorView.findViewById<TextView>(R.id.tutorNameTextView)
-            val tutorRatingBar = tutorView.findViewById<RatingBar>(R.id.tutorRatingBar)
+            val tutorSubjectTextView = tutorView.findViewById<TextView>(R.id.tutorSubjectTextView)
+            val tutorRatingBadge = tutorView.findViewById<TextView>(R.id.tutorRatingBadge)
 
             // Set tutor name - use a default if empty
             val displayName = if (tutor.name.isBlank()) "Tutor #${tutor.id}" else tutor.name
             tutorNameTextView.text = displayName
 
-            // Set rating - default to 4.0 if 0
-            val rating = if (tutor.rating <= 0f) 4.0f else tutor.rating
-            tutorRatingBar.rating = rating
+            // Display subject if available
+            val primarySubject = tutor.subjects.firstOrNull() ?: "Tutor"
+            tutorSubjectTextView.text = primarySubject
+
+            // Set rating badge
+            val formattedRating = String.format("%.1f", tutor.rating)
+            tutorRatingBadge.text = formattedRating
 
             // Set click listener to view tutor profile
             tutorView.setOnClickListener {
@@ -166,11 +177,15 @@ class LearnerDashboardActivity : AppCompatActivity() {
         val messageView = LayoutInflater.from(this).inflate(R.layout.item_top_tutor, container, false)
 
         // Set message data
+        val tutorImageView = messageView.findViewById<CircleImageView>(R.id.tutorImageView)
         val tutorNameTextView = messageView.findViewById<TextView>(R.id.tutorNameTextView)
-        val tutorRatingBar = messageView.findViewById<RatingBar>(R.id.tutorRatingBar)
+        val tutorSubjectTextView = messageView.findViewById<TextView>(R.id.tutorSubjectTextView)
+        val tutorRatingBadge = messageView.findViewById<TextView>(R.id.tutorRatingBadge)
 
-        tutorNameTextView.text = "No tutors available"
-        tutorRatingBar.visibility = View.GONE
+        // Style for placeholder
+        tutorNameTextView.text = "No tutors"
+        tutorSubjectTextView.text = "Try again later"
+        tutorRatingBadge.visibility = View.GONE
 
         // Add a toast message when clicked
         messageView.setOnClickListener {
@@ -184,18 +199,21 @@ class LearnerDashboardActivity : AppCompatActivity() {
     }
 
     private fun setupBottomNavigation() {
-        binding.bottomNavigation.setOnItemSelectedListener { item ->
+        val bottomNavigation = findViewById<BottomNavigationView>(R.id.bottomNavigation)
+        bottomNavigation.setOnItemSelectedListener { item ->
             when (item.itemId) {
                 R.id.navigation_home -> {
                     // Show the main dashboard content
                     showMainContent(true)
                     return@setOnItemSelectedListener true
                 }
-                R.id.navigation_courses -> {
-                    // Show the courses fragment
-                    showMainContent(false)
-                    loadFragment(CoursesFragment())
-                    return@setOnItemSelectedListener true
+                R.id.navigation_sessions -> {
+                    // Navigate to the subjects activity
+                    val intent = Intent(this, TutorSearchActivity::class.java)
+                    startActivity(intent)
+                    overridePendingTransition(0, 0)
+                    // Return false to not update the selected item, since we're navigating away
+                    return@setOnItemSelectedListener false
                 }
                 R.id.navigation_map -> {
                     // Show the map fragment
@@ -219,8 +237,19 @@ class LearnerDashboardActivity : AppCompatActivity() {
             }
         }
 
-        // Set the home item as selected by default
-        binding.bottomNavigation.selectedItemId = R.id.navigation_home
+        // Initialize selected item based on intent extras
+        val fragmentToShow = intent.getStringExtra("FRAGMENT")
+        if (fragmentToShow != null) {
+            when (fragmentToShow) {
+                "MAP" -> bottomNavigation.selectedItemId = R.id.navigation_map
+                "CHAT" -> bottomNavigation.selectedItemId = R.id.navigation_chat
+                "PROFILE" -> bottomNavigation.selectedItemId = R.id.navigation_profile
+                else -> bottomNavigation.selectedItemId = R.id.navigation_home
+            }
+        } else {
+            // Set the home item as selected by default
+            bottomNavigation.selectedItemId = R.id.navigation_home
+        }
     }
 
     private fun setupGreeting() {
@@ -278,43 +307,36 @@ class LearnerDashboardActivity : AppCompatActivity() {
     }
 
     private fun setupClickListeners() {
-        // Set up search functionality
+        // Set up search click listener
         binding.searchEditText.setOnClickListener {
-            // Launch TutorSearchActivity for finding tutors
-            startActivity(Intent(this, TutorSearchActivity::class.java))
+            // Navigate to the search activity
+            val intent = Intent(this, TutorSearchActivity::class.java)
+            startActivity(intent)
         }
 
-        // Set up filter functionality
+        // Disable actual editing in the search box
+        binding.searchEditText.keyListener = null
+
+        // Set up filter button click listener
         binding.filterButton.setOnClickListener {
-            // TODO: Implement filter functionality
+            // TODO: Show filter options
+            Toast.makeText(this, "Filters coming soon!", Toast.LENGTH_SHORT).show()
         }
 
-        // Set up see all tutors
+        // Set up see all tutors click listener
         binding.seeAllTutors.setOnClickListener {
-            // Launch TutorSearchActivity for finding tutors
-            startActivity(Intent(this, TutorSearchActivity::class.java))
+            // Navigate to the search activity
+            val intent = Intent(this, TutorSearchActivity::class.java)
+            startActivity(intent)
         }
 
-        // Set up notification icon click
-        binding.notificationIcon.setOnClickListener {
-            // TODO: Navigate to notifications screen
-        }
-
-        // Set up message icon click
-        binding.messageIcon.setOnClickListener {
-            // TODO: Navigate to messages screen
-        }
-
-        // Set up special offer card click
-        binding.specialOfferCard.setOnClickListener {
-            // TODO: Navigate to special offer details
-        }
-
-        // Set up profile image click
+        // Set up profile image click listener
         binding.profileImage.setOnClickListener {
-            // Show the profile fragment and hide the main content
+            // Show the profile fragment
             showMainContent(false)
             loadFragment(ProfileFragment())
+            val bottomNavigation = findViewById<BottomNavigationView>(R.id.bottomNavigation)
+            bottomNavigation.selectedItemId = R.id.navigation_profile
         }
     }
 
@@ -339,54 +361,303 @@ class LearnerDashboardActivity : AppCompatActivity() {
         })
     }
 
-    private fun setupCourses() {
-        // Load courses asynchronously
+    private fun handleNavigationExtras() {
+        // Check if we have any navigation extras
+        val fragmentToShow = intent.getStringExtra("FRAGMENT")
+        if (fragmentToShow != null) {
+            when (fragmentToShow) {
+                "MAP" -> {
+                    showMainContent(false)
+                    loadFragment(MapFragment())
+                }
+                "CHAT" -> {
+                    showMainContent(false)
+                    loadFragment(ChatFragment())
+                }
+                "PROFILE" -> {
+                    showMainContent(false)
+                    loadFragment(ProfileFragment())
+                }
+            }
+        }
+    }
+
+    /**
+     * Load learner sessions from the API
+     */
+    private fun loadLearnerSessions() {
+        // Show loading indicator
+        binding.loadingProgressBar.visibility = View.VISIBLE
+        binding.noSessionsText.visibility = View.GONE
+
+        val userId = PreferenceUtils.getUserId(this)
+        if (userId == null) {
+            Toast.makeText(this, "User ID not found", Toast.LENGTH_SHORT).show()
+            binding.loadingProgressBar.visibility = View.GONE
+            binding.noSessionsText.visibility = View.VISIBLE
+            return
+        }
+
         lifecycleScope.launch {
             try {
-                // All Courses RecyclerView
-                binding.allCoursesRecyclerView.layoutManager = LinearLayoutManager(this@LearnerDashboardActivity)
-
-                allCoursesAdapter = CourseAdapter(
-                    onCourseClick = { course ->
-                        // Handle course click - navigate to book a session with the tutor
-                        if (course.tutorId == null) {
-                            Toast.makeText(this@LearnerDashboardActivity, "Tutor information not available", Toast.LENGTH_SHORT).show()
-                            return@CourseAdapter
-                        }
-
-                        // Create intent with proper extras
-                        val intent = Intent(this@LearnerDashboardActivity, BookingActivity::class.java).apply {
-                            putExtra(BookingActivity.EXTRA_TUTOR_ID, course.tutorId)
-                            putExtra(BookingActivity.EXTRA_COURSE_ID, course.id)
-                            putExtra(BookingActivity.EXTRA_COURSE_TITLE, course.title)
-                        }
-                        startActivity(intent)
+                val result = NetworkUtils.getLearnerSessions(userId.toString())
+                if (result.isSuccess) {
+                    val sessions = result.getOrNull() ?: emptyList()
+                    if (sessions.isNotEmpty()) {
+                        binding.noSessionsText.visibility = View.GONE
+                        binding.allSessionsRecyclerView.visibility = View.VISIBLE
+                        sessionAdapter.submitList(sessions)
+                        Log.d(TAG, "Loaded ${sessions.size} sessions for learner")
+                    } else {
+                        binding.noSessionsText.text = "You don't have any sessions yet. Book a session with a tutor to get started!"
+                        binding.noSessionsText.visibility = View.VISIBLE
+                        binding.allSessionsRecyclerView.visibility = View.GONE
+                        Log.d(TAG, "No sessions found for learner")
                     }
-                )
-                binding.allCoursesRecyclerView.adapter = allCoursesAdapter
+                } else {
+                    val error = result.exceptionOrNull()
+                    val errorMsg = error?.message ?: "Unknown error"
 
-                // Load course data
-                val allCourses = NetworkUtils.getAllCourses()
-                allCoursesAdapter.submitList(allCourses)
+                    // Check if it's a 404 error which likely means the user just doesn't have any sessions yet
+                    if (errorMsg.contains("404")) {
+                        Log.d(TAG, "No sessions found for learner (404): likely a new user")
+                        binding.noSessionsText.text = "You don't have any sessions yet. Book a session with a tutor to get started!"
+                    } else {
+                        Log.e(TAG, "Failed to load learner sessions: $errorMsg", error)
+                        binding.noSessionsText.text = "Unable to load sessions. Pull down to refresh."
+                        Toast.makeText(this@LearnerDashboardActivity, "Failed to load sessions", Toast.LENGTH_SHORT).show()
+                    }
 
-                Log.d(TAG, "Loaded ${allCourses.size} all courses")
-
+                    binding.noSessionsText.visibility = View.VISIBLE
+                    binding.allSessionsRecyclerView.visibility = View.GONE
+                }
             } catch (e: Exception) {
-                Log.e(TAG, "Error loading courses: ${e.message}", e)
+                Log.e(TAG, "Exception loading learner sessions: ${e.message}", e)
+                binding.noSessionsText.text = "Unable to load sessions. Pull down to refresh."
+                binding.noSessionsText.visibility = View.VISIBLE
+                binding.allSessionsRecyclerView.visibility = View.GONE
+                Toast.makeText(this@LearnerDashboardActivity, "Error loading sessions", Toast.LENGTH_SHORT).show()
+            } finally {
+                binding.loadingProgressBar.visibility = View.GONE
             }
         }
     }
 
-    private fun filterCoursesByCategory(category: String?) {
-        lifecycleScope.launch {
+    /**
+     * Adapter for the sessions RecyclerView
+     */
+    private inner class SessionAdapter(private var sessions: List<NetworkUtils.TutoringSession>) : 
+        androidx.recyclerview.widget.RecyclerView.Adapter<SessionAdapter.ViewHolder>() {
+
+        inner class ViewHolder(view: View) : androidx.recyclerview.widget.RecyclerView.ViewHolder(view) {
+            val subject: TextView = view.findViewById(R.id.sessionSubject)
+            val date: TextView = view.findViewById(R.id.sessionDate)
+            val time: TextView = view.findViewById(R.id.sessionTime)
+            val status: TextView = view.findViewById(R.id.sessionStatus)
+            val tutorName: TextView = view.findViewById(R.id.tutorName)
+        }
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+            val view = LayoutInflater.from(parent.context)
+                .inflate(R.layout.item_session, parent, false)
+            return ViewHolder(view)
+        }
+
+        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+            val session = sessions[position]
+
+            // Set session details
+            holder.subject.text = session.subject
+
+            // Format date and time
+            val dateTimeFormatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+            val dateFormatter = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+            val timeFormatter = SimpleDateFormat("h:mm a", Locale.getDefault())
+
             try {
-                val filteredCourses = NetworkUtils.getCoursesByCategory(category)
-                allCoursesAdapter.submitList(filteredCourses)
-                Log.d(TAG, "Filtered courses by category: $category, found ${filteredCourses.size} courses")
+                val startDateTime = dateTimeFormatter.parse(session.startTime)
+                val endDateTime = dateTimeFormatter.parse(session.endTime)
+
+                if (startDateTime != null && endDateTime != null) {
+                    val formattedDate = dateFormatter.format(startDateTime)
+                    val formattedStartTime = timeFormatter.format(startDateTime)
+                    val formattedEndTime = timeFormatter.format(endDateTime)
+
+                    holder.date.text = formattedDate
+                    holder.time.text = "$formattedStartTime - $formattedEndTime"
+                }
             } catch (e: Exception) {
-                Log.e(TAG, "Error filtering courses: ${e.message}", e)
-                // TODO: Show error message
+                Log.e(TAG, "Error formatting date: ${e.message}")
+                holder.date.text = "Invalid date"
+                holder.time.text = "Invalid time"
+            }
+
+            holder.status.text = session.status
+
+            // Use tutorName from session if available, otherwise fetch from network
+            if (session.tutorName.isNotEmpty()) {
+                holder.tutorName.text = session.tutorName
+            } else {
+                // Get tutor name from network if not included in session data
+                lifecycleScope.launch {
+                    try {
+                        val tutorResult = NetworkUtils.findTutorById(session.tutorId)
+                        if (tutorResult.isSuccess) {
+                            val tutor = tutorResult.getOrNull()
+                            if (tutor != null) {
+                                holder.tutorName.text = tutor.name
+                            } else {
+                                holder.tutorName.text = "Unknown Tutor"
+                            }
+                        } else {
+                            holder.tutorName.text = "Unknown Tutor"
+                        }
+                    } catch (e: Exception) {
+                        holder.tutorName.text = "Unknown Tutor"
+                    }
+                }
+            }
+
+            // Set click listener to open conversation with tutor
+            holder.itemView.setOnClickListener {
+                // Get the current user ID
+                val currentUserId = PreferenceUtils.getUserId(this@LearnerDashboardActivity) ?: -1L
+
+                if (currentUserId == -1L) {
+                    Toast.makeText(this@LearnerDashboardActivity, 
+                        "Unable to identify current user. Please log in again.", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+
+                // Show loading toast
+                Toast.makeText(this@LearnerDashboardActivity, 
+                    "Opening conversation...", Toast.LENGTH_SHORT).show()
+
+                // Launch coroutine to handle conversation
+                lifecycleScope.launch {
+                    try {
+                        // Get studentId and tutorId from the session
+                        val studentId = session.learnerId.toLongOrNull() ?: currentUserId
+                        val tutorId = session.tutorId
+
+                        // Log the IDs for debugging
+                        Log.d(TAG, "Attempting to create/find conversation - Student ID: $studentId, Tutor ID: $tutorId")
+
+                        // Try to find existing conversation
+                        val conversationsResult = NetworkUtils.getConversationsForUser(currentUserId)
+
+                        if (conversationsResult.isSuccess) {
+                            val conversations = conversationsResult.getOrNull() ?: emptyList()
+
+                            // Log all conversations for debugging
+                            Log.d(TAG, "Found ${conversations.size} conversations for user $currentUserId")
+                            conversations.forEach { conv ->
+                                Log.d(TAG, "Conversation ${conv.id}: student=${conv.studentId}, tutor=${conv.tutorId}")
+                            }
+
+                            // Check if session already has a conversationId
+                            val sessionConversationId = session.conversationId
+                            if (sessionConversationId != null && sessionConversationId > 0) {
+                                // Find the conversation with this ID
+                                val sessionConversation = conversations.find { it.id == sessionConversationId }
+                                if (sessionConversation != null) {
+                                    Log.d(TAG, "Using conversation from session: ${sessionConversation.id}")
+                                    openConversation(sessionConversation.id, tutorId, session.tutorName)
+                                    return@launch
+                                }
+                            }
+
+                            // Look for a conversation with this tutor
+                            val existingConversation = conversations.find { conversation ->
+                                (conversation.tutorId == tutorId && conversation.studentId == currentUserId) ||
+                                (conversation.studentId == currentUserId && conversation.tutorId == tutorId)
+                            }
+
+                            if (existingConversation != null) {
+                                // Log the existing conversation
+                                Log.d(TAG, "Using existing conversation ${existingConversation.id} between student $studentId and tutor $tutorId")
+
+                                // Open existing conversation
+                                openConversation(existingConversation.id, tutorId, session.tutorName)
+                            } else {
+                                // Create new conversation using tutorId and studentId instead of user IDs
+                                Log.d(TAG, "Creating new conversation with studentId=$studentId, tutorId=$tutorId")
+
+                                // Use createConversationWithTutor which handles the conversion of tutorId to userId
+                                val createResult = NetworkUtils.createConversationWithTutor(studentId, tutorId)
+
+                                if (createResult.isSuccess) {
+                                    val newConversation = createResult.getOrNull()
+                                    if (newConversation != null) {
+                                        // Log the created conversation
+                                        Log.d(TAG, "Successfully created conversation ${newConversation.id} with student=${newConversation.studentId}, tutor=${newConversation.tutorId}")
+
+                                        openConversation(newConversation.id, tutorId, session.tutorName)
+                                    } else {
+                                        Log.e(TAG, "Conversation creation succeeded but returned null")
+                                        Toast.makeText(this@LearnerDashboardActivity, 
+                                            "Failed to create conversation", Toast.LENGTH_SHORT).show()
+                                    }
+                                } else {
+                                    // Log the error
+                                    val error = createResult.exceptionOrNull()
+                                    Log.e(TAG, "Failed to create conversation: ${error?.message}", error)
+
+                                    Toast.makeText(this@LearnerDashboardActivity, 
+                                        "Failed to create conversation", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        } else {
+                            // Log the error
+                            val error = conversationsResult.exceptionOrNull()
+                            Log.e(TAG, "Failed to load conversations: ${error?.message}", error)
+
+                            Toast.makeText(this@LearnerDashboardActivity, 
+                                "Failed to load conversations", Toast.LENGTH_SHORT).show()
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error opening conversation: ${e.message}", e)
+                        Toast.makeText(this@LearnerDashboardActivity, 
+                            "Error opening conversation: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+                }
             }
         }
+
+        override fun getItemCount() = sessions.size
+
+        /**
+         * Update the list of sessions
+         */
+        fun submitList(newSessions: List<NetworkUtils.TutoringSession>) {
+            sessions = newSessions
+            notifyDataSetChanged()
+        }
     }
-} 
+
+    /**
+     * Set up the RecyclerView for sessions
+     */
+    private fun setupSessionsRecyclerView() {
+        binding.allSessionsRecyclerView.apply {
+            adapter = sessionAdapter
+            layoutManager = LinearLayoutManager(this@LearnerDashboardActivity)
+        }
+    }
+
+    /**
+     * Open a conversation with another user
+     * @param conversationId ID of the conversation
+     * @param otherUserId ID of the other user
+     * @param otherUserName Name of the other user
+     */
+    private fun openConversation(conversationId: Long, otherUserId: Long, otherUserName: String) {
+        val intent = Intent(this, com.mobile.ui.chat.MessageActivity::class.java).apply {
+            putExtra("CONVERSATION_ID", conversationId)
+            putExtra("OTHER_USER_ID", otherUserId)
+            putExtra("OTHER_USER_NAME", otherUserName)
+        }
+        startActivity(intent)
+    }
+
+}

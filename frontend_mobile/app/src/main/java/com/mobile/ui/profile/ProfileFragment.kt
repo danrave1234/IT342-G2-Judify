@@ -3,6 +3,7 @@ package com.mobile.ui.profile
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log // <-- Added Log import
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -15,6 +16,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.Observer // <-- Added Observer import
 import com.mobile.R
 import com.mobile.ui.base.BaseFragment
 import com.mobile.ui.login.LoginActivity
@@ -25,6 +27,7 @@ import de.hdodenhof.circleimageview.CircleImageView
  * Fragment for displaying user profile
  */
 class ProfileFragment : BaseFragment() {
+    private val TAG = "ProfileFragment" // Add TAG
 
     // UI components
     private lateinit var profileImage: CircleImageView
@@ -45,6 +48,7 @@ class ProfileFragment : BaseFragment() {
 
     // ViewModel
     private lateinit var viewModel: ProfileViewModel
+    private var profileStateObserver: Observer<ProfileState>? = null // Observer instance variable
 
     override fun getLayoutResourceId(): Int {
         return R.layout.fragment_profile
@@ -53,8 +57,8 @@ class ProfileFragment : BaseFragment() {
     override fun onViewCreated(view: View) {
         super.onViewCreated(view)
 
-        // Initialize ViewModel
-        viewModel = ViewModelProvider(this).get(ProfileViewModel::class.java)
+        // Initialize ViewModel - use requireActivity() for shared ViewModel
+        viewModel = ViewModelProvider(requireActivity()).get(ProfileViewModel::class.java)
 
         // Initialize UI components
         initializeViews(view)
@@ -65,11 +69,19 @@ class ProfileFragment : BaseFragment() {
         // Set up observers
         setupObservers()
 
-        // Load profile data
+        // Load profile data if not already loaded or if coming back from edit
+        // Use the existing loadUserProfile logic which checks for existing data
         loadProfileData()
 
         // Update theme mode text
         updateThemeModeText()
+    }
+
+    override fun onDestroyView() {
+        // Clean up observer to prevent memory leaks
+        profileStateObserver?.let { viewModel.profileState.removeObserver(it) }
+        profileStateObserver = null
+        super.onDestroyView()
     }
 
     private fun initializeViews(view: View) {
@@ -92,11 +104,12 @@ class ProfileFragment : BaseFragment() {
 
     private fun setupListeners() {
         editProfileButton.setOnClickListener {
+            Log.d(TAG, "Edit Profile button clicked.") // Log click
             // Navigate to edit profile screen
             val editProfileFragment = EditProfileFragment.newInstance()
             parentFragmentManager.beginTransaction()
                 .replace(R.id.fragmentContainer, editProfileFragment)
-                .addToBackStack(null)
+                .addToBackStack(null) // Add to back stack so user can return
                 .commit()
         }
 
@@ -190,20 +203,28 @@ class ProfileFragment : BaseFragment() {
     }
 
     private fun setupObservers() {
-        viewModel.profileState.observe(viewLifecycleOwner) { state ->
+        // Remove previous observer if exists
+        profileStateObserver?.let { viewModel.profileState.removeObserver(it) }
+
+        profileStateObserver = Observer { state ->
+            Log.d(TAG, "Observer received state: $state") // Log state changes
+
             when {
                 state.isLoading -> {
                     progressBar.visibility = View.VISIBLE
                     errorText.visibility = View.GONE
+                    Log.d(TAG, "State is Loading")
                 }
                 state.error != null -> {
                     progressBar.visibility = View.GONE
                     errorText.visibility = View.VISIBLE
                     errorText.text = state.error
+                    Log.e(TAG, "State has Error: ${state.error}")
                 }
                 state.user != null -> {
                     progressBar.visibility = View.GONE
                     errorText.visibility = View.GONE
+                    Log.d(TAG, "State has User: ${state.user.name}")
 
                     // Update UI with user data
                     userNameText.text = state.user.name
@@ -223,17 +244,36 @@ class ProfileFragment : BaseFragment() {
                     sessionsCountText.text = state.sessions.toString()
                     reviewsCountText.text = state.reviews.toString()
                     messagesCountText.text = state.messages.toString()
+
+                    // Check if the update was successful
+                    if (state.isUpdateSuccessful) {
+                        Log.d(TAG, "Update was successful, showing toast and clearing status.")
+                        Toast.makeText(requireContext(), "Profile updated successfully", Toast.LENGTH_SHORT).show()
+                        // Reset the flag in the ViewModel
+                        viewModel.clearUpdateStatus()
+                    }
+                }
+                else -> {
+                    // Handle case where state is not loading, no error, but user is null
+                    progressBar.visibility = View.GONE
+                    errorText.visibility = View.VISIBLE
+                    errorText.text = "Could not load profile data."
+                    Log.w(TAG, "State is not loading, no error, but user is null.")
                 }
             }
         }
+        viewModel.profileState.observe(viewLifecycleOwner, profileStateObserver!!)
     }
+
 
     private fun loadProfileData() {
         // Get user email from UserPreferences
         val email = PreferenceUtils.getUserEmail(requireContext())
         if (email != null) {
+            Log.d(TAG, "Loading profile data for email: $email")
             viewModel.loadUserProfile(email)
         } else {
+            Log.e(TAG, "User email not found in preferences. Cannot load profile.")
             // No user is logged in, navigate to login screen
             val intent = Intent(requireContext(), LoginActivity::class.java)
             intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK

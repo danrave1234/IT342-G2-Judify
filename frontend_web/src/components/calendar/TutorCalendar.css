@@ -1,0 +1,88 @@
+/* TutorCalendar.css */
+.tutor-calendar-container .rbc-calendar {
+  background-color: white;
+  border-radius: 0.5rem;
+  padding: 0.5rem;
+}
+
+.dark .tutor-calendar-container .rbc-calendar {
+  background-color: #1f2937; /* dark mode background */
+  color: #f3f4f6;
+}
+
+.tutor-calendar-container .rbc-header {
+  padding: 0.5rem;
+  font-weight: 500;
+}
+
+.dark .tutor-calendar-container .rbc-header {
+  color: #e5e7eb;
+  border-color: #374151;
+}
+
+.tutor-calendar-container .rbc-month-view {
+  border-color: #e5e7eb;
+}
+
+.dark .tutor-calendar-container .rbc-month-view {
+  border-color: #374151;
+}
+
+.tutor-calendar-container .rbc-day-bg {
+  transition: background-color 0.2s;
+}
+
+.tutor-calendar-container .rbc-day-bg:hover {
+  background-color: #f3f4f6;
+}
+
+.dark .tutor-calendar-container .rbc-day-bg:hover {
+  background-color: #374151;
+}
+
+.tutor-calendar-container .rbc-today {
+  background-color: #ebf8ff; /* light blue for today */
+}
+
+.dark .tutor-calendar-container .rbc-today {
+  background-color: #1e40af3d; /* dark blue for today in dark mode */
+}
+
+.tutor-calendar-container .rbc-event {
+  border-radius: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+}
+
+.tutor-calendar-container .rbc-event-content {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tutor-calendar-container .rbc-event.session-event {
+  background-color: #3174ad;
+}
+
+.tutor-calendar-container .rbc-event.availability-event {
+  background-color: #4caf50;
+}
+
+/* Make the calendar responsive */
+@media (max-width: 640px) {
+  .tutor-calendar-container .rbc-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .tutor-calendar-container .rbc-toolbar-label {
+    margin: 0.5rem 0;
+  }
+  
+  .tutor-calendar-container .rbc-btn-group {
+    margin-bottom: 0.5rem;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
+} 

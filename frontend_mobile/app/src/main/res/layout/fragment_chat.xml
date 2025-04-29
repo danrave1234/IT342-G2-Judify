@@ -59,7 +59,7 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:background="@null"
-                        android:hint="Search conversations"
+                        android:hint="Search session chats"
                         android:padding="8dp"
                         android:textColorHint="#9AA3B2"
                         android:inputType="text"
@@ -120,7 +120,7 @@
                         android:id="@+id/emptyStateTitle"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="No conversations yet"
+                        android:text="No Session Chats"
                         android:textSize="20sp"
                         android:textColor="@color/primary_blue"
                         android:textStyle="bold"
@@ -130,7 +130,7 @@
                         android:id="@+id/emptyStateMessage"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Start a conversation with a tutor or classmate to see it here."
+                        android:text="You don't have any chats from tutoring sessions yet. Conversations with tutors and students will appear here when you have active sessions."
                         android:textSize="16sp"
                         android:textColor="?android:textColorSecondary"
                         android:layout_marginTop="8dp"
@@ -148,6 +148,7 @@
                         android:paddingTop="12dp"
                         android:paddingBottom="12dp"
                         android:textSize="15sp"
+                        android:visibility="gone"
                         app:elevation="2dp"
                         style="@style/Widget.MaterialComponents.Button" />
                 </LinearLayout>
@@ -218,7 +219,7 @@
             </LinearLayout>
         </androidx.core.widget.NestedScrollView>
 
-        <!-- Add New Message FAB -->
+        <!-- Add New Message FAB - Hidden as per requirements -->
         <com.google.android.material.floatingactionbutton.FloatingActionButton
             android:id="@+id/newMessageFab"
             android:layout_width="wrap_content"
@@ -227,6 +228,7 @@
             android:layout_margin="16dp"
             android:src="@drawable/ic_edit"
             android:contentDescription="New message"
+            android:visibility="gone"
             app:tint="@color/white"
             app:backgroundTint="@color/primary_blue"
             app:borderWidth="0dp"
