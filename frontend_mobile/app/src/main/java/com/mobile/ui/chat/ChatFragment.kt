@@ -7,6 +7,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
@@ -56,6 +57,17 @@ class ChatFragment : BaseFragment() {
         retryButton = view.findViewById(R.id.retryButton)
         startChatButton = view.findViewById(R.id.startChatButton)
         newMessageFab = view.findViewById(R.id.newMessageFab)
+        
+        // Disable auto-focus for search edit text
+        view.findViewById<EditText>(R.id.searchEditText)?.apply {
+            isFocusable = false
+            isFocusableInTouchMode = false
+            setOnClickListener {
+                isFocusableInTouchMode = true
+                isFocusable = true
+                requestFocus()
+            }
+        }
 
         // Initialize ViewModel
         viewModel = ViewModelProvider(this)[ChatViewModel::class.java]

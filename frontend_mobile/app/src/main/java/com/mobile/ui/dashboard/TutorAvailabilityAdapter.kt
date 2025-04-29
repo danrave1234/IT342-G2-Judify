@@ -35,7 +35,7 @@ class TutorAvailabilityAdapter(
         val formattedDay = availability.dayOfWeek.lowercase().replaceFirstChar { it.uppercase() }
         holder.dayOfWeekText.text = formattedDay
         
-        // Format time range
+        // Format time range (keep in 24-hour format)
         holder.timeRangeText.text = "${availability.startTime} - ${availability.endTime}"
         
         // Set click listeners

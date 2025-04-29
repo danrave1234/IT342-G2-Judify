@@ -196,6 +196,7 @@ class BookingViewModel(
 
                     // Only add the slot if it ends before or at the availability end time
                     if (slotEndHour < endHour || (slotEndHour == endHour && slotEndMinute <= endMinute)) {
+                        // Format in 24-hour time (HH:MM - HH:MM)
                         val timeSlot = String.format("%02d:%02d - %02d:%02d", currentHour, currentMinute, slotEndHour, slotEndMinute)
                         timeSlots.add(timeSlot)
                         Log.d("BookingViewModel", "Added time slot: $timeSlot")
@@ -251,7 +252,7 @@ class BookingViewModel(
                 var hour = parts[0].toInt()
                 val minute = if (parts.size > 1) parts[1].toInt() else 0
 
-                // Adjust hour for 12-hour format
+                // Convert 12-hour format to 24-hour format
                 if (isPm && hour < 12) {
                     hour += 12
                 } else if (isAm && hour == 12) {
@@ -260,20 +261,52 @@ class BookingViewModel(
 
                 return Pair(hour, minute)
             } else {
-                // Handle 24-hour format (HH:MM or H:MM)
+                // Assume 24-hour format
                 val parts = trimmedTime.split(":")
                 val hour = parts[0].toInt()
                 val minute = if (parts.size > 1) parts[1].toInt() else 0
-
-                // Log for debugging
-                Log.d("BookingViewModel", "Parsed 24-hour time: $hour:$minute from $timeString")
-
                 return Pair(hour, minute)
             }
         } catch (e: Exception) {
-            Log.e("BookingViewModel", "Error parsing time string '$timeString': ${e.message}", e)
-            // Default to 12:00 PM if parsing fails (more likely to be within tutor hours)
-            return Pair(12, 0)
+            Log.e("BookingViewModel", "Error parsing time string: $timeString", e)
+            throw e
+        }
+    }
+
+    /**
+     * Format time from 24-hour (HH:MM) to 12-hour format (h:mm AM/PM)
+     * @param hour Hour in 24-hour format (0-23)
+     * @param minute Minute (0-59)
+     * @return Time string in 12-hour format with AM/PM
+     */
+    private fun formatTimeTo12Hour(hour: Int, minute: Int): String {
+        val isPm = hour >= 12
+        val displayHour = if (hour % 12 == 0) 12 else hour % 12
+        return String.format("%d:%02d %s", displayHour, minute, if (isPm) "PM" else "AM")
+    }
+
+    /**
+     * Process time slots for display in the UI
+     * Converts from 24-hour to 12-hour format for presentation
+     */
+    fun formatTimeSlotsForDisplay(timeSlots: List<String>): List<String> {
+        return timeSlots.map { timeSlot ->
+            // Split the time slot "HH:MM - HH:MM"
+            val parts = timeSlot.split(" - ")
+            if (parts.size != 2) return@map timeSlot
+            
+            // Parse start time
+            val startParts = parts[0].split(":")
+            val startHour = startParts[0].toInt()
+            val startMinute = startParts[1].toInt()
+            
+            // Parse end time
+            val endParts = parts[1].split(":")
+            val endHour = endParts[0].toInt()
+            val endMinute = endParts[1].toInt()
+            
+            // Format to 12-hour
+            "${formatTimeTo12Hour(startHour, startMinute)} - ${formatTimeTo12Hour(endHour, endMinute)}"
         }
     }
 

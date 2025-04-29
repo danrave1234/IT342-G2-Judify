@@ -36,6 +36,7 @@ import de.hdodenhof.circleimageview.CircleImageView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
+import android.widget.EditText
 
 class LearnerDashboardActivity : AppCompatActivity() {
 
@@ -77,6 +78,12 @@ class LearnerDashboardActivity : AppCompatActivity() {
 
         // Handle navigation from other activities
         handleNavigationExtras()
+
+        // Setup search bar
+        setupSearchBar()
+        
+        // Load real data
+        loadRealData()
     }
 
     // Load tutors from the network
@@ -575,16 +582,16 @@ class LearnerDashboardActivity : AppCompatActivity() {
 
                             if (existingConversation != null) {
                                 // Log the existing conversation
-                                Log.d(TAG, "Using existing conversation ${existingConversation.id} between student $studentId and tutor $tutorId")
+                                Log.d(TAG, "Using existing conversation ${existingConversation.id} between student $currentUserId and tutor $tutorId")
 
                                 // Open existing conversation
                                 openConversation(existingConversation.id, tutorId, session.tutorName)
                             } else {
                                 // Create new conversation using tutorId and studentId instead of user IDs
-                                Log.d(TAG, "Creating new conversation with studentId=$studentId, tutorId=$tutorId")
+                                Log.d(TAG, "Creating new conversation with studentId=$currentUserId, tutorId=$tutorId")
 
                                 // Use createConversationWithTutor which handles the conversion of tutorId to userId
-                                val createResult = NetworkUtils.createConversationWithTutor(studentId, tutorId)
+                                val createResult = NetworkUtils.createConversationWithTutor(currentUserId, tutorId)
 
                                 if (createResult.isSuccess) {
                                     val newConversation = createResult.getOrNull()
@@ -658,6 +665,111 @@ class LearnerDashboardActivity : AppCompatActivity() {
             putExtra("OTHER_USER_NAME", otherUserName)
         }
         startActivity(intent)
+    }
+
+    /**
+     * Recursively finds and configures all EditText views with "search" in their ID
+     * to prevent auto-focus and showing keyboard
+     */
+    private fun disableSearchEditTextAutoFocus(viewGroup: ViewGroup) {
+        for (i in 0 until viewGroup.childCount) {
+            val child = viewGroup.getChildAt(i)
+            
+            // Check if this is an EditText with "search" in its ID
+            if (child is EditText && child.id != View.NO_ID) {
+                val idString = resources.getResourceEntryName(child.id)
+                if (idString.contains("search", ignoreCase = true)) {
+                    // Disable focus and make not focusable in touch mode
+                    child.isFocusable = false
+                    child.isFocusableInTouchMode = false
+                    
+                    // Special handling for searchEditText in learner dashboard
+                    // which already has a click listener to navigate to search
+                    if (child.id != R.id.searchEditText) {
+                        // Enable focusing only when explicitly clicked
+                        child.setOnClickListener {
+                            child.isFocusableInTouchMode = true
+                            child.isFocusable = true
+                            child.requestFocus()
+                        }
+                    }
+                }
+            }
+            
+            // Recursively check child view groups
+            if (child is ViewGroup) {
+                disableSearchEditTextAutoFocus(child)
+            }
+        }
+    }
+    
+    /**
+     * Prevents search edit text elements from auto-focusing when navigating between screens
+     */
+    private fun setupSearchBar() {
+        // Find all search edit text views in the activity
+        val rootView = window.decorView.findViewById<ViewGroup>(android.R.id.content)
+        disableSearchEditTextAutoFocus(rootView)
+    }
+
+    /**
+     * Loads the real user data from the server including profile and other relevant information
+     */
+    private fun loadRealData() {
+        // Get the user email from preferences
+        val userEmail = PreferenceUtils.getUserEmail(this)
+
+        if (userEmail != null) {
+            // Launch coroutine to fetch data
+            lifecycleScope.launch {
+                try {
+                    // Find the user by email
+                    val userResult = NetworkUtils.findUserByEmail(userEmail)
+                    if (userResult.isSuccess) {
+                        val user = userResult.getOrNull()
+                        if (user != null) {
+                            Log.d(TAG, "Successfully loaded user data for: ${user.firstName} ${user.lastName}")
+                            
+                            // Update UI with user data if needed
+                            // Example: Update profile image, name, etc.
+                            
+                            // Load additional data if necessary
+                            // loadAdditionalUserData(user.userId)
+                        } else {
+                            Log.e(TAG, "User is null for email: $userEmail")
+                            Toast.makeText(
+                                this@LearnerDashboardActivity,
+                                "Failed to load user data. Please try again later.",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    } else {
+                        // Handle error
+                        Log.e(TAG, "Failed to find user by email: $userEmail")
+                        Toast.makeText(
+                            this@LearnerDashboardActivity,
+                            "Failed to load user data. Please try again later.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error loading user data: ${e.message}", e)
+                    Toast.makeText(
+                        this@LearnerDashboardActivity,
+                        "Error loading data: ${e.message}",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        } else {
+            // Handle case where user email is not available
+            Log.e(TAG, "User email is not available")
+            Toast.makeText(
+                this@LearnerDashboardActivity,
+                "User email not found. Please log in again.",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
     }
 
 }

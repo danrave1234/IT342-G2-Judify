@@ -12,6 +12,7 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.widget.EditText
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -63,6 +64,17 @@ class MapFragment : BaseFragment() {
 
         mapView = view.findViewById(R.id.mapView)
         pinLocationButton = view.findViewById(R.id.pinLocationButton)
+
+        // Disable auto-focus for search edit text
+        view.findViewById<EditText>(R.id.searchEditText)?.apply {
+            isFocusable = false
+            isFocusableInTouchMode = false
+            setOnClickListener {
+                isFocusableInTouchMode = true
+                isFocusable = true
+                requestFocus()
+            }
+        }
 
         // Check if user is a tutor (based on parent activity)
         isTutor = activity is TutorDashboardActivity
