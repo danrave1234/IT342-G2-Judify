@@ -223,4 +223,67 @@ public class TutorProfileService {
                 .map(dtoMapper::toDTO)
                 .collect(Collectors.toList());
     }
+
+    /**
+     * Update tutor location with full details including city, state, country
+     * @param profileId tutor profile ID
+     * @param latitude latitude
+     * @param longitude longitude
+     * @param city city name
+     * @param state state name
+     * @param country country name
+     * @param shareLocation whether to share location
+     * @return updated TutorProfileEntity
+     */
+    public TutorProfileEntity updateTutorLocation(
+            Long profileId,
+            Double latitude,
+            Double longitude,
+            String city,
+            String state,
+            String country,
+            boolean shareLocation) {
+        
+        log.info("Updating tutor location: profileId={}, lat={}, lng={}, city={}, state={}, country={}, share={}",
+                profileId, latitude, longitude, city, state, country, shareLocation);
+        
+        TutorProfileEntity profile = tutorProfileRepository.findById(profileId)
+                .orElseThrow(() -> new EntityNotFoundException("Tutor profile not found with ID: " + profileId));
+        
+        profile.setLatitude(latitude);
+        profile.setLongitude(longitude);
+        profile.setCity(city);
+        profile.setState(state);
+        profile.setCountry(country);
+        profile.setShareLocation(shareLocation);
+        
+        // Save the updated profile
+        TutorProfileEntity updatedProfile = tutorProfileRepository.save(profile);
+        log.info("Tutor location updated successfully for profile ID: {}", profileId);
+        
+        return updatedProfile;
+    }
+
+    /**
+     * Clear tutor location
+     * @param profileId tutor profile ID
+     */
+    public void clearTutorLocation(Long profileId) {
+        log.info("Clearing tutor location for profile ID: {}", profileId);
+        
+        TutorProfileEntity profile = tutorProfileRepository.findById(profileId)
+                .orElseThrow(() -> new EntityNotFoundException("Tutor profile not found with ID: " + profileId));
+        
+        // Clear all location data
+        profile.setLatitude(null);
+        profile.setLongitude(null);
+        profile.setCity(null);
+        profile.setState(null);
+        profile.setCountry(null);
+        profile.setShareLocation(false);
+        
+        // Save the updated profile
+        tutorProfileRepository.save(profile);
+        log.info("Tutor location cleared successfully for profile ID: {}", profileId);
+    }
 } 
