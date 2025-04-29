@@ -160,7 +160,7 @@ class BookingActivity : AppCompatActivity() {
         tutorNameText = findViewById(R.id.mentorNameTextView)
         tutorExpertiseText = findViewById(R.id.mentorSpecialtyTextView)
         tutorRatingText = findViewById(R.id.mentorRatingBar)
-        notesEditText = findViewById(R.id.topicEditText)
+        notesEditText = findViewById(R.id.notesEditText)
         bookButton = findViewById(R.id.bookButton)
         messageButton = findViewById(R.id.messageButton)
         progressBar = findViewById(R.id.progressBar)
@@ -192,6 +192,32 @@ class BookingActivity : AppCompatActivity() {
 
         // Set up session type
         selectedSessionType = "Online" // Default to online
+
+        // Set up duration spinner with same options as the web version
+        val durationSpinner = findViewById<Spinner>(R.id.durationSpinner)
+        val durationOptions = arrayOf("1 hour", "1.5 hours", "2 hours", "2.5 hours", "3 hours")
+        val durationAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, durationOptions)
+        durationAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        durationSpinner.adapter = durationAdapter
+        
+        // Set default duration
+        durationSpinner.setSelection(0)  // 1 hour default
+
+        // Set duration change listener
+        durationSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val durationStr = durationOptions[position]
+                // Extract the numeric part (e.g., "1.5" from "1.5 hours")
+                selectedDuration = durationStr.split(" ")[0].toDouble()
+                updateSessionSummary()
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) {
+                // Default to 1 hour
+                selectedDuration = 1.0
+                updateSessionSummary()
+            }
+        }
     }
 
     private fun setupListeners() {
@@ -256,63 +282,75 @@ class BookingActivity : AppCompatActivity() {
 
     private fun observeBookingState() {
         viewModel.bookingState.observe(this) { state ->
-            // Handle loading state
-            progressBar.visibility = if (state.isLoading) View.VISIBLE else View.GONE
-
-            // Handle error state
-            if (state.error != null) {
-                errorText.text = state.error
-                errorText.visibility = View.VISIBLE
-            } else {
-                errorText.visibility = View.GONE
-            }
-
-            // Update UI with tutor profile
+            // Handle tutor profile
             state.tutorProfile?.let { profile ->
                 tutorNameText.text = profile.name
                 tutorExpertiseText.text = profile.subjects.joinToString(", ")
                 tutorRatingText.rating = profile.rating
-
-                // If we have a selected subject, make sure it's valid for this tutor
-                if (selectedSubject.isEmpty() && profile.subjects.isNotEmpty()) {
-                    selectedSubject = profile.subjects[0]
-                }
+                
+                // Set hourly rate
+                tutorRateText.text = String.format("$%.2f/hr", profile.hourlyRate)
+                
+                // Update the session summary with new rate
+                updateSessionSummary()
+            }
+            
+            // Handle loading state
+            if (state.isLoading) {
+                progressBar.visibility = View.VISIBLE
+            } else {
+                progressBar.visibility = View.GONE
+            }
+            
+            // Handle errors
+            state.error?.let { 
+                errorText.text = it
+                errorText.visibility = View.VISIBLE
+            } ?: run {
+                errorText.visibility = View.GONE
             }
         }
-
-        // Observe availability state to update time slots
+        
+        // Observe availability state for time slots
         viewModel.availabilityState.observe(this) { state ->
-            // Update time slots in the adapter
-            timeSlotAdapter.updateTimeSlots(state.timeSlots)
-
-            // Show/hide no slots message
-            if (state.timeSlots.isEmpty()) {
-                // Check if we're loading or if a date has been selected
-                if (state.isLoading) {
-                    noSlotsTextView.text = "Loading available time slots..."
-                } else if (findViewById<TextView>(R.id.selectedDateTextView).text != "Select a date") {
-                    // A date has been selected but no slots are available
-                    noSlotsTextView.text = "No time slots available for the selected date"
-                } else {
-                    // No date selected yet
-                    noSlotsTextView.text = "Please select a date to see available time slots"
-                }
+            // Format the time slots for display in 12-hour format
+            val formattedTimeSlots = if (state.timeSlots.isNotEmpty()) {
+                viewModel.formatTimeSlotsForDisplay(state.timeSlots)
+            } else {
+                emptyList()
+            }
+            
+            // Update the adapter
+            timeSlotAdapter.updateTimeSlots(formattedTimeSlots)
+            
+            // Show/hide the loading indicator
+            if (state.isLoading) {
+                noSlotsTextView.text = "Loading available time slots..."
                 noSlotsTextView.visibility = View.VISIBLE
                 timeSlotRecyclerView.visibility = View.GONE
             } else {
-                noSlotsTextView.visibility = View.GONE
-                timeSlotRecyclerView.visibility = View.VISIBLE
+                if (formattedTimeSlots.isEmpty()) {
+                    if (findViewById<TextView>(R.id.selectedDateTextView).text != "Select a date") {
+                        noSlotsTextView.text = "No time slots available for the selected date"
+                    } else {
+                        noSlotsTextView.text = "Please select a date to see available time slots"
+                    }
+                    noSlotsTextView.visibility = View.VISIBLE
+                    timeSlotRecyclerView.visibility = View.GONE
+                } else {
+                    noSlotsTextView.visibility = View.GONE
+                    timeSlotRecyclerView.visibility = View.VISIBLE
+                }
             }
-
+            
             // Log for debugging
-            Log.d("BookingActivity", "Updated time slots: ${state.timeSlots.size} slots available")
+            Log.d("BookingActivity", "Updated time slots: ${formattedTimeSlots.size} slots available")
         }
-
+        
         // Observe booking result
         viewModel.bookingResult.observe(this) { success ->
             if (success) {
                 Toast.makeText(this, "Session request sent! Waiting for tutor to accept.", Toast.LENGTH_LONG).show()
-                // Navigate back or to a confirmation screen
                 finish()
             }
         }
@@ -501,76 +539,117 @@ class BookingActivity : AppCompatActivity() {
     }
 
     private fun bookSession() {
-        // Get student ID from shared preferences
-        val sharedPreferences = getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
-        val studentId = sharedPreferences.getLong("user_id", -1)
-
-        if (studentId == -1L) {
-            Toast.makeText(this, "Please login to request a session", Toast.LENGTH_SHORT).show()
+        if (selectedTimeSlot == null) {
+            Toast.makeText(this, "Please select a time slot", Toast.LENGTH_SHORT).show()
             return
         }
-
-        // Parse selected time slot for start and end time
-        val timeSlotParts = selectedTimeSlot?.split(" - ")
-        if (timeSlotParts == null || timeSlotParts.size != 2) {
-            Toast.makeText(this, "Invalid time slot format", Toast.LENGTH_SHORT).show()
+        
+        if (selectedSubject.isEmpty()) {
+            Toast.makeText(this, "Please select a subject", Toast.LENGTH_SHORT).show()
             return
         }
-
-        val startTimeString = timeSlotParts[0]
-        val endTimeString = timeSlotParts[1]
-
-        // Create Calendar instances for start and end times
-        val startCalendar = calendar.clone() as Calendar
-        val endCalendar = calendar.clone() as Calendar
-
-        // Parse time strings to set hours and minutes
-        val startTimeParts = startTimeString.split(":")
-        val startHour = startTimeParts[0].toInt()
-        val startMinute = startTimeParts[1].toInt()
-
-        val endTimeParts = endTimeString.split(":")
-        val endHour = endTimeParts[0].toInt()
-        val endMinute = endTimeParts[1].toInt()
-
-        startCalendar.set(Calendar.HOUR_OF_DAY, startHour)
-        startCalendar.set(Calendar.MINUTE, startMinute)
-
-        endCalendar.set(Calendar.HOUR_OF_DAY, endHour)
-        endCalendar.set(Calendar.MINUTE, endMinute)
-
-        // Format for API
-        val startTimeFormatted = apiDateTimeFormatter.format(startCalendar.time)
-        val endTimeFormatted = apiDateTimeFormatter.format(endCalendar.time)
-
-        // Get notes
-        val notes = notesEditText.text.toString().trim()
-
-        // Session location data (for in-person sessions)
-        val locationData = if (selectedSessionType == "In-Person") {
-            "{\"latitude\":$selectedMeetingLatitude,\"longitude\":$selectedMeetingLongitude,\"name\":\"$selectedMeetingLocationName\"}"
-        } else {
-            null
+        
+        // Get the notes
+        val notesEditText = findViewById<EditText>(R.id.notesEditText)
+        val notes = notesEditText.text.toString()
+        
+        // Split the selected time slot to get start time
+        val timeParts = selectedTimeSlot!!.split(" - ")
+        if (timeParts.isEmpty()) return
+        
+        val selectedDate = findViewById<TextView>(R.id.selectedDateTextView).text.toString()
+        if (selectedDate == "Select a date") {
+            Toast.makeText(this, "Please select a date", Toast.LENGTH_SHORT).show()
+            return
         }
-
-        // Book session via ViewModel
-        viewModel.bookSession(
-            startTime = startTimeFormatted,
-            endTime = endTimeFormatted,
-            subject = selectedSubject,
-            sessionType = selectedSessionType,
-            notes = notes,
-            callback = { success ->
-                runOnUiThread {
-                    if (success) {
-                        Toast.makeText(this, "Session request sent! Waiting for tutor to accept.", Toast.LENGTH_LONG).show()
-                        finish()
-                    } else {
-                        Toast.makeText(this, "Failed to request session. Please try again.", Toast.LENGTH_LONG).show()
+        
+        try {
+            // Parse the selected date
+            val dateFormat = SimpleDateFormat("EEE, MMM d, yyyy", Locale.getDefault())
+            val date = dateFormat.parse(selectedDate) ?: return
+            
+            // Get calendar instance for start time
+            val startCalendar = Calendar.getInstance()
+            startCalendar.time = date
+            
+            // Parse the start time (in 12-hour format from the UI)
+            val startTimeParts = timeParts[0].trim()
+            val timeFormat12 = SimpleDateFormat("h:mm a", Locale.getDefault())
+            val timeParsed = timeFormat12.parse(startTimeParts) ?: return
+            
+            val timeCalendar = Calendar.getInstance()
+            timeCalendar.time = timeParsed
+            
+            // Set the time components of the start calendar
+            startCalendar.set(Calendar.HOUR_OF_DAY, timeCalendar.get(Calendar.HOUR_OF_DAY))
+            startCalendar.set(Calendar.MINUTE, timeCalendar.get(Calendar.MINUTE))
+            startCalendar.set(Calendar.SECOND, 0)
+            
+            // Calculate end time based on duration
+            val endCalendar = Calendar.getInstance()
+            endCalendar.timeInMillis = startCalendar.timeInMillis
+            endCalendar.add(Calendar.MINUTE, (selectedDuration * 60).toInt())
+            
+            // Format dates for the API
+            val apiDateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+            val startTimeString = apiDateFormat.format(startCalendar.time)
+            val endTimeString = apiDateFormat.format(endCalendar.time)
+            
+            Log.d("BookingActivity", "Booking session: Start=$startTimeString, End=$endTimeString, Subject=$selectedSubject, Type=$selectedSessionType")
+            
+            // Call ViewModel to book the session
+            viewModel.bookSession(
+                startTime = startTimeString,
+                endTime = endTimeString,
+                subject = selectedSubject,
+                sessionType = selectedSessionType,
+                notes = notes
+            ) { success ->
+                if (!success) {
+                    runOnUiThread {
+                        Toast.makeText(this, "Failed to book session. Please try again.", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
-        )
+        } catch (e: Exception) {
+            Log.e("BookingActivity", "Error booking session: ${e.message}", e)
+            Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /**
+     * Updates the session summary section with the current duration and calculated price
+     */
+    private fun updateSessionSummary() {
+        try {
+            // Find summary text views if not already initialized
+            val tutorRateTextView = findViewById<TextView>(R.id.tutorRateText)
+            val summaryDurationTextView = findViewById<TextView>(R.id.summaryDurationText)
+            val totalPriceTextView = findViewById<TextView>(R.id.totalPriceText)
+            
+            // Get the tutor's hourly rate from the profile
+            val tutorProfile = viewModel.bookingState.value?.tutorProfile
+            val hourlyRate = tutorProfile?.hourlyRate ?: 0.0
+            
+            // Format the duration text
+            val durationText = if (selectedDuration == 1.0) {
+                "1 hour"
+            } else {
+                "$selectedDuration hours"
+            }
+            
+            // Calculate the total price
+            val totalPrice = hourlyRate * selectedDuration
+            
+            // Update the UI elements
+            tutorRateTextView?.text = String.format("$%.2f/hr", hourlyRate)
+            summaryDurationTextView?.text = durationText
+            totalPriceTextView?.text = String.format("$%.2f", totalPrice)
+            
+            Log.d("BookingActivity", "Updated session summary: Rate=$hourlyRate, Duration=$selectedDuration, Total=$totalPrice")
+        } catch (e: Exception) {
+            Log.e("BookingActivity", "Error updating session summary: ${e.message}", e)
+        }
     }
 
     /**
@@ -581,7 +660,7 @@ class BookingActivity : AppCompatActivity() {
             try {
                 // Show progress indicator
                 showLoading(true, "Starting conversation...")
-                
+
                 // Get the current user ID from preferences
                 val currentUserId = com.mobile.utils.PreferenceUtils.getUserId(this@BookingActivity)
                 if (currentUserId == null || currentUserId <= 0) {
@@ -589,18 +668,18 @@ class BookingActivity : AppCompatActivity() {
                     showLoading(false)
                     return@launch
                 }
-                
+
                 // Create conversation with tutor using the new API method
                 val result = NetworkUtils.createConversationWithTutor(currentUserId, tutorId)
-                
+
                 // Hide progress indicator
                 showLoading(false)
-                
+
                 // Handle result
                 result.fold(
                     onSuccess = { conversation ->
                         Log.d("BookingActivity", "Created conversation: ${conversation.id}")
-                        
+
                         // Navigate to MessageActivity
                         val intent = Intent(this@BookingActivity, com.mobile.ui.chat.MessageActivity::class.java).apply {
                             putExtra("CONVERSATION", conversation)
@@ -627,7 +706,7 @@ class BookingActivity : AppCompatActivity() {
             }
         }
     }
-    
+
     /**
      * Show or hide loading indicators with optional message
      */
@@ -756,3 +835,4 @@ class TutorSubjectAdapter(
         }
     }
 }
+

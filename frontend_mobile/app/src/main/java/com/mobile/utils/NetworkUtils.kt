@@ -113,7 +113,9 @@ object NetworkUtils {
         val subjects: List<String> = emptyList(),
         val education: String = "",
         val hourlyRate: Double = 0.0,
-        val yearsExperience: Int = 0
+        val yearsExperience: Int = 0,
+        val latitude: Double? = null,
+        val longitude: Double? = null
     )
 
     /**
@@ -1338,7 +1340,7 @@ object NetworkUtils {
                 val url = URL("$BASE_URL/messages/sendMessage")
                 val connection = createPostConnection(url)
 
-                // Create request body
+                // Create request body with field names matching the backend's MessageDTO class
                 val jsonObject = JSONObject().apply {
                     put("conversationId", conversationId)
                     put("senderId", senderId)
@@ -1346,6 +1348,10 @@ object NetworkUtils {
                     put("content", content)
                     put("isRead", false)
                 }
+
+                Log.d(TAG, "Making POST request to $url")
+                Log.d(TAG, "Request headers: ${connection.requestProperties}")
+                Log.d(TAG, "Sending request body: $jsonObject")
 
                 return@withContext handleResponse(connection, jsonObject.toString()) { response ->
                     val json = parseJsonResponse(response)
@@ -1391,15 +1397,19 @@ object NetworkUtils {
                         outputFormat.format(Date())
                     }
 
+                    // Extract message ID properly - could be either messageId or id in the response
+                    val id = json.optLong("messageId", json.optLong("id", 0))
+                    val isReadValue = json.optBoolean("isRead", false)
+
                     // The receiverId is sent to the backend but not stored in the Message object
                     // since the current Message data class doesn't have a receiverId field
                     Message(
-                        id = json.optLong("messageId"),
+                        id = id,
                         conversationId = json.optLong("conversationId"),
                         senderId = json.optLong("senderId"),
                         content = json.optString("content"),
                         timestamp = timestamp,
-                        isRead = json.optBoolean("isRead", false)
+                        isRead = isReadValue
                     )
                 }
             } catch (e: Exception) {
@@ -1999,16 +2009,11 @@ object NetworkUtils {
     suspend fun updateTutorLocation(tutorId: Long, latitude: Double, longitude: Double): Result<Unit> {
         return withContext(Dispatchers.IO) {
             try {
-                val url = URL("$BASE_URL/tutors/updateLocation/$tutorId")
-                val connection = createPutConnection(url)
+                // Create URL with query parameters instead of using request body
+                val urlWithParams = URL("$BASE_URL/tutors/updateLocation/$tutorId?latitude=$latitude&longitude=$longitude")
+                val connection = createPutConnection(urlWithParams)
 
-                // Create request body with location data
-                val jsonObject = JSONObject().apply {
-                    put("latitude", latitude)
-                    put("longitude", longitude)
-                }
-
-                return@withContext handleResponse(connection, jsonObject.toString()) { _ -> Unit }
+                return@withContext handleResponse(connection, null) { _ -> Unit }
             } catch (e: Exception) {
                 Log.e(TAG, "Error updating tutor location: ${e.message}", e)
                 handleNetworkError(e, "updating tutor location")
@@ -2210,6 +2215,79 @@ object NetworkUtils {
                 }
 
                 handleNetworkError(e, "finding tutors by expertise")
+            }
+        }
+    }
+
+    /**
+     * Get all tutor profiles
+     * @return Result<List<TutorProfile>> containing all tutor profiles
+     */
+    suspend fun getAllTutorProfiles(): Result<List<TutorProfile>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                // Call the tutors API endpoint to get all tutors
+                val url = URL("$BASE_URL/tutors")
+                val connection = createGetConnection(url)
+
+                return@withContext handleResponse(connection) { response ->
+                    val jsonArray = parseJsonArrayResponse(response)
+                    val tutors = mutableListOf<TutorProfile>()
+
+                    for (i in 0 until jsonArray.length()) {
+                        val tutorJson = jsonArray.getJSONObject(i)
+
+                        // Parse subjects array
+                        val subjectsArray = tutorJson.optJSONArray("subjects")
+                        val subjects = mutableListOf<String>()
+                        if (subjectsArray != null) {
+                            for (j in 0 until subjectsArray.length()) {
+                                subjects.add(subjectsArray.getString(j))
+                            }
+                        }
+
+                        val firstName = tutorJson.optString("firstName", "")
+                        val lastName = tutorJson.optString("lastName", "")
+                        val fullName = if (firstName.isNotBlank() && lastName.isNotBlank()) {
+                            "$firstName $lastName"
+                        } else {
+                            tutorJson.optString("username", "Unknown")
+                        }
+
+                        // Extract latitude and longitude if available
+                        val latitude = if (tutorJson.has("latitude")) tutorJson.optDouble("latitude") else null
+                        val longitude = if (tutorJson.has("longitude")) tutorJson.optDouble("longitude") else null
+
+                        tutors.add(
+                            TutorProfile(
+                                id = tutorJson.getLong("profileId"),
+                                userId = tutorJson.optLong("userId"),
+                                name = fullName,
+                                email = tutorJson.optString("username", ""),
+                                bio = tutorJson.optString("bio", ""),
+                                rating = tutorJson.optDouble("rating", 0.0).toFloat(),
+                                subjects = subjects,
+                                education = tutorJson.optString("education", ""),
+                                hourlyRate = tutorJson.optDouble("hourlyRate", 0.0),
+                                yearsExperience = tutorJson.optInt("yearsExperience", 0),
+                                latitude = latitude,
+                                longitude = longitude
+                            )
+                        )
+                    }
+
+                    tutors
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error getting all tutor profiles: ${e.message}", e)
+
+                when (e) {
+                    is ConnectException -> Log.e(TAG, "Connection error - unable to connect to server")
+                    is SocketTimeoutException -> Log.e(TAG, "Connection timed out. Server may be slow or unresponsive")
+                    else -> Log.e(TAG, "Unexpected error type: ${e.javaClass.simpleName}")
+                }
+
+                return@withContext handleNetworkError(e, "getting all tutor profiles")
             }
         }
     }
@@ -2730,7 +2808,7 @@ object NetworkUtils {
                             val slotJson = jsonArray.getJSONObject(i)
                             availabilitySlots.add(
                                 TutorAvailability(
-                                    id = slotJson.optLong("id"),
+                                    id = slotJson.optLong("availabilityId", slotJson.optLong("id")),
                                     tutorId = slotJson.optLong("tutorId"),
                                     dayOfWeek = slotJson.optString("dayOfWeek"),
                                     startTime = slotJson.optString("startTime"),
@@ -2749,9 +2827,9 @@ object NetworkUtils {
     }
 
     /**
-     * Get all availability slots for a tutor on a specific day
+     * Get all availability slots for a tutor on a specific day of the week
      * @param tutorId The ID of the tutor
-     * @param dayOfWeek The day of the week (e.g., MONDAY, TUESDAY)
+     * @param dayOfWeek The day of the week, e.g., "MONDAY"
      * @return List of tutor availability slots for the specified day
      */
     suspend fun getTutorAvailabilityByDay(tutorId: Long, dayOfWeek: String): Result<List<TutorAvailability>> {
@@ -2768,7 +2846,7 @@ object NetworkUtils {
                         val slotJson = jsonArray.getJSONObject(i)
                         availabilitySlots.add(
                             TutorAvailability(
-                                id = slotJson.optLong("id"),
+                                id = slotJson.optLong("availabilityId", slotJson.optLong("id")),
                                 tutorId = slotJson.optLong("tutorId"),
                                 dayOfWeek = slotJson.optString("dayOfWeek"),
                                 startTime = slotJson.optString("startTime"),
@@ -2780,7 +2858,8 @@ object NetworkUtils {
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error fetching tutor availability by day: ${e.message}", e)
-                handleNetworkError(e, "fetching tutor availability by day")
+                // Return empty list instead of mock data
+                return@withContext Result.success(emptyList())
             }
         }
     }
@@ -2814,7 +2893,7 @@ object NetworkUtils {
                 return@withContext handleResponse(connection, jsonObject.toString()) { response ->
                     val json = parseJsonResponse(response)
                     TutorAvailability(
-                        id = json.optLong("id"),
+                        id = json.optLong("availabilityId", json.optLong("id")),
                         tutorId = json.optLong("tutorId"),
                         dayOfWeek = json.optString("dayOfWeek"),
                         startTime = json.optString("startTime"),
@@ -2851,7 +2930,7 @@ object NetworkUtils {
 
                 // Create JSON payload
                 val jsonObject = JSONObject()
-                jsonObject.put("id", id)
+                jsonObject.put("availabilityId", id)
                 jsonObject.put("tutorId", tutorId)
                 jsonObject.put("dayOfWeek", dayOfWeek)
                 jsonObject.put("startTime", startTime)
@@ -2860,7 +2939,7 @@ object NetworkUtils {
                 return@withContext handleResponse(connection, jsonObject.toString()) { response ->
                     val json = parseJsonResponse(response)
                     TutorAvailability(
-                        id = json.optLong("id"),
+                        id = json.optLong("availabilityId", json.optLong("id")),
                         tutorId = json.optLong("tutorId"),
                         dayOfWeek = json.optString("dayOfWeek"),
                         startTime = json.optString("startTime"),
@@ -2982,7 +3061,7 @@ object NetworkUtils {
     suspend fun getTutorAvailabilityByDate(tutorId: Long, date: String): Result<List<TutorAvailability>> {
         return withContext(Dispatchers.IO) {
             try {
-                // Convert the date to a day of week for mock data
+                // Convert the date to a day of week
                 val calendar = Calendar.getInstance()
                 val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
                 calendar.time = dateFormat.parse(date) ?: Date()
@@ -2998,112 +3077,36 @@ object NetworkUtils {
                     else -> "MONDAY" // Default to Monday if parsing fails
                 }
 
-                // Return mock data based on the day of week that matches actual tutor availability
-                val baseAvailabilityMap = mapOf(
-                    "MONDAY" to listOf(
-                        TutorAvailability(
-                            id = 1,
-                            tutorId = tutorId,
-                            dayOfWeek = "MONDAY",
-                            startTime = "12:00",
-                            endTime = "18:00"
-                        )
-                    ),
-                    "TUESDAY" to listOf(
-                        TutorAvailability(
-                            id = 2,
-                            tutorId = tutorId,
-                            dayOfWeek = "TUESDAY",
-                            startTime = "12:00",
-                            endTime = "18:00"
-                        )
-                    ),
-                    "WEDNESDAY" to listOf(
-                        TutorAvailability(
-                            id = 3,
-                            tutorId = tutorId,
-                            dayOfWeek = "WEDNESDAY",
-                            startTime = "12:00",
-                            endTime = "20:00"
-                        )
-                    ),
-                    "THURSDAY" to listOf(
-                        TutorAvailability(
-                            id = 4,
-                            tutorId = tutorId,
-                            dayOfWeek = "THURSDAY",
-                            startTime = "12:00",
-                            endTime = "18:00"
-                        )
-                    ),
-                    "FRIDAY" to listOf(
-                        TutorAvailability(
-                            id = 5,
-                            tutorId = tutorId,
-                            dayOfWeek = "FRIDAY",
-                            startTime = "12:00",
-                            endTime = "18:00"
-                        )
-                    ),
-                    "SATURDAY" to emptyList(),
-                    "SUNDAY" to emptyList()
-                )
+                Log.d(TAG, "Getting availability for day of week: $dayOfWeek from date: $date")
 
-                // Get the availability for the day of week
-                val availability = baseAvailabilityMap[dayOfWeek] ?: emptyList()
-
-                // Check if this is a specific date we want to simulate special availability for
-                // (For example, if the tutor has a different schedule on specific dates)
-                val today = Calendar.getInstance()
-                val selectedDate = Calendar.getInstance()
-                selectedDate.time = dateFormat.parse(date) ?: Date()
-
-                // If the selected date is today, adjust the start time to account for current time
-                if (today.get(Calendar.YEAR) == selectedDate.get(Calendar.YEAR) && 
-                    today.get(Calendar.MONTH) == selectedDate.get(Calendar.MONTH) && 
-                    today.get(Calendar.DAY_OF_MONTH) == selectedDate.get(Calendar.DAY_OF_MONTH)
-                ) {
-                    val currentHour = today.get(Calendar.HOUR_OF_DAY)
-
-                    // If we're already past the tutor's start time for today
-                    if (currentHour >= 12) {
-                        // Start the availability an hour after current time if it's not too late
-                        if (currentHour < 17) { // Allow booking until 1 hour before end time
-                            return@withContext Result.success(
-                                listOf(
-                                    TutorAvailability(
-                                        id = 1,
-                                        tutorId = tutorId,
-                                        dayOfWeek = dayOfWeek,
-                                        startTime = "${currentHour + 1}:00",
-                                        endTime = "18:00"
-                                    )
-                                )
-                            )
-                        } else {
-                            // No more slots available today
-                            return@withContext Result.success(emptyList())
-                        }
-                    }
-                }
-
-                // For a date 7 days from now, simulate no availability
-                val nextWeek = Calendar.getInstance()
-                nextWeek.add(Calendar.DAY_OF_MONTH, 7)
-                if (nextWeek.get(Calendar.YEAR) == selectedDate.get(Calendar.YEAR) && 
-                    nextWeek.get(Calendar.MONTH) == selectedDate.get(Calendar.MONTH) && 
-                    nextWeek.get(Calendar.DAY_OF_MONTH) == selectedDate.get(Calendar.DAY_OF_MONTH)
-                ) {
-                    // For this specific date, return no availability
+                // Get availability by day of week directly
+                val dayResult = getTutorAvailabilityByDay(tutorId, dayOfWeek)
+                if (dayResult.isSuccess) {
+                    val availability = dayResult.getOrNull() ?: emptyList()
+                    Log.d(TAG, "Successfully retrieved ${availability.size} availability slots for $dayOfWeek")
+                    return@withContext Result.success(availability)
+                } else {
+                    // If API call failed, return empty list
+                    Log.e(TAG, "Failed to get availability data for day $dayOfWeek, returning empty list")
                     return@withContext Result.success(emptyList())
                 }
-
-                return@withContext Result.success(availability)
             } catch (e: Exception) {
                 Log.e(TAG, "Error fetching tutor availability by date: ${e.message}", e)
-                handleNetworkError(e, "fetching tutor availability by date")
+                return@withContext Result.success(emptyList())
             }
         }
+    }
+
+    /**
+     * Helper method to return fallback mock availability data for a specific day
+     * Only used when all API calls fail
+     */
+    private fun getFallbackAvailabilityForDay(tutorId: Long, dayOfWeek: String): List<TutorAvailability> {
+        // Log that we're using mock data as fallback
+        Log.w(TAG, "Using mock availability data for $dayOfWeek as fallback")
+
+        // Return empty list instead of mock data
+        return emptyList()
     }
 
     /**

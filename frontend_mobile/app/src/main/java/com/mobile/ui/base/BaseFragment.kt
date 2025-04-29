@@ -43,6 +43,9 @@ abstract class BaseFragment : Fragment() {
 
         // Call the template method for subclasses to initialize their views
         onViewCreated(view)
+        
+        // Prevent search edit text auto-focusing
+        disableSearchEditTextAutoFocus(view)
 
         return view
     }
@@ -112,5 +115,38 @@ abstract class BaseFragment : Fragment() {
 
         // No scrollable view found
         return null
+    }
+    
+    /**
+     * Recursively finds and configures all EditText views with "search" in their ID
+     * to prevent auto-focus and showing keyboard
+     */
+    private fun disableSearchEditTextAutoFocus(view: View) {
+        // If the view is an EditText with "search" in its ID
+        if (view is android.widget.EditText && view.id != View.NO_ID) {
+            try {
+                val idString = resources.getResourceEntryName(view.id)
+                if (idString.contains("search", ignoreCase = true)) {
+                    // Disable focus and make not focusable in touch mode
+                    view.isFocusable = false
+                    view.isFocusableInTouchMode = false
+                    // Enable focusing only when explicitly clicked
+                    view.setOnClickListener {
+                        view.isFocusableInTouchMode = true
+                        view.isFocusable = true
+                        view.requestFocus()
+                    }
+                }
+            } catch (e: Exception) {
+                // Resource name might not be available for all views
+            }
+        }
+        
+        // Recursively check child view groups
+        if (view is ViewGroup) {
+            for (i in 0 until view.childCount) {
+                disableSearchEditTextAutoFocus(view.getChildAt(i))
+            }
+        }
     }
 }

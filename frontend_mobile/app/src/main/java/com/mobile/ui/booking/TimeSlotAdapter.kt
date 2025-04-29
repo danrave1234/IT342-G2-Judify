@@ -4,9 +4,9 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
-import androidx.cardview.widget.CardView
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.card.MaterialCardView
 import com.mobile.R
 
 class TimeSlotAdapter(
@@ -17,8 +17,9 @@ class TimeSlotAdapter(
     private var selectedPosition = -1
 
     inner class TimeSlotViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        val timeSlotCard: CardView = itemView.findViewById(R.id.timeSlotCard)
-        val timeSlotText: TextView = itemView.findViewById(R.id.timeSlotTextView)
+        val timeSlotCard: MaterialCardView = itemView as MaterialCardView
+        val timeSlotText: TextView = itemView.findViewById(R.id.timeSlotText)
+        val selectedIndicator: View = itemView.findViewById(R.id.selectedIndicator)
 
         init {
             itemView.setOnClickListener {
@@ -54,19 +55,27 @@ class TimeSlotAdapter(
         
         // Update the appearance based on selection state
         if (position == selectedPosition) {
+            // Set selected state
             holder.timeSlotCard.setCardBackgroundColor(
+                ContextCompat.getColor(holder.itemView.context, R.color.primary_blue_light)
+            )
+            holder.timeSlotCard.strokeColor = 
+                ContextCompat.getColor(holder.itemView.context, R.color.primary_blue)
+            holder.timeSlotText.setTextColor(
                 ContextCompat.getColor(holder.itemView.context, R.color.primary_blue)
             )
-            holder.timeSlotText.setTextColor(
-                ContextCompat.getColor(holder.itemView.context, android.R.color.white)
-            )
+            holder.selectedIndicator.visibility = View.VISIBLE
         } else {
+            // Set unselected state
             holder.timeSlotCard.setCardBackgroundColor(
                 ContextCompat.getColor(holder.itemView.context, android.R.color.white)
             )
+            holder.timeSlotCard.strokeColor = 
+                ContextCompat.getColor(holder.itemView.context, R.color.light_gray)
             holder.timeSlotText.setTextColor(
-                ContextCompat.getColor(holder.itemView.context, R.color.primary_blue)
+                ContextCompat.getColor(holder.itemView.context, R.color.text_primary)
             )
+            holder.selectedIndicator.visibility = View.GONE
         }
     }
 

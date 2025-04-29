@@ -1,11 +1,9 @@
 package edu.cit.Judify.TutoringSession;
 
-import edu.cit.Judify.Email.EmailService;
-import edu.cit.Judify.Notification.NotificationEntity;
-import edu.cit.Judify.Notification.NotificationService;
-import edu.cit.Judify.User.UserEntity;
-import edu.cit.Judify.User.UserRepository;
-import jakarta.mail.MessagingException;
+import java.util.Date;
+import java.util.List;
+import java.util.Optional;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,10 +14,11 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.IOException;
-import java.util.Date;
-import java.util.List;
-import java.util.Optional;
+import edu.cit.Judify.Email.EmailService;
+import edu.cit.Judify.Notification.NotificationEntity;
+import edu.cit.Judify.Notification.NotificationService;
+import edu.cit.Judify.User.UserEntity;
+import edu.cit.Judify.User.UserRepository;
 
 @Service
 public class TutoringSessionService {
@@ -48,18 +47,21 @@ public class TutoringSessionService {
         // Add validation logic here if needed
         TutoringSessionEntity savedSession = sessionRepository.save(session);
 
+        // Create notifications for both tutor and student (this doesn't require email authentication)
+        createSessionNotifications(savedSession);
+
+        logger.info("Session created successfully with ID: {}", savedSession.getSessionId());
+
+        // Email functionality disabled - uncomment if needed
+        /*
         try {
             // Send confirmation emails with calendar attachments
             emailService.sendSessionConfirmationEmail(savedSession);
-
-            // Create notifications for both tutor and student
-            createSessionNotifications(savedSession);
-
-            logger.info("Session created successfully with ID: {}", savedSession.getSessionId());
         } catch (MessagingException | IOException e) {
             // Log the error but don't prevent the session from being created
             logger.error("Failed to send session confirmation email", e);
         }
+        */
 
         return savedSession;
     }
