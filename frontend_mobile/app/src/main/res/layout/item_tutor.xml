@@ -5,31 +5,58 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginHorizontal="8dp"
-    android:layout_marginVertical="4dp"
-    app:cardCornerRadius="8dp"
-    app:cardElevation="4dp">
+    android:layout_marginVertical="6dp"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="3dp"
+    android:foreground="?attr/selectableItemBackground">
 
-    <LinearLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
         android:padding="16dp">
 
-        <!-- Avatar placeholder -->
-        <de.hdodenhof.circleimageview.CircleImageView
-            android:id="@+id/tutorAvatarImageView"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
-            android:background="@android:color/holo_blue_light"
-            tools:src="@android:drawable/sym_def_app_icon" />
+        <!-- Avatar with rating badge -->
+        <FrameLayout
+            android:id="@+id/avatarContainer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent">
 
+            <de.hdodenhof.circleimageview.CircleImageView
+                android:id="@+id/tutorAvatarImageView"
+                android:layout_width="70dp"
+                android:layout_height="70dp"
+                android:src="@drawable/ic_person"
+                app:civ_border_width="2dp"
+                app:civ_border_color="?attr/colorPrimary" />
+
+            <TextView
+                android:id="@+id/tutorRatingBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/rating_badge_background"
+                android:paddingHorizontal="6dp"
+                android:paddingVertical="2dp"
+                android:layout_gravity="bottom|end"
+                android:textColor="@android:color/white"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                tools:text="4.8" />
+        </FrameLayout>
+
+        <!-- Tutor info -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="16dp"
-            android:layout_weight="1"
-            android:orientation="vertical">
+            android:layout_marginEnd="16dp"
+            android:orientation="vertical"
+            app:layout_constraintStart_toEndOf="@id/avatarContainer"
+            app:layout_constraintEnd_toStartOf="@id/tutorPriceTextView"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent">
 
             <TextView
                 android:id="@+id/tutorNameTextView"
@@ -37,6 +64,7 @@
                 android:layout_height="wrap_content"
                 android:textSize="16sp"
                 android:textStyle="bold"
+                android:textColor="?android:textColorPrimary"
                 tools:text="John Doe" />
 
             <TextView
@@ -46,62 +74,50 @@
                 android:layout_marginTop="4dp"
                 android:ellipsize="end"
                 android:maxLines="1"
+                android:textColor="?android:textColorSecondary"
                 tools:text="Mathematics, Physics, Chemistry" />
 
+            <!-- Distance container -->
             <LinearLayout
+                android:id="@+id/distanceContainer"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
+                android:layout_marginTop="8dp"
                 android:gravity="center_vertical"
-                android:orientation="horizontal">
+                android:orientation="horizontal"
+                android:visibility="gone"
+                tools:visibility="visible">
 
                 <ImageView
                     android:layout_width="16dp"
                     android:layout_height="16dp"
-                    android:src="@android:drawable/btn_star_big_on"
-                    android:tint="@android:color/holo_orange_light" />
+                    android:src="@android:drawable/ic_menu_mylocation"
+                    app:tint="?attr/colorPrimary" />
 
                 <TextView
-                    android:id="@+id/tutorRatingTextView"
+                    android:id="@+id/tutorDistanceTextView"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="4dp"
-                    tools:text="4.5" />
-
-                <LinearLayout
-                    android:id="@+id/distanceContainer"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="16dp"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:visibility="gone"
-                    tools:visibility="visible">
-
-                    <ImageView
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
-                        android:src="@android:drawable/ic_menu_mylocation"
-                        android:tint="@android:color/holo_blue_dark" />
-
-                    <TextView
-                        android:id="@+id/tutorDistanceTextView"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="4dp"
-                        tools:text="3.2 km" />
-                </LinearLayout>
+                    android:textColor="?android:textColorSecondary"
+                    tools:text="3.2 km" />
             </LinearLayout>
         </LinearLayout>
 
+        <!-- Price -->
         <TextView
             android:id="@+id/tutorPriceTextView"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:textColor="@android:color/holo_blue_dark"
+            android:textColor="?attr/colorPrimary"
             android:textSize="16sp"
             android:textStyle="bold"
+            android:background="@drawable/price_badge_background"
+            android:paddingHorizontal="10dp"
+            android:paddingVertical="6dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
             tools:text="$45/hr" />
-    </LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
 </androidx.cardview.widget.CardView> 

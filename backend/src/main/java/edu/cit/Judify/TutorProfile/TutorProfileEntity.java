@@ -41,9 +41,6 @@ public class TutorProfileEntity {
     
     private Boolean shareLocation;
 
-    @OneToMany(mappedBy = "tutor", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<CourseEntity> courses = new HashSet<>();
-
     @Temporal(TemporalType.TIMESTAMP)
     private Date createdAt;
 

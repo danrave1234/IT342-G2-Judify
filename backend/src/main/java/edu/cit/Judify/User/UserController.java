@@ -101,6 +101,20 @@ public class UserController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @Operation(summary = "Get user by email (query param)", description = "Returns a user by their email address using query parameter")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Successfully retrieved user"),
+        @ApiResponse(responseCode = "404", description = "User not found")
+    })
+    @GetMapping("/find-by-email")
+    public ResponseEntity<UserDTO> getUserByEmailQueryParam(
+            @Parameter(description = "User email") @RequestParam String email) {
+        return userService.getUserByEmail(email)
+                .map(userDTOMapper::toDTO)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
     @Operation(summary = "Get all users", description = "Returns a list of all users")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Successfully retrieved users list")
@@ -224,7 +238,7 @@ public class UserController {
             String roleStr = (String) requestBody.get("role");
 
             // Validate required fields
-            if (username == null || email == null || password == null || 
+            if (username == null || email == null || password == null ||
                 firstName == null || lastName == null || roleStr == null) {
                 return ResponseEntity.badRequest()
                     .body("Missing required fields. All fields (username, email, password, firstName, lastName, role) are required.");
@@ -289,7 +303,7 @@ public class UserController {
                     .map(user -> {
                         try {
                             // Convert the file to Base64 string
-                            String base64Image = "data:" + file.getContentType() + ";base64," + 
+                            String base64Image = "data:" + file.getContentType() + ";base64," +
                                                 java.util.Base64.getEncoder().encodeToString(file.getBytes());
 
                             // Update user's profile picture
@@ -326,41 +340,41 @@ public class UserController {
     public ResponseEntity<Void> handleOAuth2Success(@AuthenticationPrincipal OAuth2User oauth2User, HttpServletRequest request) {
         // Extract user info from OAuth2 authentication
         Map<String, Object> attributes = oauth2User.getAttributes();
-        
+
         // Debug log all attributes
         System.out.println("OAuth2 authentication success, received attributes:");
         attributes.forEach((key, value) -> System.out.println(key + ": " + value));
-        
+
         // Extract email (main identifier)
         String email = (String) attributes.get("email");
         String name = (String) attributes.get("name");
-        
+
         System.out.println("OAuth2 user email: " + email);
         System.out.println("OAuth2 user name: " + name);
-        
+
         // Find or create the user
         UserEntity user = userService.findOrCreateOAuth2User(email, name, attributes);
-        
+
         // Create a JWT token (same as regular login)
         String token = userService.generateJwtToken(user);
-        
+
         // Get the origin header or referer to determine the frontend URL
         String frontendUrl = getFrontendUrl(request);
         System.out.println("Redirecting to frontend URL: " + frontendUrl);
-        
+
         // Redirect to frontend with token and userId
         return ResponseEntity.status(302)
             .header("Location", frontendUrl + "/oauth2-callback?token=" + token + "&userId=" + user.getUserId())
             .build();
     }
-    
+
     /**
      * Helper method to determine the frontend URL for redirection
      */
     private String getFrontendUrl(HttpServletRequest request) {
         // First try to get the origin header
         String origin = request.getHeader("Origin");
-        
+
         // If origin is not available, try the referer header
         if (origin == null || origin.isEmpty()) {
             String referer = request.getHeader("Referer");
@@ -377,12 +391,12 @@ public class UserController {
                 }
             }
         }
-        
+
         // If we still don't have an origin, use the default frontend URL
         if (origin == null || origin.isEmpty()) {
             // Default to the most common frontend URL
             origin = "http://localhost:5173";
-            
+
             // Try to determine the client's IP and port dynamically
             // This is a best effort attempt and may not work in all environments
             String xForwardedHost = request.getHeader("X-Forwarded-Host");
@@ -390,10 +404,10 @@ public class UserController {
                 origin = request.getScheme() + "://" + xForwardedHost;
             }
         }
-        
+
         return origin;
     }
-    
+
     @Operation(summary = "OAuth2 Authentication Failure", description = "Endpoint to handle failed OAuth2 authentication")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "302", description = "Redirect to frontend login page with error")
@@ -402,7 +416,7 @@ public class UserController {
     public ResponseEntity<Void> handleOAuth2Failure(HttpServletRequest request) {
         // Get the frontend URL
         String frontendUrl = getFrontendUrl(request);
-        
+
         // Redirect to frontend login page with error
         return ResponseEntity.status(302)
             .header("Location", frontendUrl + "/auth/login?error=oauth2_failure")
@@ -416,15 +430,15 @@ public class UserController {
     @GetMapping("/check-oauth2-status/{userId}")
     public ResponseEntity<Map<String, Object>> checkOAuth2Status(
             @Parameter(description = "User ID") @PathVariable Long userId) {
-        
+
         Map<String, Object> response = new HashMap<>();
-        
+
         try {
             Optional<UserEntity> userOpt = userService.getUserById(userId);
-            
+
             if (userOpt.isPresent()) {
                 UserEntity user = userOpt.get();
-                
+
                 // Debug logs to see what we're working with
                 System.out.println("====== OAuth2 Status Check ======");
                 System.out.println("User ID: " + user.getUserId());
@@ -434,26 +448,26 @@ public class UserController {
                 System.out.println("Last Name: " + user.getLastName());
                 System.out.println("Password: " + (user.getPassword() == null ? "null" : (user.getPassword().isEmpty() ? "empty" : "has value")));
                 System.out.println("Role: " + user.getRole());
-                
+
                 // Check if this is a new OAuth2 user who needs to complete registration
                 // A user is considered to have completed registration if:
                 // 1. They have a password set (meaning they registered normally, not via OAuth2), OR
                 // 2. They have a role other than the default STUDENT role (meaning they chose their role), OR
                 // 3. Their username is different from their email prefix (meaning they set a custom username)
-                
-                String emailPrefix = user.getEmail() != null && user.getEmail().contains("@") 
+
+                String emailPrefix = user.getEmail() != null && user.getEmail().contains("@")
                     ? user.getEmail().split("@")[0]
                     : "";
-                
-                boolean hasCustomUsername = user.getUsername() != null && 
+
+                boolean hasCustomUsername = user.getUsername() != null &&
                                           !user.getUsername().equals(emailPrefix) &&
                                           !user.getUsername().isEmpty();
-                                          
+
                 boolean hasPassword = user.getPassword() != null && !user.getPassword().isEmpty();
                 boolean hasNonDefaultRole = user.getRole() != UserRole.STUDENT;
-                
+
                 boolean isNewOAuth2User = !hasPassword && !hasNonDefaultRole && !hasCustomUsername;
-                
+
                 // For debugging
                 System.out.println("Email prefix: " + emailPrefix);
                 System.out.println("Has custom username: " + hasCustomUsername);
@@ -462,7 +476,7 @@ public class UserController {
                 System.out.println("Is New OAuth2 User: " + isNewOAuth2User);
                 System.out.println("Registration Complete: " + !isNewOAuth2User);
                 System.out.println("================================");
-                
+
                 response.put("isNewOAuth2User", isNewOAuth2User);
                 // Add registrationComplete field (opposite of isNewOAuth2User)
                 response.put("registrationComplete", !isNewOAuth2User);
@@ -471,7 +485,7 @@ public class UserController {
                 response.put("firstName", user.getFirstName());
                 response.put("lastName", user.getLastName());
                 response.put("username", user.getUsername());
-                
+
                 return ResponseEntity.ok(response);
             } else {
                 response.put("error", "User not found");
@@ -482,7 +496,7 @@ public class UserController {
             return ResponseEntity.status(500).body(response);
         }
     }
-    
+
     @Operation(summary = "Complete OAuth2 registration", description = "Updates a new OAuth2 user's details")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Registration completed successfully"),
@@ -492,26 +506,26 @@ public class UserController {
     public ResponseEntity<?> completeOAuth2Registration(
             @Parameter(description = "User ID") @PathVariable Long userId,
             @RequestBody Map<String, Object> userData) {
-        
+
         try {
             Optional<UserEntity> userOpt = userService.getUserById(userId);
-            
+
             if (userOpt.isPresent()) {
                 UserEntity user = userOpt.get();
-                
+
                 // Update user details
                 if (userData.containsKey("username")) {
                     user.setUsername((String) userData.get("username"));
                 }
-                
+
                 if (userData.containsKey("firstName")) {
                     user.setFirstName((String) userData.get("firstName"));
                 }
-                
+
                 if (userData.containsKey("lastName")) {
                     user.setLastName((String) userData.get("lastName"));
                 }
-                
+
                 // Update role if provided
                 if (userData.containsKey("role")) {
                     String roleStr = (String) userData.get("role");
@@ -523,19 +537,19 @@ public class UserController {
                             .body("Invalid role value. Must be one of: " + Arrays.toString(UserRole.values()));
                     }
                 }
-                
+
                 // Update the user
                 user.setUpdatedAt(new Date());
                 UserEntity updatedUser = userService.updateUser(userId, user);
-                
+
                 // Generate a new token with updated role
                 String token = userService.generateJwtToken(updatedUser);
-                
+
                 // Return the updated user info and new token
                 Map<String, Object> response = new HashMap<>();
                 response.put("user", userDTOMapper.toDTO(updatedUser));
                 response.put("token", token);
-                
+
                 return ResponseEntity.ok(response);
             } else {
                 return ResponseEntity.notFound().build();
@@ -544,4 +558,4 @@ public class UserController {
             return ResponseEntity.status(500).body("Server error: " + e.getMessage());
         }
     }
-} 
+}

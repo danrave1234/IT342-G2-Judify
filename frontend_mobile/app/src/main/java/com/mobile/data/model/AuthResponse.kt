@@ -7,6 +7,8 @@ data class AuthResponse(
     val success: Boolean = false,
     val isAuthenticated: Boolean,
     val userId: Long? = null,
+    val studentId: Long? = null,
+    val tutorId: Long? = null,
     val email: String = "",
     val firstName: String = "",
     val lastName: String = "",

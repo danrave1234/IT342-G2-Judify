@@ -1,5 +1,26 @@
 package edu.cit.Judify.TutoringSession;
 
+import java.util.Date;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import edu.cit.Judify.Conversation.ConversationEntity;
+import edu.cit.Judify.Conversation.ConversationService;
 import edu.cit.Judify.TutoringSession.DTO.TutoringSessionDTO;
 import edu.cit.Judify.TutoringSession.DTO.TutoringSessionDTOMapper;
 import edu.cit.Judify.User.UserEntity;
@@ -10,15 +31,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.Date;
-import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/tutoring-sessions")
@@ -28,12 +40,15 @@ public class TutoringSessionController {
 
     private final TutoringSessionService sessionService;
     private final TutoringSessionDTOMapper sessionDTOMapper;
+    private final ConversationService conversationService;
 
     @Autowired
     public TutoringSessionController(TutoringSessionService sessionService, 
-                                    TutoringSessionDTOMapper sessionDTOMapper) {
+                                    TutoringSessionDTOMapper sessionDTOMapper,
+                                    ConversationService conversationService) {
         this.sessionService = sessionService;
         this.sessionDTOMapper = sessionDTOMapper;
+        this.conversationService = conversationService;
     }
 
     @Operation(summary = "Create a new tutoring session", description = "Creates a new tutoring session between a tutor and a student")
@@ -45,9 +60,84 @@ public class TutoringSessionController {
     @PostMapping("/createSession")
     public ResponseEntity<TutoringSessionDTO> createSession(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Session data to create", required = true)
-            @RequestBody TutoringSessionDTO sessionDTO) {
-        TutoringSessionEntity session = sessionDTOMapper.toEntity(sessionDTO);
-        return ResponseEntity.ok(sessionDTOMapper.toDTO(sessionService.createSession(session)));
+            @RequestBody TutoringSessionDTO sessionDTO,
+            @Parameter(hidden = true) @org.springframework.security.core.annotation.AuthenticationPrincipal 
+            org.springframework.security.core.userdetails.UserDetails userDetails) {
+
+        // Log incoming data
+        System.out.println("Creating session with DTO: " + sessionDTO);
+        System.out.println("Authentication: " + (userDetails != null ? userDetails.getUsername() : "No authentication"));
+
+        // Check if studentId is already set in the DTO
+        if (sessionDTO.getStudentId() == null) {
+            // Try to set from authentication if available
+            if (userDetails != null) {
+                // Extract the user ID from the authenticated user
+                String username = userDetails.getUsername();
+                System.out.println("Authenticated username: " + username);
+
+                // Get the user by username and set as student ID
+                UserEntity student = sessionService.findUserByUsername(username);
+                System.out.println("Found student: " + (student != null ? student.getUserId() : "null"));
+
+                if (student != null) {
+                    sessionDTO.setStudentId(student.getUserId());
+                    System.out.println("Set student ID in DTO: " + student.getUserId());
+                } else {
+                    System.out.println("Student not found for username: " + username);
+                    return ResponseEntity.badRequest().body(null);
+                }
+            } else {
+                System.out.println("No authentication found and no student ID provided in request.");
+                return ResponseEntity.status(org.springframework.http.HttpStatus.BAD_REQUEST)
+                    .body(null);
+            }
+        } else {
+            System.out.println("Student ID was provided in the request: " + sessionDTO.getStudentId());
+        }
+
+        try {
+            // Validate that required fields are present
+            if (sessionDTO.getStudentId() == null) {
+                System.out.println("Student ID is missing");
+                return ResponseEntity.badRequest().body(null);
+            }
+
+            if (sessionDTO.getTutorId() == null) {
+                System.out.println("Tutor ID is missing");
+                return ResponseEntity.badRequest().body(null);
+            }
+
+            // Set initial status to PENDING for negotiation
+            if (sessionDTO.getStatus() == null) {
+                sessionDTO.setStatus("PENDING");
+            }
+
+            // Set initial acceptance status
+            sessionDTO.setStudentAccepted(true); // Student initiates, so they accept by default
+            sessionDTO.setTutorAccepted(false);  // Tutor needs to accept
+
+            TutoringSessionEntity session = sessionDTOMapper.toEntity(sessionDTO);
+            System.out.println("Converted DTO to entity, student ID: " + (session.getStudent() != null ? session.getStudent().getUserId() : "null"));
+
+            // Create a conversation for negotiation between tutor and student
+            // Use findOrCreateStudentTutorConversation to ensure consistent use of studentId and tutorId
+            ConversationEntity savedConversation = conversationService.findOrCreateStudentTutorConversation(
+                session.getStudent(), session.getTutor());
+
+            // Link the conversation to the session
+            session.setConversation(savedConversation);
+
+            TutoringSessionEntity savedSession = sessionService.createSession(session);
+            System.out.println("Session saved successfully with ID: " + savedSession.getSessionId());
+
+            return ResponseEntity.ok(sessionDTOMapper.toDTO(savedSession));
+        } catch (Exception e) {
+            System.out.println("Error creating session: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(null);
+        }
     }
 
     @Operation(summary = "Get session by ID", description = "Returns a tutoring session by its ID")
@@ -70,7 +160,11 @@ public class TutoringSessionController {
     })
     @GetMapping("/findByTutor/{tutorId}")
     public ResponseEntity<List<TutoringSessionDTO>> getTutorSessions(
-            @Parameter(description = "Tutor ID") @PathVariable UserEntity tutor) {
+            @Parameter(description = "Tutor ID") @PathVariable("tutorId") Long tutorId) {
+        // Find the tutor by ID
+        UserEntity tutor = new UserEntity();
+        tutor.setUserId(tutorId);
+
         return ResponseEntity.ok(sessionService.getTutorSessions(tutor)
                 .stream()
                 .map(sessionDTOMapper::toDTO)
@@ -83,11 +177,26 @@ public class TutoringSessionController {
     })
     @GetMapping("/findByStudent/{studentId}")
     public ResponseEntity<List<TutoringSessionDTO>> getStudentSessions(
-            @Parameter(description = "Student ID") @PathVariable UserEntity student) {
-        return ResponseEntity.ok(sessionService.getStudentSessions(student)
+            @Parameter(description = "Student ID") @PathVariable("studentId") Long studentId) {
+        // Find the student by ID
+        UserEntity student = new UserEntity();
+        student.setUserId(studentId);
+
+        // Get the sessions and convert to DTOs with tutor names included
+        List<TutoringSessionDTO> sessionDTOs = sessionService.getStudentSessions(student)
                 .stream()
                 .map(sessionDTOMapper::toDTO)
-                .collect(Collectors.toList()));
+                .collect(Collectors.toList());
+
+        // Log for debugging
+        System.out.println("Found " + sessionDTOs.size() + " sessions for student ID: " + studentId);
+        for (TutoringSessionDTO session : sessionDTOs) {
+            System.out.println("Session ID: " + session.getSessionId() + 
+                              ", Tutor ID: " + session.getTutorId() + 
+                              ", Tutor Name: " + session.getTutorName());
+        }
+
+        return ResponseEntity.ok(sessionDTOs);
     }
 
     @Operation(summary = "Get sessions by status", description = "Returns all tutoring sessions with a specific status")
@@ -167,8 +276,12 @@ public class TutoringSessionController {
     })
     @GetMapping("/findByTutorAndStatus/{tutorId}/{status}")
     public ResponseEntity<List<TutoringSessionDTO>> getTutorSessionsByStatus(
-            @Parameter(description = "Tutor ID") @PathVariable UserEntity tutor,
+            @Parameter(description = "Tutor ID") @PathVariable("tutorId") Long tutorId,
             @Parameter(description = "Session status") @PathVariable String status) {
+        // Find the tutor by ID
+        UserEntity tutor = new UserEntity();
+        tutor.setUserId(tutorId);
+
         return ResponseEntity.ok(sessionService.getTutorSessionsByStatus(tutor, status)
                 .stream()
                 .map(sessionDTOMapper::toDTO)
@@ -181,8 +294,12 @@ public class TutoringSessionController {
     })
     @GetMapping("/findByStudentAndStatus/{studentId}/{status}")
     public ResponseEntity<List<TutoringSessionDTO>> getStudentSessionsByStatus(
-            @Parameter(description = "Student ID") @PathVariable UserEntity student,
+            @Parameter(description = "Student ID") @PathVariable("studentId") Long studentId,
             @Parameter(description = "Session status") @PathVariable String status) {
+        // Find the student by ID
+        UserEntity student = new UserEntity();
+        student.setUserId(studentId);
+
         return ResponseEntity.ok(sessionService.getStudentSessionsByStatus(student, status)
                 .stream()
                 .map(sessionDTOMapper::toDTO)
@@ -195,42 +312,54 @@ public class TutoringSessionController {
     })
     @GetMapping("/findByTutorPaginated/{tutorId}")
     public ResponseEntity<Page<TutoringSessionDTO>> getTutorSessionsPaginated(
-            @Parameter(description = "Tutor ID") @PathVariable UserEntity tutor,
+            @Parameter(description = "Tutor ID") @PathVariable("tutorId") Long tutorId,
             @Parameter(description = "Start date filter (optional)") 
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date startDate,
             @Parameter(description = "End date filter (optional)") 
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date endDate,
             @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Page size") @RequestParam(defaultValue = "10") int size) {
-        
+
+        // Find the tutor by ID
+        UserEntity tutor = new UserEntity();
+        tutor.setUserId(tutorId);
+
         Page<TutoringSessionEntity> sessions = sessionService.getTutorSessionsPaginated(
                 tutor, startDate, endDate, page, size);
-                
+
         Page<TutoringSessionDTO> sessionDTOs = sessions.map(sessionDTOMapper::toDTO);
         return ResponseEntity.ok(sessionDTOs);
     }
-    
+
     @Operation(summary = "Get student sessions with pagination", description = "Returns a paginated list of tutoring sessions for a specific student with optional date filtering")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Successfully retrieved paginated student sessions")
     })
     @GetMapping("/findByStudentPaginated/{studentId}")
     public ResponseEntity<Page<TutoringSessionDTO>> getStudentSessionsPaginated(
-            @Parameter(description = "Student ID") @PathVariable UserEntity student,
+            @Parameter(description = "Student ID") @PathVariable("studentId") Long studentId,
             @Parameter(description = "Start date filter (optional)") 
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date startDate,
             @Parameter(description = "End date filter (optional)") 
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date endDate,
             @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Page size") @RequestParam(defaultValue = "10") int size) {
-        
-        Page<TutoringSessionEntity> sessions = sessionService.getStudentSessionsPaginated(
-                student, startDate, endDate, page, size);
-                
-        Page<TutoringSessionDTO> sessionDTOs = sessions.map(sessionDTOMapper::toDTO);
-        return ResponseEntity.ok(sessionDTOs);
+        // Find the student by ID
+        UserEntity student = new UserEntity();
+        student.setUserId(studentId);
+
+        // Get the paginated sessions, with enhanced DTO including tutor names
+        Page<TutoringSessionDTO> pagedSessions = sessionService.getStudentSessionsPaginated(
+                student, startDate, endDate, page, size)
+                .map(sessionDTOMapper::toDTO);
+
+        // Debug logging
+        System.out.println("Found " + pagedSessions.getTotalElements() + " total sessions for student " + 
+                          studentId + " (page " + page + " of " + pagedSessions.getTotalPages() + ")");
+
+        return ResponseEntity.ok(pagedSessions);
     }
-    
+
     @Operation(summary = "Get sessions by status with pagination", description = "Returns a paginated list of tutoring sessions with a specific status")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Successfully retrieved paginated sessions by status")
@@ -240,11 +369,173 @@ public class TutoringSessionController {
             @Parameter(description = "Session status") @PathVariable String status,
             @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Page size") @RequestParam(defaultValue = "10") int size) {
-        
+
         Page<TutoringSessionEntity> sessions = sessionService.getSessionsByStatusPaginated(
                 status, page, size);
-                
+
         Page<TutoringSessionDTO> sessionDTOs = sessions.map(sessionDTOMapper::toDTO);
         return ResponseEntity.ok(sessionDTOs);
+    }
+
+    @Operation(summary = "Accept a tutoring session", description = "Tutor accepts a pending tutoring session")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Session successfully accepted",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = TutoringSessionDTO.class))),
+        @ApiResponse(responseCode = "404", description = "Session not found"),
+        @ApiResponse(responseCode = "400", description = "Invalid operation")
+    })
+    @PutMapping("/acceptSession/{sessionId}")
+    public ResponseEntity<TutoringSessionDTO> acceptSession(
+            @Parameter(description = "Session ID") @PathVariable Long sessionId,
+            @Parameter(hidden = true) @org.springframework.security.core.annotation.AuthenticationPrincipal 
+            org.springframework.security.core.userdetails.UserDetails userDetails) {
+
+        try {
+            // Get the session
+            TutoringSessionEntity session = sessionService.getSessionById(sessionId)
+                    .orElseThrow(() -> new RuntimeException("Session not found"));
+
+            // Verify the user is the tutor for this session
+            if (userDetails != null) {
+                String username = userDetails.getUsername();
+                UserEntity user = sessionService.findUserByUsername(username);
+
+                if (user == null || !user.getUserId().equals(session.getTutor().getUserId())) {
+                    return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN)
+                        .body(null);
+                }
+            }
+
+            // Set tutor accepted to true
+            session.setTutorAccepted(true);
+
+            // If both parties have accepted, update status to SCHEDULED
+            if (Boolean.TRUE.equals(session.getStudentAccepted()) && Boolean.TRUE.equals(session.getTutorAccepted())) {
+                session.setStatus("SCHEDULED");
+            }
+
+            // Save the updated session
+            TutoringSessionEntity updatedSession = sessionService.updateSession(sessionId, session);
+
+            return ResponseEntity.ok(sessionDTOMapper.toDTO(updatedSession));
+        } catch (Exception e) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(null);
+        }
+    }
+
+    @Operation(summary = "Reject a tutoring session", description = "Tutor rejects a pending tutoring session")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Session successfully rejected",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = TutoringSessionDTO.class))),
+        @ApiResponse(responseCode = "404", description = "Session not found"),
+        @ApiResponse(responseCode = "400", description = "Invalid operation")
+    })
+    @PutMapping("/rejectSession/{sessionId}")
+    public ResponseEntity<TutoringSessionDTO> rejectSession(
+            @Parameter(description = "Session ID") @PathVariable Long sessionId,
+            @Parameter(hidden = true) @org.springframework.security.core.annotation.AuthenticationPrincipal 
+            org.springframework.security.core.userdetails.UserDetails userDetails) {
+
+        try {
+            // Get the session
+            TutoringSessionEntity session = sessionService.getSessionById(sessionId)
+                    .orElseThrow(() -> new RuntimeException("Session not found"));
+
+            // Verify the user is the tutor for this session
+            if (userDetails != null) {
+                String username = userDetails.getUsername();
+                UserEntity user = sessionService.findUserByUsername(username);
+
+                if (user == null || !user.getUserId().equals(session.getTutor().getUserId())) {
+                    return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN)
+                        .body(null);
+                }
+            }
+
+            // Set status to CANCELLED
+            session.setStatus("CANCELLED");
+
+            // Save the updated session
+            TutoringSessionEntity updatedSession = sessionService.updateSession(sessionId, session);
+
+            return ResponseEntity.ok(sessionDTOMapper.toDTO(updatedSession));
+        } catch (Exception e) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(null);
+        }
+    }
+
+    @Operation(summary = "Update session details during negotiation", description = "Update price, location, or other details during the negotiation phase")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Session details successfully updated",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = TutoringSessionDTO.class))),
+        @ApiResponse(responseCode = "404", description = "Session not found"),
+        @ApiResponse(responseCode = "400", description = "Invalid operation")
+    })
+    @PutMapping("/negotiateSession/{sessionId}")
+    public ResponseEntity<TutoringSessionDTO> negotiateSession(
+            @Parameter(description = "Session ID") @PathVariable Long sessionId,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Updated session details", required = true)
+            @RequestBody TutoringSessionDTO sessionDTO,
+            @Parameter(hidden = true) @org.springframework.security.core.annotation.AuthenticationPrincipal 
+            org.springframework.security.core.userdetails.UserDetails userDetails) {
+
+        try {
+            // Get the session
+            TutoringSessionEntity session = sessionService.getSessionById(sessionId)
+                    .orElseThrow(() -> new RuntimeException("Session not found"));
+
+            // Verify the user is either the tutor or student for this session
+            if (userDetails != null) {
+                String username = userDetails.getUsername();
+                UserEntity user = sessionService.findUserByUsername(username);
+
+                if (user == null || 
+                    (!user.getUserId().equals(session.getTutor().getUserId()) && 
+                     !user.getUserId().equals(session.getStudent().getUserId()))) {
+                    return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN)
+                        .body(null);
+                }
+
+                // Determine if the user is the tutor or student
+                boolean isUserTutor = user.getUserId().equals(session.getTutor().getUserId());
+
+                // Update negotiable fields
+                if (sessionDTO.getPrice() != null) {
+                    session.setPrice(sessionDTO.getPrice());
+                }
+
+                if (sessionDTO.getLocationData() != null) {
+                    session.setLocationData(sessionDTO.getLocationData());
+                }
+
+                if (sessionDTO.getMeetingLink() != null) {
+                    session.setMeetingLink(sessionDTO.getMeetingLink());
+                }
+
+                if (sessionDTO.getNotes() != null) {
+                    session.setNotes(sessionDTO.getNotes());
+                }
+
+                // Reset acceptance flags when details change
+                session.setTutorAccepted(isUserTutor);
+                session.setStudentAccepted(!isUserTutor);
+
+                // Ensure status is NEGOTIATING
+                session.setStatus("NEGOTIATING");
+
+                // Save the updated session
+                TutoringSessionEntity updatedSession = sessionService.updateSession(sessionId, session);
+
+                return ResponseEntity.ok(sessionDTOMapper.toDTO(updatedSession));
+            } else {
+                return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED)
+                    .body(null);
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(null);
+        }
     }
 } 

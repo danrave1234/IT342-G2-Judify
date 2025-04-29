@@ -50,17 +50,17 @@ public class TutorAvailabilityController {
         if (availabilityDTO.getTutorId() == null) {
             return ResponseEntity.badRequest().build();
         }
-        
+
         // Get the tutor entity from the user service
         UserEntity tutor = userService.getUserById(availabilityDTO.getTutorId())
             .orElseThrow(() -> new RuntimeException("Tutor not found with ID: " + availabilityDTO.getTutorId()));
-            
+
         // Convert DTO to entity
         TutorAvailabilityEntity availability = availabilityDTOMapper.toEntity(availabilityDTO);
-        
+
         // Set the tutor entity
         availability.setTutor(tutor);
-        
+
         // Save and return
         TutorAvailabilityEntity savedAvailability = availabilityService.createAvailability(availability);
         return ResponseEntity.ok(availabilityDTOMapper.toDTO(savedAvailability));
@@ -90,7 +90,7 @@ public class TutorAvailabilityController {
         // Get the tutor entity from the user service
         UserEntity tutor = userService.getUserById(tutorId)
             .orElseThrow(() -> new RuntimeException("Tutor not found with ID: " + tutorId));
-            
+
         return ResponseEntity.ok(availabilityService.getTutorAvailability(tutor)
                 .stream()
                 .map(availabilityDTOMapper::toDTO)
@@ -116,12 +116,12 @@ public class TutorAvailabilityController {
     })
     @GetMapping("/findByTutorAndDay/{tutorId}/{dayOfWeek}")
     public ResponseEntity<List<TutorAvailabilityDTO>> getTutorAvailabilityByDay(
-            @Parameter(description = "Tutor ID") @PathVariable Long tutorId,
+            @Parameter(description = "Tutor ID") @PathVariable("tutorId") Long tutorId,
             @Parameter(description = "Day of week (e.g., MONDAY, TUESDAY)") @PathVariable String dayOfWeek) {
         // Get the tutor entity from the user service
         UserEntity tutor = userService.getUserById(tutorId)
             .orElseThrow(() -> new RuntimeException("Tutor not found with ID: " + tutorId));
-            
+
         return ResponseEntity.ok(availabilityService.getTutorAvailabilityByDay(tutor, dayOfWeek)
                 .stream()
                 .map(availabilityDTOMapper::toDTO)
@@ -141,17 +141,17 @@ public class TutorAvailabilityController {
         if (availabilityDTO.getTutorId() == null) {
             return ResponseEntity.badRequest().build();
         }
-        
+
         // Get the tutor entity from the user service
         UserEntity tutor = userService.getUserById(availabilityDTO.getTutorId())
             .orElseThrow(() -> new RuntimeException("Tutor not found with ID: " + availabilityDTO.getTutorId()));
-            
+
         // Convert DTO to entity
         TutorAvailabilityEntity availability = availabilityDTOMapper.toEntity(availabilityDTO);
-        
+
         // Set the tutor entity
         availability.setTutor(tutor);
-        
+
         // Update and return
         TutorAvailabilityEntity updatedAvailability = availabilityService.updateAvailability(id, availability);
         return ResponseEntity.ok(availabilityDTOMapper.toDTO(updatedAvailability));
@@ -179,7 +179,7 @@ public class TutorAvailabilityController {
         // Get the tutor entity from the user service
         UserEntity tutor = userService.getUserById(tutorId)
             .orElseThrow(() -> new RuntimeException("Tutor not found with ID: " + tutorId));
-            
+
         availabilityService.deleteTutorAvailability(tutor);
         return ResponseEntity.ok().build();
     }
@@ -197,7 +197,7 @@ public class TutorAvailabilityController {
         // Get the tutor entity from the user service
         UserEntity tutor = userService.getUserById(tutorId)
             .orElseThrow(() -> new RuntimeException("Tutor not found with ID: " + tutorId));
-            
+
         return ResponseEntity.ok(availabilityService.isTimeSlotAvailable(tutor, dayOfWeek, startTime, endTime));
     }
 } 

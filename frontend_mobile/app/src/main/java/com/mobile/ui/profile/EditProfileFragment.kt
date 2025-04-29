@@ -1,6 +1,7 @@
 package com.mobile.ui.profile
 
 import android.os.Bundle
+import android.util.Log // Added Log import
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -11,14 +12,17 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.Observer // Import Observer explicitly
 import com.mobile.R
 import com.mobile.utils.PreferenceUtils
 import de.hdodenhof.circleimageview.CircleImageView
+import androidx.appcompat.widget.Toolbar // Import Toolbar
 
 /**
  * Fragment for editing user profile
  */
 class EditProfileFragment : Fragment() {
+    private val TAG = "EditProfileFragment" // Added TAG
 
     // UI components
     private lateinit var profileImage: CircleImageView
@@ -29,13 +33,16 @@ class EditProfileFragment : Fragment() {
     private lateinit var contactDetailsEditText: EditText
     private lateinit var bioEditText: EditText
     private lateinit var saveButton: Button
-    private lateinit var cancelButton: Button
+    private lateinit var cancelButton: Button // Keep for potential future use or alternative UI
     private lateinit var progressBar: ProgressBar
     private lateinit var progressOverlay: View
     private lateinit var errorText: TextView
+    private lateinit var toolbar: Toolbar // Add Toolbar reference
 
     // ViewModel
     private lateinit var viewModel: ProfileViewModel
+    private var initialDataLoaded = false // Flag to prevent repopulating on state changes after initial load
+    private var profileStateObserver: Observer<ProfileState>? = null // Observer instance variable
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -44,7 +51,7 @@ class EditProfileFragment : Fragment() {
     ): View? {
         val view = inflater.inflate(R.layout.fragment_edit_profile, container, false)
 
-        // Initialize ViewModel
+        // Initialize ViewModel - use requireActivity() to share with ProfileFragment
         viewModel = ViewModelProvider(requireActivity()).get(ProfileViewModel::class.java)
 
         // Initialize UI components
@@ -56,13 +63,45 @@ class EditProfileFragment : Fragment() {
         // Set up observers
         setupObservers()
 
-        // Load current user data
-        loadCurrentUserData()
+        // Trigger profile load if needed (e.g., if coming directly here)
+        // The observer will handle populating the data once loaded.
+        // Check if ViewModel already has data; if not, trigger load.
+        if (viewModel.profileState.value?.user == null && viewModel.profileState.value?.isLoading == false) {
+            val email = PreferenceUtils.getUserEmail(requireContext())
+            if (email != null) {
+                Log.d(TAG, "No user data in ViewModel, triggering loadUserProfile.")
+                viewModel.loadUserProfile(email)
+            } else {
+                Log.e(TAG, "Cannot load profile, user email not found in preferences.")
+                Toast.makeText(requireContext(), "Error: User email not found.", Toast.LENGTH_LONG).show()
+                errorText.text = "Error: User email not found."
+                errorText.visibility = View.VISIBLE
+                // Disable save button if we can't load initial data
+                saveButton.isEnabled = false
+            }
+        } else if (viewModel.profileState.value?.user != null && !initialDataLoaded) {
+            // If ViewModel already has data (e.g., navigating back), populate immediately
+            Log.d(TAG, "ViewModel has data, populating UI immediately.")
+            viewModel.profileState.value?.user?.let { populateUserData(it) } // Safe call
+            initialDataLoaded = true
+            saveButton.isEnabled = true
+        } else if (viewModel.profileState.value?.isLoading == true) {
+            // If currently loading, disable save button
+            saveButton.isEnabled = false
+        }
 
         return view
     }
 
+    override fun onDestroyView() {
+        // Clean up observer to prevent leaks and multiple navigations
+        profileStateObserver?.let { viewModel.profileState.removeObserver(it) }
+        profileStateObserver = null
+        super.onDestroyView()
+    }
+
     private fun initializeViews(view: View) {
+        toolbar = view.findViewById(R.id.toolbar) // Initialize Toolbar
         profileImage = view.findViewById(R.id.profileImageView)
         firstNameEditText = view.findViewById(R.id.firstNameEditText)
         lastNameEditText = view.findViewById(R.id.lastNameEditText)
@@ -75,15 +114,24 @@ class EditProfileFragment : Fragment() {
         progressBar = view.findViewById(R.id.progressBar)
         progressOverlay = view.findViewById(R.id.progressOverlay)
         errorText = view.findViewById(R.id.errorTextView)
+
+        // Initially disable save button and hide overlay
+        saveButton.isEnabled = false
+        progressOverlay.visibility = View.GONE
     }
 
     private fun setupListeners() {
+        // Handle Toolbar navigation click (Back button)
+        toolbar.setNavigationOnClickListener {
+            parentFragmentManager.popBackStack()
+        }
+
         saveButton.setOnClickListener {
             saveProfile()
         }
 
+        // Keep the cancel button listener for explicit cancellation
         cancelButton.setOnClickListener {
-            // Navigate back to profile fragment
             parentFragmentManager.popBackStack()
         }
 
@@ -94,196 +142,132 @@ class EditProfileFragment : Fragment() {
     }
 
     private fun setupObservers() {
-        // Track if we're in the process of updating the profile
-        var isUpdatingProfile = false
+        // Remove previous observer if it exists
+        profileStateObserver?.let { viewModel.profileState.removeObserver(it) }
 
-        viewModel.profileState.observe(viewLifecycleOwner) { state ->
-            android.util.Log.d("EditProfileFragment", "ProfileState updated: loading=${state.isLoading}, error=${state.error}, user=${state.user != null}")
+        // Create and add the new observer
+        profileStateObserver = Observer { state ->
+            Log.d(TAG, "Observer received state: $state")
 
-            when {
-                state.isLoading -> {
-                    progressOverlay.visibility = View.VISIBLE
-                    errorText.visibility = View.GONE
-                    saveButton.isEnabled = false  // Disable button while loading
-                    // Mark that we're updating the profile
-                    isUpdatingProfile = true
+            // Handle loading state
+            progressOverlay.visibility = if (state.isLoading) View.VISIBLE else View.GONE
+            // Disable save button while loading OR if initial data hasn't loaded and there's no user data yet
+            saveButton.isEnabled = !state.isLoading && initialDataLoaded
+
+            // Handle error display
+            if (state.error != null && !state.isUpdateSuccessful) { // Show error only if it's not a success state
+                errorText.visibility = View.VISIBLE
+                errorText.text = state.error
+                if (!initialDataLoaded) { // Show toast only if initial load failed
+                    Toast.makeText(requireContext(), "Error loading profile: ${state.error}", Toast.LENGTH_LONG).show()
                 }
-                state.error != null -> {
-                    progressOverlay.visibility = View.GONE
-                    errorText.visibility = View.VISIBLE
-                    errorText.text = state.error
-                    saveButton.isEnabled = true  // Re-enable button so user can try again
-                    // Show error toast
-                    Toast.makeText(requireContext(), "Error: ${state.error}", Toast.LENGTH_LONG).show()
-                    // Reset the updating flag
-                    isUpdatingProfile = false
-                }
-                state.user != null -> {
-                    progressOverlay.visibility = View.GONE
-                    errorText.visibility = View.GONE
-                    saveButton.isEnabled = true  // Re-enable button
-
-                    // Update profile image
-                    if (state.user.profileImageUrl != null && state.user.profileImageUrl.isNotEmpty()) {
-                        // TODO: Load image from URL using a library like Glide or Picasso
-                        // For now, we'll use the default profile image
-                        profileImage.setImageResource(R.drawable.default_profile)
-                    } else {
-                        // Use placeholder for profile image
-                        profileImage.setImageResource(R.drawable.ic_person)
-                    }
-
-                    // If we were updating the profile and now we have user data, it means the update was successful
-                    if (isUpdatingProfile) {
-                        // Show success message
-                        Toast.makeText(requireContext(), "Profile updated successfully", Toast.LENGTH_SHORT).show()
-
-                        // Navigate back to profile fragment
-                        parentFragmentManager.popBackStack()
-
-                        // Reset the updating flag
-                        isUpdatingProfile = false
-                    }
-                }
-                else -> {
-                    // If we reach here, there's no loading, no error, but also no user
-                    // This can happen if the ViewModel is in an inconsistent state
-                    progressOverlay.visibility = View.GONE
-                    errorText.visibility = View.GONE
-                    saveButton.isEnabled = true
-                    isUpdatingProfile = false
-                }
+            } else if (!state.isUpdateSuccessful) { // Hide error if no error and not a success state yet
+                errorText.visibility = View.GONE
             }
+
+            // Populate UI with user data only ONCE when not loading and user is available
+            if (!state.isLoading && state.user != null && !initialDataLoaded) {
+                Log.d(TAG, "Populating UI from state.user")
+                populateUserData(state.user)
+                loadAdditionalFromPreferences() // Load bio/contact after basic user data
+                initialDataLoaded = true
+                saveButton.isEnabled = true // Enable save button after initial load
+            } else if (!state.isLoading && state.user == null && !initialDataLoaded) {
+                // If loading finished but user is null, try loading from prefs as fallback
+                Log.w(TAG, "ViewModel state has null user after loading, attempting to load from Preferences.")
+                loadAllFromPreferences() // Load everything from preferences
+                initialDataLoaded = true
+                saveButton.isEnabled = true // Enable save button even if prefs are empty
+            }
+
+            // Handle successful update navigation
+            // Check isUpdateSuccessful specifically to trigger navigation only once
+            if (state.isUpdateSuccessful) {
+                Log.d(TAG, "Update successful, navigating back.")
+                // Toast moved to ProfileFragment
+                parentFragmentManager.popBackStack()
+                // Let ProfileFragment handle clearing the flag
+            }
+        }
+        viewModel.profileState.observe(viewLifecycleOwner, profileStateObserver!!)
+    }
+
+    private fun populateUserData(user: User) {
+        Log.d(TAG, "Populating UI with user data: Name='${user.name}', Email='${user.email}', Username='${user.username}'")
+        val nameParts = user.name.split(" ", limit = 2)
+        val firstName = nameParts.getOrElse(0) { "" }
+        val lastName = nameParts.getOrElse(1) { "" }
+
+        firstNameEditText.setText(firstName)
+        lastNameEditText.setText(lastName)
+        emailEditText.setText(user.email)
+        usernameEditText.setText(user.username ?: "") // Populate username here
+
+        if (user.profileImageUrl != null && user.profileImageUrl.isNotEmpty()) {
+            // TODO: Load image from URL using Glide or Picasso
+            profileImage.setImageResource(R.drawable.default_profile)
+        } else {
+            profileImage.setImageResource(R.drawable.ic_person)
         }
     }
 
-    private fun loadCurrentUserData() {
-        val state = viewModel.profileState.value
-
-        // Make sure UI is in a non-loading state initially
-        progressOverlay.visibility = View.GONE
-        saveButton.isEnabled = true
-
-        if (state?.user != null) {
-            // Parse the name into first and last name
-            val nameParts = state.user.name.split(" ", limit = 2)
-            val firstName = nameParts[0]
-            val lastName = if (nameParts.size > 1) nameParts[1] else ""
-
-            // Set the values in the edit texts
-            firstNameEditText.setText(firstName)
-            lastNameEditText.setText(lastName)
-            emailEditText.setText(state.user.email)
-
-            // Set profile image
-            if (state.user.profileImageUrl != null && state.user.profileImageUrl.isNotEmpty()) {
-                // TODO: Load image from URL using a library like Glide or Picasso
-                // For now, we'll use the default profile image
-                profileImage.setImageResource(R.drawable.default_profile)
-            } else {
-                // Use placeholder for profile image
-                profileImage.setImageResource(R.drawable.ic_person)
-            }
-        } else {
-            // If user data is not available in the ViewModel, try to get it from preferences
-            val firstName = PreferenceUtils.getUserFirstName(requireContext())
-            val lastName = PreferenceUtils.getUserLastName(requireContext())
-            val email = PreferenceUtils.getUserEmail(requireContext())
-
-            if (firstName != null) {
-                firstNameEditText.setText(firstName)
-            }
-            if (lastName != null) {
-                lastNameEditText.setText(lastName)
-            }
-            if (email != null) {
-                emailEditText.setText(email)
-            }
-        }
-
-        // Ensure contact details field is loaded if available
-        val contactDetails = PreferenceUtils.getUserContactDetails(requireContext())
-        if (!contactDetails.isNullOrEmpty()) {
-            contactDetailsEditText.setText(contactDetails)
-        }
-
-        // Load username if available
-        val username = PreferenceUtils.getUserUsername(requireContext())
-        if (!username.isNullOrEmpty()) {
-            usernameEditText.setText(username)
-        } else {
-            // Default to email as username if not set
-            val email = PreferenceUtils.getUserEmail(requireContext())
-            if (!email.isNullOrEmpty()) {
-                usernameEditText.setText(email)
-            }
-        }
-
-        // Load bio if available
-        val bio = PreferenceUtils.getUserBio(requireContext())
-        if (!bio.isNullOrEmpty()) {
-            bioEditText.setText(bio)
-        }
+    // Loads only fields not part of the User model (bio, contact)
+    private fun loadAdditionalFromPreferences() {
+        Log.d(TAG, "Loading additional fields (bio, contact) from preferences.")
+        val context = requireContext()
+        val contactDetails = PreferenceUtils.getUserContactDetails(context)
+        contactDetailsEditText.setText(contactDetails ?: "") // Set to empty string if null
+        val bio = PreferenceUtils.getUserBio(context)
+        bioEditText.setText(bio ?: "") // Set to empty string if null
     }
+
+    // Loads all fields from preferences (fallback)
+    private fun loadAllFromPreferences() {
+        Log.d(TAG, "Loading ALL fields from preferences as fallback.")
+        val context = requireContext()
+        firstNameEditText.setText(PreferenceUtils.getUserFirstName(context) ?: "")
+        lastNameEditText.setText(PreferenceUtils.getUserLastName(context) ?: "")
+        emailEditText.setText(PreferenceUtils.getUserEmail(context) ?: "")
+        usernameEditText.setText(PreferenceUtils.getUserUsername(context) ?: "")
+        contactDetailsEditText.setText(PreferenceUtils.getUserContactDetails(context) ?: "")
+        bioEditText.setText(PreferenceUtils.getUserBio(context) ?: "")
+    }
+
 
     private fun saveProfile() {
         val firstName = firstNameEditText.text.toString().trim()
         val lastName = lastNameEditText.text.toString().trim()
         val username = usernameEditText.text.toString().trim()
         val email = emailEditText.text.toString().trim()
-        val contactDetails = contactDetailsEditText.text.toString().trim()
-        val bio = bioEditText.text.toString().trim()
+        // Handle potentially empty strings correctly, don't save "null"
+        val contactDetails = contactDetailsEditText.text.toString().trim().let { if (it.equals("null", ignoreCase = true)) "" else it }
+        val bio = bioEditText.text.toString().trim().let { if (it.equals("null", ignoreCase = true)) "" else it }
 
-        // Validate inputs
-        if (firstName.isEmpty()) {
-            Toast.makeText(requireContext(), "First name cannot be empty", Toast.LENGTH_SHORT).show()
-            firstNameEditText.requestFocus()
+
+        // Basic validation
+        if (firstName.isEmpty() || lastName.isEmpty() || username.isEmpty() || email.isEmpty()) {
+            Toast.makeText(requireContext(), "Please fill in all required fields (First Name, Last Name, Username, Email)", Toast.LENGTH_LONG).show()
             return
         }
-
-        if (lastName.isEmpty()) {
-            Toast.makeText(requireContext(), "Last name cannot be empty", Toast.LENGTH_SHORT).show()
-            lastNameEditText.requestFocus()
-            return
-        }
-
-        if (username.isEmpty()) {
-            Toast.makeText(requireContext(), "Username cannot be empty", Toast.LENGTH_SHORT).show()
-            usernameEditText.requestFocus()
-            return
-        }
-
-        if (email.isEmpty()) {
-            Toast.makeText(requireContext(), "Email cannot be empty", Toast.LENGTH_SHORT).show()
-            emailEditText.requestFocus()
-            return
-        }
-
-        // Simple email validation
         if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
             Toast.makeText(requireContext(), "Please enter a valid email address", Toast.LENGTH_SHORT).show()
             emailEditText.requestFocus()
             return
         }
 
-        // Log the data being saved
-        android.util.Log.d("EditProfileFragment", "Saving profile: firstName=$firstName, lastName=$lastName, username=$username, email=$email, contactDetails=$contactDetails, bio=$bio")
+        Log.d(TAG, "Attempting to save profile: firstName=$firstName, lastName=$lastName, username=$username, email=$email, contact='$contactDetails', bio='$bio'")
 
-        // Save additional fields to preferences immediately (as a backup)
-        PreferenceUtils.saveUserContactDetails(requireContext(), contactDetails)
+        // Save username and bio directly to preferences immediately for faster UI update
+        // Pass empty string "" if the field is empty, not null or "null"
         PreferenceUtils.saveUserUsername(requireContext(), username)
         PreferenceUtils.saveUserBio(requireContext(), bio)
+        PreferenceUtils.saveUserContactDetails(requireContext(), contactDetails) // Also save contact details to prefs
+        Log.d(TAG, "Username, Bio, and ContactDetails saved directly to preferences.")
 
-        // Show loading state
-        progressOverlay.visibility = View.VISIBLE
-        errorText.visibility = View.GONE
-        saveButton.isEnabled = false
+        // Call ViewModel to update the profile (this will handle loading state and backend update)
+        viewModel.updateUserProfile(firstName, lastName, email, username, contactDetails)
 
-        // Update user profile with contact details
-        viewModel.updateUserProfile("$firstName $lastName", email, contactDetails)
-
-        // The rest of the process (saving to preferences, showing success message, navigation)
-        // will be handled in the observer when the update is successful
+        // Observer will handle navigation and success/error messages
     }
 
     companion object {
