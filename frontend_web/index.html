@@ -4,7 +4,16 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React</title>
+    <title>Judify: Online Tutoring Platform</title>
+    <!-- Polyfills for Node.js globals required by SockJS -->
+    <script>
+      // Fix for "global is not defined" in SockJS
+      window.global = window;
+      // Fix for "process is not defined" in some libraries
+      window.process = window.process || { env: {} };
+      // Fix for "Buffer is not defined" in some libraries
+      window.Buffer = window.Buffer || { isBuffer: function() { return false; } };
+    </script>
   </head>
   <body>
     <div id="root"></div>
