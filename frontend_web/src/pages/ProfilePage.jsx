@@ -19,6 +19,7 @@ import {
 import { useUser } from '../context/UserContext';
 import { useStudentProfile } from '../context/StudentProfileContext';
 import { useTutorProfile } from '../context/TutorProfileContext';
+import { tutorProfileApi } from '../api/api';
 
 const ProfilePage = () => {
   const { user, uploadProfilePicture, loading: userLoading } = useUser();
@@ -310,53 +311,59 @@ const ProfilePage = () => {
   }, [latitude, longitude, mapLoaded, profile]);
 
   const onSubmit = async (data) => {
-    if (!user || !user.userId) {
-      toast.error('Unable to update profile - user information missing');
-      return;
-    }
-
     setIsSubmitting(true);
-
+    
     try {
+      console.log('Form data being submitted:', data);
+      
+      // Format the profile data properly
+        const profileData = {
+        bio: data.bio || '',
+        expertise: data.expertise || '',
+        hourlyRate: parseFloat(data.hourlyRate) || 0,
+        location: {
+          latitude: data.location.latitude || '',
+          longitude: data.location.longitude || '',
+          city: data.location.city || '',
+          state: data.location.state || '',
+          country: data.location.country || ''
+        },
+        shareLocation: shareLocation,
+        interests: interests
+      };
+      
+      // Log the complete data being sent to verify all fields
+      console.log('Complete profile data being submitted:', profileData);
+      
+      let result;
+      
+      // Call the appropriate update function based on user role
       if (isTutor) {
-        const profileData = {
-          ...data,
-          userId: user.userId,
-          // Include profile picture if available
-          profilePicture: user.profileImage || user.profilePicture,
-          // Include location sharing preference
-          shareLocation: shareLocation
-        };
-
-        const result = await updateTutorProfile(profileData);
-
-        if (result.success) {
-          toast.success('Tutor profile updated successfully');
-          setActiveTab('view');
-        } else {
-          toast.error(result.message || 'Failed to update profile');
-        }
+        // For tutors, make sure we include all the required fields
+        result = await updateTutorProfile(profileData);
       } else {
-        const profileData = {
-          ...data,
-          interests,
-          userId: user.userId,
-          // Include profile picture if available
-          profilePicture: user.profileImage || user.profilePicture
-        };
-
-        const result = await updateStudentProfile(profileData);
+        result = await updateStudentProfile(profileData);
+      }
 
         if (result.success) {
           toast.success('Profile updated successfully');
+        
+        // Reload the profile data to ensure the UI reflects the current server state
+        if (isTutor) {
+          // Refresh tutor profile
+          await handleRefresh();
+        } else {
+          // Refresh student profile
+          await refreshStudentProfile();
+        }
+        
           setActiveTab('view');
         } else {
           toast.error(result.message || 'Failed to update profile');
-        }
       }
     } catch (error) {
       console.error('Error updating profile:', error);
-      toast.error('Failed to update profile');
+      toast.error('Failed to update profile: ' + error.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -364,16 +371,44 @@ const ProfilePage = () => {
 
   const handleRefresh = async () => {
     try {
+      setIsSubmitting(true);
+      
       if (isTutor) {
-        // For tutors, use the refresh functionality directly
-        window.location.reload(); // Full page reload to ensure all data is fresh
+        // For tutors, we need to reload the profile from the tutor profile API
+        console.log('Refreshing tutor profile...');
+        
+        // Get the user ID
+        const userId = user?.userId;
+        if (!userId) {
+          throw new Error('User ID is missing, cannot refresh profile');
+        }
+        
+        // Manually reload the tutor profile from the API
+        const response = await tutorProfileApi.getProfileByUserId(userId);
+        if (response?.data) {
+          console.log('Successfully refreshed tutor profile:', response.data);
+          // Now we need to update the context - this would normally be done
+          // by reloading the page, but we're doing it manually here
+          // We don't have a direct way to do this from here, so we'll reload the page
+          toast.success('Profile refreshed successfully');
+          
+          // Delay the reload slightly to allow the toast to be seen
+          setTimeout(() => {
+            window.location.reload();
+          }, 1000);
       } else {
-        // For students, use the student profile refresh
+          throw new Error('Failed to reload tutor profile data');
+        }
+      } else {
+        // For students, use the student profile refresh function from context
         await refreshStudentProfile();
         toast.success('Profile refreshed');
       }
     } catch (error) {
-      toast.error('Failed to refresh profile');
+      console.error('Error refreshing profile:', error);
+      toast.error('Failed to refresh profile: ' + error.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -484,9 +519,22 @@ const ProfilePage = () => {
     }
 
     try {
+      // Get the correct profile ID
+      const profileId = tutorProfile?.profileId;
+      
+      if (!profileId) {
+        console.error('Cannot update location: Missing tutor profile ID');
+        toast.error('Unable to update location - tutor profile information missing');
+        return;
+      }
+
+      console.log('Updating location for profileId:', profileId);
+      
+      // Format location data correctly
       const locationData = {
-        userId: user.userId,
-        profileId: tutorProfile?.id,
+        bio: tutorProfile?.bio || '',
+        expertise: tutorProfile?.expertise || '',
+        hourlyRate: tutorProfile?.hourlyRate || 0,
         location: {
           latitude,
           longitude,
@@ -494,35 +542,35 @@ const ProfilePage = () => {
           state: state || tutorProfile?.location?.state || '',
           country: country || tutorProfile?.location?.country || ''
         },
-        shareLocation: true
+        shareLocation: true // Force share location to true when explicitly updating location
       };
 
-      // Similar to updateTutorProfile but only updating location
-      const result = await updateTutorProfile({
-        ...tutorProfile,
-        ...locationData,
-        shareLocation: true
-      });
+      console.log('Sending location update with data:', locationData);
+
+      // Call the update API with correct parameters
+      const result = await updateTutorProfile(locationData);
 
       if (result.success) {
-        toast.success('Location shared with students');
+        toast.success('Location updated and shared with students');
       } else {
         toast.error(result.message || 'Failed to update location');
       }
     } catch (error) {
       console.error('Error updating location:', error);
-      toast.error('Failed to update location');
+      toast.error('Failed to update location: ' + error.message);
     }
   };
 
   // Toggle location sharing for tutors
   const handleToggleLocationSharing = () => {
-    const newShareLocationValue = !shareLocation;
-    setShareLocation(newShareLocationValue);
-    setValue('shareLocation', newShareLocationValue);
+    const newValue = !shareLocation;
+    setShareLocation(newValue);
     
-    if (newShareLocationValue) {
-      // If enabling location sharing, immediately get user's location
+    // Update form value immediately
+    setValue('shareLocation', newValue);
+    
+    // If toggling on, get the current location
+    if (newValue) {
       handleGetCurrentLocation();
     }
   };
@@ -1154,7 +1202,6 @@ const ProfilePage = () => {
                           id="location.latitude"
                           {...register('location.latitude')}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                          readOnly
                         />
                       </div>
                       <div>
@@ -1164,7 +1211,6 @@ const ProfilePage = () => {
                           id="location.longitude"
                           {...register('location.longitude')}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                          readOnly
                         />
                       </div>
                     </div>

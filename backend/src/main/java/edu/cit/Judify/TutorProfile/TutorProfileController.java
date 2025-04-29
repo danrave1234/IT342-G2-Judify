@@ -17,9 +17,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
 import edu.cit.Judify.TutorProfile.DTO.TutorProfileDTO;
 import edu.cit.Judify.TutorProfile.DTO.TutorRegistrationDTO;
+import edu.cit.Judify.TutorProfile.DTO.TutorProfileDTOMapper;
+
+
 import edu.cit.Judify.TutorSubject.DTO.TutorSubjectDTO;
 import edu.cit.Judify.TutorSubject.TutorSubjectService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -31,6 +33,18 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.persistence.EntityNotFoundException;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+
+import edu.cit.Judify.TutorProfile.DTO.LocationRequest;
+
 @RestController
 @RequestMapping("/api/tutors")
 @CrossOrigin(origins = "*")
@@ -39,11 +53,13 @@ public class TutorProfileController {
 
     private final TutorProfileService tutorProfileService;
     private final TutorSubjectService tutorSubjectService;
+    private final TutorProfileDTOMapper tutorProfileDTOMapper;
 
     @Autowired
-    public TutorProfileController(TutorProfileService tutorProfileService, TutorSubjectService tutorSubjectService) {
+    public TutorProfileController(TutorProfileService tutorProfileService, TutorSubjectService tutorSubjectService, TutorProfileDTOMapper tutorProfileDTOMapper) {
         this.tutorProfileService = tutorProfileService;
         this.tutorSubjectService = tutorSubjectService;
+        this.tutorProfileDTOMapper = tutorProfileDTOMapper;
     }
 
     @Operation(summary = "Get all tutor profiles", description = "Returns a list of all tutor profiles")
@@ -232,16 +248,74 @@ public class TutorProfileController {
         @ApiResponse(responseCode = "200", description = "Tutor location successfully updated"),
         @ApiResponse(responseCode = "404", description = "Tutor profile not found")
     })
-    @PutMapping("/updateLocation/{id}")
+    @PutMapping("/location/{profileId}")
     public ResponseEntity<TutorProfileDTO> updateTutorLocation(
-            @Parameter(description = "Tutor profile ID") @PathVariable Long id,
-            @Parameter(description = "Latitude coordinate") @RequestParam Double latitude,
-            @Parameter(description = "Longitude coordinate") @RequestParam Double longitude) {
+            @PathVariable Long profileId,
+            @RequestBody LocationRequest request) {
+        
+        TutorProfileEntity updatedProfile = tutorProfileService.updateTutorLocation(
+                profileId,
+                request.getLatitude(),
+                request.getLongitude(),
+                request.getCity(),
+                request.getState(),
+                request.getCountry(),
+                request.isShareLocation()
+        );
+        
+        TutorProfileDTO profileDTO = tutorProfileDTOMapper.toDTO(updatedProfile);
+        return ResponseEntity.ok(profileDTO);
+    }
+
+    @Operation(summary = "Delete tutor location", description = "Deletes the location of a tutor profile")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "204", description = "Tutor location successfully deleted"),
+        @ApiResponse(responseCode = "404", description = "Tutor profile not found")
+    })
+    @DeleteMapping("/location/{profileId}")
+    public ResponseEntity<Void> clearTutorLocation(@PathVariable Long profileId) {
+        tutorProfileService.clearTutorLocation(profileId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Get tutor location", description = "Returns the location of a tutor profile")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Successfully retrieved tutor location"),
+        @ApiResponse(responseCode = "404", description = "Tutor profile not found")
+    })
+    @GetMapping("/location/{profileId}")
+    public ResponseEntity<?> getTutorLocation(@PathVariable Long profileId) {
         try {
-            TutorProfileDTO updatedProfile = tutorProfileService.updateTutorLocation(id, latitude, longitude);
-            return ResponseEntity.ok(updatedProfile);
-        } catch (EntityNotFoundException e) {
-            return ResponseEntity.notFound().build();
+            log.info("Getting location for tutor profile ID: {}", profileId);
+            LocationRequest profile = tutorProfileService.getTutorProfileByUserId(profileId);
+            
+            if (profile == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of(
+                                "success", false,
+                                "message", "Tutor profile not found"
+                        ));
+            }
+            
+            Map<String, Object> locationData = new HashMap<>();
+            locationData.put("latitude", profile.getLatitude());
+            locationData.put("longitude", profile.getLongitude());
+            locationData.put("city", profile.getCity());
+            locationData.put("state", profile.getState());
+            locationData.put("country", profile.getCountry());
+            locationData.put("shareLocation", profile.isShareLocation());
+            
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "data", locationData
+            ));
+        } catch (Exception e) {
+            log.error("Error getting tutor location: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of(
+                            "success", false,
+                            "message", "Failed to get location: " + e.getMessage()
+                    ));
         }
     }
 
