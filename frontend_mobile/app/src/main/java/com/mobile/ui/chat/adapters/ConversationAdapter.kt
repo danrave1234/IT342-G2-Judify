@@ -9,6 +9,7 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.mobile.R
 import com.mobile.utils.NetworkUtils
+import com.mobile.utils.PreferenceUtils
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -46,24 +47,48 @@ class ConversationAdapter(
         }
 
         fun bind(conversation: NetworkUtils.Conversation) {
-            // Set participant names (this would need to be enhanced with actual user data)
-            nameText.text = "Conversation ${conversation.id}"
-            
-            // Set last message preview (this would need to be enhanced with actual message data)
-            lastMessageText.text = "Tap to view messages"
-            
+            // Get the current user ID from preferences
+            val currentUserId = itemView.context?.let { PreferenceUtils.getUserId(it) } ?: -1L
+            val userRole = itemView.context?.let { PreferenceUtils.getUserRole(it) } ?: "LEARNER"
+
+            // First determine if the current user is the tutor or the student in this conversation
+            val isCurrentUserTutor = conversation.tutorId == currentUserId
+            val isCurrentUserStudent = conversation.studentId == currentUserId
+
+            // Determine which user name to display based on who the current user is in this conversation
+            val otherUserName = if (isCurrentUserTutor) {
+                // If current user is the tutor in this conversation, show the student's name
+                conversation.studentName.ifEmpty { "Unknown Student" }
+            } else if (isCurrentUserStudent) {
+                // If current user is the student in this conversation, show the tutor's name
+                conversation.tutorName.ifEmpty { "Unknown Tutor" }
+            } else {
+                // Fallback to role-based logic if user is neither the tutor nor the student (shouldn't happen)
+                when (userRole) {
+                    "TUTOR" -> conversation.studentName.ifEmpty { "Unknown Student" }
+                    "LEARNER" -> conversation.tutorName.ifEmpty { "Unknown Tutor" }
+                    else -> "Conversation ${conversation.id}"
+                }
+            }
+
+            // Set the name text to the other user's name
+            nameText.text = otherUserName
+
+            // Set last message preview
+            lastMessageText.text = conversation.lastMessage ?: "Tap to view messages"
+
             // Format and set time
             conversation.lastMessageTime?.let { timeString ->
                 try {
                     val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
                     val date = inputFormat.parse(timeString)
-                    
+
                     val outputFormat = if (isToday(date)) {
                         SimpleDateFormat("h:mm a", Locale.getDefault())
                     } else {
                         SimpleDateFormat("MMM d", Locale.getDefault())
                     }
-                    
+
                     timeText.text = date?.let { outputFormat.format(it) } ?: ""
                 } catch (e: Exception) {
                     timeText.text = timeString
@@ -82,19 +107,19 @@ class ConversationAdapter(
                     timeText.text = conversation.createdAt
                 }
             }
-            
-            // Hide unread indicator for now (would be set based on message read status)
-            unreadIndicator.visibility = View.GONE
+
+            // Show unread indicator if there are unread messages
+            unreadIndicator.visibility = if (conversation.unreadCount > 0) View.VISIBLE else View.GONE
         }
-        
+
         private fun isToday(date: Date?): Boolean {
             if (date == null) return false
-            
+
             val calendar1 = Calendar.getInstance()
             calendar1.time = date
-            
+
             val calendar2 = Calendar.getInstance()
-            
+
             return calendar1.get(Calendar.YEAR) == calendar2.get(Calendar.YEAR) &&
                    calendar1.get(Calendar.DAY_OF_YEAR) == calendar2.get(Calendar.DAY_OF_YEAR)
         }

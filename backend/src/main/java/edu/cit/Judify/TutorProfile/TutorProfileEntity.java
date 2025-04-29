@@ -1,6 +1,5 @@
 package edu.cit.Judify.TutorProfile;
 
-import edu.cit.Judify.Course.CourseEntity;
 import edu.cit.Judify.TutorSubject.TutorSubjectEntity;
 import edu.cit.Judify.User.UserEntity;
 import jakarta.persistence.*;
@@ -40,9 +39,6 @@ public class TutorProfileEntity {
     private Double longitude;
     
     private Boolean shareLocation;
-
-    @OneToMany(mappedBy = "tutor", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<CourseEntity> courses = new HashSet<>();
 
     @Temporal(TemporalType.TIMESTAMP)
     private Date createdAt;
@@ -173,25 +169,5 @@ public class TutorProfileEntity {
 
     public void setShareLocation(Boolean shareLocation) {
         this.shareLocation = shareLocation;
-    }
-
-    public Set<CourseEntity> getCourses() {
-        return courses;
-    }
-
-    public void setCourses(Set<CourseEntity> courses) {
-        this.courses = courses;
-    }
-
-    // Helper method to add a course
-    public void addCourse(CourseEntity course) {
-        courses.add(course);
-        course.setTutor(this);
-    }
-
-    // Helper method to remove a course
-    public void removeCourse(CourseEntity course) {
-        courses.remove(course);
-        course.setTutor(null);
     }
 }

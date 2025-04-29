@@ -62,7 +62,7 @@ const Navbar = ({ userType }) => {
                     Find Tutors
                   </Link>
                   <Link to="/student/sessions" className="text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-500 px-3 py-2">
-                    My Sessions
+                    All Subjects
                   </Link>
                   <Link to="/student/payments" className="text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-500 px-3 py-2">
                     Payments

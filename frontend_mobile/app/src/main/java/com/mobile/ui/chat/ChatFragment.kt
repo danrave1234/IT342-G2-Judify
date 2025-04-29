@@ -18,6 +18,7 @@ import com.mobile.ui.base.BaseFragment
 import com.mobile.ui.chat.adapters.ConversationAdapter
 import com.mobile.utils.NetworkUtils
 import com.mobile.utils.PreferenceUtils
+import com.google.android.material.floatingactionbutton.FloatingActionButton
 
 /**
  * Fragment for displaying user conversations
@@ -33,9 +34,11 @@ class ChatFragment : BaseFragment() {
     private lateinit var errorText: TextView
     private lateinit var retryButton: Button
     private lateinit var startChatButton: Button
+    private lateinit var newMessageFab: FloatingActionButton
 
     private lateinit var viewModel: ChatViewModel
     private lateinit var conversationAdapter: ConversationAdapter
+    private var currentUserId: Long = -1
 
     override fun getLayoutResourceId(): Int {
         return R.layout.fragment_chat
@@ -52,9 +55,13 @@ class ChatFragment : BaseFragment() {
         errorText = view.findViewById(R.id.errorText)
         retryButton = view.findViewById(R.id.retryButton)
         startChatButton = view.findViewById(R.id.startChatButton)
+        newMessageFab = view.findViewById(R.id.newMessageFab)
 
         // Initialize ViewModel
         viewModel = ViewModelProvider(this)[ChatViewModel::class.java]
+
+        // Get current user ID
+        currentUserId = PreferenceUtils.getUserId(requireContext()) ?: 1L
 
         setupRecyclerView()
         setupObservers()
@@ -62,16 +69,16 @@ class ChatFragment : BaseFragment() {
         loadConversations()
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Refresh conversations when returning to this fragment
+        loadConversations()
+    }
+
     private fun setupRecyclerView() {
         conversationAdapter = ConversationAdapter { conversation ->
-            // Navigate to conversation detail/messages screen
-            // In a real app, you would create a MessageActivity to display messages
-            // For now, we'll just log the conversation ID
-            Log.d(TAG, "Conversation clicked: ${conversation.id}")
-            // TODO: Create and navigate to MessageActivity
-            // val intent = Intent(requireContext(), MessageActivity::class.java)
-            // intent.putExtra("CONVERSATION_ID", conversation.id)
-            // startActivity(intent)
+            // Navigate to the MessageActivity with conversation details
+            navigateToMessageActivity(conversation)
         }
 
         conversationsRecyclerView.apply {
@@ -90,14 +97,45 @@ class ChatFragment : BaseFragment() {
                 } else {
                     emptyStateLayout.visibility = View.GONE
                     conversationsRecyclerView.visibility = View.VISIBLE
-                    conversationAdapter.submitList(conversations)
+
+                    // Sort conversations by lastMessageTime (most recent first)
+                    val sortedConversations = conversations.sortedByDescending { conversation ->
+                        // Try to parse lastMessageTime, fallback to createdAt if null
+                        conversation.lastMessageTime?.let { timeString ->
+                            try {
+                                val format = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.getDefault())
+                                format.parse(timeString)?.time
+                            } catch (e: Exception) {
+                                // If parsing fails, use 0 as fallback
+                                0L
+                            }
+                        } ?: run {
+                            // If lastMessageTime is null, try to use createdAt
+                            try {
+                                val format = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.getDefault())
+                                format.parse(conversation.createdAt)?.time ?: 0L
+                            } catch (e: Exception) {
+                                0L
+                            }
+                        }
+                    }
+
+                    conversationAdapter.submitList(sortedConversations)
                 }
                 progressBar.visibility = View.GONE
+                errorStateLayout.visibility = View.GONE
             }.onFailure { error ->
                 Log.e(TAG, "Error loading conversations: ${error.message}")
                 progressBar.visibility = View.GONE
-                errorStateLayout.visibility = View.VISIBLE
-                errorText.text = "Failed to load conversations: ${error.message}"
+
+                // Show error
+                if (conversationAdapter.itemCount > 0) {
+                    // Keep existing data visible if we have any
+                    errorStateLayout.visibility = View.GONE
+                } else {
+                    errorStateLayout.visibility = View.VISIBLE
+                    errorText.text = "Failed to load conversations: ${error.message}"
+                }
             }
         }
 
@@ -115,30 +153,124 @@ class ChatFragment : BaseFragment() {
 
         startChatButton.setOnClickListener {
             // In a real app, you would navigate to a screen to select users to chat with
-            // For now, we'll just create a mock conversation with the current user and another user
-            val currentUserId = 1L // Mock user ID for testing
-            val mockParticipantIds = listOf(currentUserId, 2L) // Mock second user with ID 2
+            createNewConversation()
+        }
 
-            viewModel.createConversation(mockParticipantIds) { result ->
-                result.onSuccess { conversation ->
-                    Log.d(TAG, "Created conversation: ${conversation.id}")
-                    loadConversations()
-                }.onFailure { error ->
-                    Log.e(TAG, "Error creating conversation: ${error.message}")
-                    errorStateLayout.visibility = View.VISIBLE
-                    errorText.text = "Failed to create conversation: ${error.message}"
+        newMessageFab.setOnClickListener {
+            createNewConversation()
+        }
+    }
+
+    private fun createNewConversation() {
+        // Navigate to user selection activity
+        val intent = Intent(requireContext(), UserSelectionActivity::class.java)
+        startActivityForResult(intent, REQUEST_SELECT_USER)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_SELECT_USER && resultCode == android.app.Activity.RESULT_OK && data != null) {
+            val selectedUserId = data.getLongExtra("SELECTED_USER_ID", -1L)
+            if (selectedUserId != -1L) {
+                val participantIds = listOf(currentUserId, selectedUserId)
+
+                viewModel.createConversation(participantIds) { result ->
+                    result.onSuccess { conversation ->
+                        Log.d(TAG, "Created conversation: ${conversation.id}")
+                        // Navigate to the new conversation
+                        navigateToMessageActivity(conversation)
+                        // Refresh the conversations list
+                        loadConversations()
+                    }.onFailure { error ->
+                        Log.e(TAG, "Error creating conversation: ${error.message}")
+                        errorStateLayout.visibility = View.VISIBLE
+                        errorText.text = "Failed to create conversation: ${error.message}"
+                    }
                 }
             }
         }
     }
 
     private fun loadConversations() {
-        // Use a mock user ID for testing
-        val userId = 1L
-        viewModel.loadConversations(userId)
+        val userRole = PreferenceUtils.getUserRole(requireContext())
+
+        when (userRole) {
+            "TUTOR" -> {
+                val tutorId = PreferenceUtils.getTutorId(requireContext())
+                if (tutorId != null) {
+                    viewModel.loadConversationsByTutorId(tutorId)
+                } else {
+                    // Fallback to using userId if tutorId is not available
+                    viewModel.loadConversations(currentUserId)
+                }
+            }
+            "LEARNER" -> {
+                val studentId = PreferenceUtils.getStudentId(requireContext())
+                if (studentId != null) {
+                    viewModel.loadConversationsByStudentId(studentId)
+                } else {
+                    // Fallback to using userId if studentId is not available
+                    viewModel.loadConversations(currentUserId)
+                }
+            }
+            else -> {
+                // Default fallback
+                viewModel.loadConversations(currentUserId)
+            }
+        }
+    }
+
+    private fun navigateToMessageActivity(conversation: NetworkUtils.Conversation) {
+        val userRole = PreferenceUtils.getUserRole(requireContext())
+
+        // Determine the other user's ID based on user role
+        val otherUserId: Long
+        val otherUserName: String
+
+        when (userRole) {
+            "TUTOR" -> {
+                // For tutors, the other user is the student
+                otherUserId = conversation.studentId
+                otherUserName = conversation.studentName
+            }
+            "LEARNER" -> {
+                // For students, the other user is the tutor
+                otherUserId = conversation.tutorId
+                otherUserName = conversation.tutorName
+            }
+            else -> {
+                // Fallback to the old method if role is unknown
+                otherUserId = if (conversation.studentId == currentUserId) {
+                    conversation.tutorId
+                } else {
+                    conversation.studentId
+                }
+
+                otherUserName = if (conversation.studentId == currentUserId) {
+                    conversation.tutorName
+                } else {
+                    conversation.studentName
+                }
+            }
+        }
+
+        // Log the values before starting activity for debugging
+        Log.d(TAG, "Starting MessageActivity with: conversationId=${conversation.id}, otherUserId=$otherUserId, otherUserName=$otherUserName")
+
+        // Create intent for MessageActivity with consistent keys
+        val intent = Intent(requireContext(), MessageActivity::class.java).apply {
+            putExtra("conversationId", conversation.id)
+            putExtra("CONVERSATION_ID", conversation.id)  // Add both versions for compatibility
+            putExtra("otherUserId", otherUserId)
+            putExtra("OTHER_USER_ID", otherUserId)  // Add both versions for compatibility
+            putExtra("otherUserName", otherUserName)
+            putExtra("OTHER_USER_NAME", otherUserName)  // Add both versions for compatibility
+        }
+        startActivity(intent)
     }
 
     companion object {
         fun newInstance() = ChatFragment()
+        private const val REQUEST_SELECT_USER = 1001
     }
 }

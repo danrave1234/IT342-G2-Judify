@@ -386,7 +386,7 @@ const BookSession = () => {
         price: calculateTotalPrice(),
         status: SESSION_STATUS.SCHEDULED,
         locationData: sessionInfo.isOnline ? null : 'In person location',
-        meetingLink: sessionInfo.isOnline ? 'https://meet.google.com/mock-link' : null
+        meetingLink: sessionInfo.isOnline ? null : null
       };
 
       const result = await createSession(sessionData);

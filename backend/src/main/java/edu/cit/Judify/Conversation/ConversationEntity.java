@@ -1,10 +1,20 @@
 package edu.cit.Judify.Conversation;
 
-import edu.cit.Judify.User.UserEntity;
-import jakarta.persistence.*;
-
 import java.util.Date;
-import java.util.Set;
+
+import edu.cit.Judify.User.UserEntity;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
+import jakarta.persistence.Temporal;
+import jakarta.persistence.TemporalType;
 
 @Entity
 @Table(name = "conversations")
@@ -14,14 +24,13 @@ public class ConversationEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long conversationId;
 
-    // For simplicity, using a ManyToMany relationship with users
-    @ManyToMany
-    @JoinTable(
-            name = "conversation_participants",
-            joinColumns = @JoinColumn(name = "conversation_id"),
-            inverseJoinColumns = @JoinColumn(name = "user_id")
-    )
-    private Set<UserEntity> participants;
+    @ManyToOne
+    @JoinColumn(name = "student_id", nullable = false)
+    private UserEntity student;
+
+    @ManyToOne
+    @JoinColumn(name = "tutor_id", nullable = false)
+    private UserEntity tutor;
 
     @Temporal(TemporalType.TIMESTAMP)
     @Column(nullable = false, updatable = false)
@@ -43,11 +52,18 @@ public class ConversationEntity {
         this.conversationId = conversationId;
     }
 
-    public Set<UserEntity> getParticipants() {
-        return participants;
+    public UserEntity getStudent() {
+        return student;
     }
-    public void setParticipants(Set<UserEntity> participants) {
-        this.participants = participants;
+    public void setStudent(UserEntity student) {
+        this.student = student;
+    }
+
+    public UserEntity getTutor() {
+        return tutor;
+    }
+    public void setTutor(UserEntity tutor) {
+        this.tutor = tutor;
     }
 
     public Date getCreatedAt() {

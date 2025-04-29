@@ -28,13 +28,49 @@ class ChatViewModel : ViewModel() {
      * @param userId ID of the user
      */
     fun loadConversations(userId: Long) {
-        _isLoading.value = true
         viewModelScope.launch {
+            _isLoading.value = true
             try {
-                val result = NetworkUtils.findConversationsByUser(userId)
+                // Use the updated API call method that handles the backend path variable correctly
+                val result = NetworkUtils.getConversationsForUser(userId)
                 _conversations.value = result
             } catch (e: Exception) {
-                Log.e(TAG, "Error loading conversations: ${e.message}", e)
+                _conversations.value = Result.failure(e)
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    /**
+     * Load conversations by tutorId
+     * @param tutorId ID of the tutor
+     */
+    fun loadConversationsByTutorId(tutorId: Long) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val result = NetworkUtils.getConversationsByTutorId(tutorId)
+                _conversations.value = result
+            } catch (e: Exception) {
+                _conversations.value = Result.failure(e)
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    /**
+     * Load conversations by studentId
+     * @param studentId ID of the student
+     */
+    fun loadConversationsByStudentId(studentId: Long) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val result = NetworkUtils.getConversationsByStudentId(studentId)
+                _conversations.value = result
+            } catch (e: Exception) {
                 _conversations.value = Result.failure(e)
             } finally {
                 _isLoading.value = false
@@ -75,8 +111,11 @@ class ChatViewModel : ViewModel() {
                 onComplete(result)
                 // Refresh conversations if deletion was successful
                 result.onSuccess {
-                    val userId = conversations.value?.getOrNull()?.firstOrNull()?.participants?.firstOrNull()
-                    userId?.let { loadConversations(it) }
+                    val currentUserId = conversations.value?.getOrNull()?.firstOrNull()?.let { conv ->
+                        // Use either studentId or tutorId, whichever is available
+                        conv.studentId.takeIf { it > 0 } ?: conv.tutorId
+                    }
+                    currentUserId?.let { loadConversations(it) }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error deleting conversation: ${e.message}", e)

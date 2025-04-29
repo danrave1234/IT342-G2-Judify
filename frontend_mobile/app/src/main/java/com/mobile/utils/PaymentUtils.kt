@@ -20,7 +20,6 @@ object PaymentUtils {
     // Paymongo API credentials and URLs
     private const val PAYMONGO_API_URL = "https://api.paymongo.com/v1"
     private const val API_KEY = "PUT_YOUR_API_KEY_HERE" // Replace with your Paymongo API key
-    private const val DEBUG = true // Set to false in production
     
     /**
      * Data class for payment source
@@ -70,19 +69,6 @@ object PaymentUtils {
     ): Result<PaymentSource> {
         return withContext(Dispatchers.IO) {
             try {
-                if (DEBUG) {
-                    // For testing purposes, return a mock payment source
-                    val source = PaymentSource(
-                        id = UUID.randomUUID().toString(),
-                        type = "gcash",
-                        amount = amount,
-                        currency = "PHP",
-                        status = "pending",
-                        reference = "MOCK-${System.currentTimeMillis()}"
-                    )
-                    return@withContext Result.success(source)
-                }
-                
                 // Convert amount to smallest currency unit (centavos)
                 val amountInCentavos = (amount * 100).toInt()
                 
@@ -159,19 +145,6 @@ object PaymentUtils {
     suspend fun getPaymentSource(sourceId: String): Result<PaymentSource> {
         return withContext(Dispatchers.IO) {
             try {
-                if (DEBUG) {
-                    // For testing purposes, return a mock payment source
-                    val source = PaymentSource(
-                        id = sourceId,
-                        type = "gcash",
-                        amount = 1000.0,
-                        currency = "PHP",
-                        status = "chargeable",
-                        reference = "MOCK-${System.currentTimeMillis()}"
-                    )
-                    return@withContext Result.success(source)
-                }
-                
                 // Create connection
                 val url = URL("$PAYMONGO_API_URL/sources/$sourceId")
                 val connection = url.openConnection() as HttpURLConnection

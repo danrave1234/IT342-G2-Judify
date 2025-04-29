@@ -8,10 +8,12 @@ import android.os.Bundle
 import android.util.Log
 import android.view.MenuItem
 import android.view.View
+import android.view.ViewGroup
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.cardview.widget.CardView
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -49,11 +51,14 @@ class BookingActivity : AppCompatActivity() {
     private lateinit var summaryDurationText: TextView
     private lateinit var totalPriceText: TextView
     private lateinit var bookButton: Button
+    private lateinit var messageButton: Button
     private lateinit var progressBar: ProgressBar
     private lateinit var errorText: TextView
     private lateinit var timeSlotRecyclerView: RecyclerView
     private lateinit var noSlotsTextView: TextView
     private lateinit var timeSlotAdapter: TimeSlotAdapter
+    private lateinit var subjectsRecyclerView: RecyclerView
+    private lateinit var subjectAdapter: TutorSubjectAdapter
 
     // Date and time variables
     private val calendar = Calendar.getInstance()
@@ -61,6 +66,11 @@ class BookingActivity : AppCompatActivity() {
     private var tutorId: Long = 0
     private var selectedSessionType = ""
     private var selectedTimeSlot: String? = null
+    private var selectedMeetingLatitude: Double = 0.0
+    private var selectedMeetingLongitude: Double = 0.0
+    private var selectedMeetingLocationName: String = ""
+    private var selectedSubject: String = ""
+    private var tutorSubjects: List<NetworkUtils.TutorSubject> = emptyList()
 
     // Formatters
     private val dateFormatter = SimpleDateFormat("EEE, MMM d, yyyy", Locale.getDefault())
@@ -79,11 +89,15 @@ class BookingActivity : AppCompatActivity() {
             return
         }
 
-        // Get course information if available
-        val courseId = intent.getLongExtra(EXTRA_COURSE_ID, -1)
-        val courseTitle = intent.getStringExtra(EXTRA_COURSE_TITLE)
+        // Get subject information if available
+        val subjectId = intent.getLongExtra(EXTRA_SUBJECT_ID, -1)
+        val subjectName = intent.getStringExtra(EXTRA_SUBJECT_NAME)
 
-        Log.d("BookingActivity", "Received: tutorId=$tutorId, courseId=$courseId, courseTitle=$courseTitle")
+        if (!subjectName.isNullOrEmpty()) {
+            selectedSubject = subjectName
+        }
+
+        Log.d("BookingActivity", "Received: tutorId=$tutorId, subjectId=$subjectId, subjectName=$subjectName")
 
         // Debug: Check server connectivity
         verifyServerConnectivity()
@@ -91,7 +105,7 @@ class BookingActivity : AppCompatActivity() {
         // Setup the ViewModel with factory
         viewModel = ViewModelProvider(
             this,
-            BookingViewModelFactory(application, tutorId, courseId, courseTitle)
+            BookingViewModelFactory(application, tutorId, subjectId, subjectName)
         ).get(BookingViewModel::class.java)
 
         // Initialize UI components
@@ -109,6 +123,9 @@ class BookingActivity : AppCompatActivity() {
 
         // Load tutor profile
         viewModel.loadTutorProfile()
+
+        // Load tutor subjects
+        loadTutorSubjects()
     }
 
     private fun verifyServerConnectivity() {
@@ -143,21 +160,9 @@ class BookingActivity : AppCompatActivity() {
         tutorNameText = findViewById(R.id.mentorNameTextView)
         tutorExpertiseText = findViewById(R.id.mentorSpecialtyTextView)
         tutorRatingText = findViewById(R.id.mentorRatingBar)
-        // tutorPriceText is not found in the layout, commenting out for now
-        // tutorPriceText = findViewById(R.id.tutorPriceText)
-        // dateEditText and timeEditText are not found in the layout, using alternative views
-        // dateEditText = findViewById(R.id.dateEditText)
-        // timeEditText = findViewById(R.id.timeEditText)
-        // These dropdowns are not found in the layout, commenting out for now
-        // durationDropdown = findViewById(R.id.durationDropdown)
-        // subjectDropdown = findViewById(R.id.subjectDropdown)
-        // sessionTypeDropdown = findViewById(R.id.sessionTypeDropdown)
         notesEditText = findViewById(R.id.topicEditText)
-        // These text views are not found in the layout, commenting out for now
-        // tutorRateText = findViewById(R.id.tutorRateText)
-        // summaryDurationText = findViewById(R.id.summaryDurationText)
-        // totalPriceText = findViewById(R.id.totalPriceText)
         bookButton = findViewById(R.id.bookButton)
+        messageButton = findViewById(R.id.messageButton)
         progressBar = findViewById(R.id.progressBar)
         errorText = findViewById(R.id.errorTextView)
 
@@ -165,7 +170,7 @@ class BookingActivity : AppCompatActivity() {
         timeSlotRecyclerView = findViewById(R.id.timeSlotRecyclerView)
         noSlotsTextView = findViewById(R.id.noSlotsTextView)
 
-        // Set up RecyclerView
+        // Set up time slot RecyclerView
         timeSlotRecyclerView.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
         timeSlotAdapter = TimeSlotAdapter(emptyList()) { timeSlot ->
             selectedTimeSlot = timeSlot
@@ -174,22 +179,22 @@ class BookingActivity : AppCompatActivity() {
         }
         timeSlotRecyclerView.adapter = timeSlotAdapter
 
-        // Set up dropdown adapters
-        setupDropdowns()
-    }
+        // Initialize subjects RecyclerView
+        subjectsRecyclerView = findViewById(R.id.subjectsRecyclerView)
+        subjectsRecyclerView.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        subjectsRecyclerView.isNestedScrollingEnabled = false
+        subjectAdapter = TutorSubjectAdapter(emptyList()) { subject ->
+            selectedSubject = subject.subject
+            // Update UI to show selected subject
+            Toast.makeText(this, "Selected subject: ${subject.subject}", Toast.LENGTH_SHORT).show()
+        }
+        subjectsRecyclerView.adapter = subjectAdapter
 
-    private fun setupDropdowns() {
-        // The layout doesn't have dropdown elements, so we'll skip this for now
-        // This method would normally set up the dropdown adapters for duration, subject, and session type
-
-        // For now, we'll just set a default session type
+        // Set up session type
         selectedSessionType = "Online" // Default to online
     }
 
     private fun setupListeners() {
-        // The layout has different UI elements for date and time selection
-        // We need to find and use the correct elements from the layout
-
         // Find the date selection button
         val selectDateButton = findViewById<Button>(R.id.selectDateButton)
         selectDateButton?.setOnClickListener {
@@ -200,17 +205,45 @@ class BookingActivity : AppCompatActivity() {
         val onlineRadioButton = findViewById<RadioButton>(R.id.onlineRadioButton)
         val inPersonRadioButton = findViewById<RadioButton>(R.id.inPersonRadioButton)
 
+        // Find location selection elements
+        val selectLocationButton = findViewById<Button>(R.id.selectLocationButton)
+        val locationDetailsCard = findViewById<View>(R.id.locationDetailsCard)
+        val selectedLocationText = findViewById<TextView>(R.id.selectedLocationText)
+
+        // Set initial visibility
+        selectLocationButton?.visibility = View.GONE
+        locationDetailsCard?.visibility = View.GONE
+
         // Set up session type selection
         onlineRadioButton?.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
                 selectedSessionType = "Online"
+                // Hide location selection UI
+                selectLocationButton?.visibility = View.GONE
+                locationDetailsCard?.visibility = View.GONE
             }
         }
 
         inPersonRadioButton?.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
                 selectedSessionType = "In-Person"
+                // Show location selection UI
+                selectLocationButton?.visibility = View.VISIBLE
+                if (selectedMeetingLocationName.isNotEmpty()) {
+                    locationDetailsCard?.visibility = View.VISIBLE
+                    selectedLocationText?.text = selectedMeetingLocationName
+                }
             }
+        }
+
+        // Set up location selection button
+        selectLocationButton?.setOnClickListener {
+            selectMeetingLocation()
+        }
+
+        // Set up message button click listener
+        messageButton.setOnClickListener {
+            startChatWithTutor()
         }
 
         // Book button
@@ -224,244 +257,215 @@ class BookingActivity : AppCompatActivity() {
     private fun observeBookingState() {
         viewModel.bookingState.observe(this) { state ->
             // Handle loading state
-            if (state.isLoading) {
-                progressBar.visibility = View.VISIBLE
-            } else {
-                progressBar.visibility = View.INVISIBLE
-            }
+            progressBar.visibility = if (state.isLoading) View.VISIBLE else View.GONE
 
             // Handle error state
             if (state.error != null) {
-                // Only show errors that should prevent booking
-                if (state.error.contains("Unable to load") || state.error.contains("limited")) {
-                    // These are non-critical errors, don't show them to the user
-                    errorText.visibility = View.GONE
-                } else {
-                    errorText.visibility = View.VISIBLE
-                    errorText.text = state.error
-                }
+                errorText.text = state.error
+                errorText.visibility = View.VISIBLE
             } else {
                 errorText.visibility = View.GONE
             }
 
             // Update UI with tutor profile
             state.tutorProfile?.let { profile ->
-                updateTutorProfile(profile)
+                tutorNameText.text = profile.name
+                tutorExpertiseText.text = profile.subjects.joinToString(", ")
+                tutorRatingText.rating = profile.rating
+
+                // If we have a selected subject, make sure it's valid for this tutor
+                if (selectedSubject.isEmpty() && profile.subjects.isNotEmpty()) {
+                    selectedSubject = profile.subjects[0]
+                }
+            }
+        }
+
+        // Observe availability state to update time slots
+        viewModel.availabilityState.observe(this) { state ->
+            // Update time slots in the adapter
+            timeSlotAdapter.updateTimeSlots(state.timeSlots)
+
+            // Show/hide no slots message
+            if (state.timeSlots.isEmpty()) {
+                // Check if we're loading or if a date has been selected
+                if (state.isLoading) {
+                    noSlotsTextView.text = "Loading available time slots..."
+                } else if (findViewById<TextView>(R.id.selectedDateTextView).text != "Select a date") {
+                    // A date has been selected but no slots are available
+                    noSlotsTextView.text = "No time slots available for the selected date"
+                } else {
+                    // No date selected yet
+                    noSlotsTextView.text = "Please select a date to see available time slots"
+                }
+                noSlotsTextView.visibility = View.VISIBLE
+                timeSlotRecyclerView.visibility = View.GONE
+            } else {
+                noSlotsTextView.visibility = View.GONE
+                timeSlotRecyclerView.visibility = View.VISIBLE
             }
 
-            // Pre-fill subject if available
-            state.selectedSubject?.let { subject ->
-                // Find and set the subject field - adapting to the actual layout
-                notesEditText.setText("Session about: $subject")
-            }
+            // Log for debugging
+            Log.d("BookingActivity", "Updated time slots: ${state.timeSlots.size} slots available")
+        }
 
-            // Handle booking completion
-            if (state.bookingComplete) {
-                showBookingSuccess()
+        // Observe booking result
+        viewModel.bookingResult.observe(this) { success ->
+            if (success) {
+                Toast.makeText(this, "Session request sent! Waiting for tutor to accept.", Toast.LENGTH_LONG).show()
+                // Navigate back or to a confirmation screen
+                finish()
             }
         }
     }
 
-    private fun updateTutorProfile(tutorProfile: NetworkUtils.TutorProfile) {
-        try {
-            // Set tutor name with proper formatting - accept any name that's not a generic fallback
-            val formattedName = tutorProfile.name
-                .takeIf { !it.contains("Tutor #") && !it.contains("ID:") && !it.contains("Tutor (ID:") }
-                ?: "Academic Tutor"
+    private fun loadTutorSubjects() {
+        lifecycleScope.launch {
+            try {
+                val result = NetworkUtils.getSubjectsByTutorProfileId(tutorId)
+                result.fold(
+                    onSuccess = { subjects ->
+                        withContext(Dispatchers.Main) {
+                            // Debug log to check how many subjects are being returned
+                            Log.d("BookingActivity", "Loaded ${subjects.size} subjects: ${subjects.map { it.subject }}")
 
-            tutorNameText.text = formattedName
+                            tutorSubjects = subjects
+                            // Update the adapter with all subjects
+                            subjectAdapter.updateSubjects(subjects)
 
-            // Set tutor expertise/subjects - use exactly what comes from the API
-            val expertise = tutorProfile.subjects.joinToString(", ")
-            tutorExpertiseText.text = expertise
+                            // If we already have a subject selected from intent, check if it's valid
+                            if (selectedSubject.isNotEmpty()) {
+                                // Verify the selected subject is in the list
+                                val validSubject = subjects.any { it.subject.equals(selectedSubject, ignoreCase = true) }
+                                if (!validSubject && subjects.isNotEmpty()) {
+                                    // If not, select the first subject
+                                    selectedSubject = subjects[0].subject
+                                }
 
-            // Log the expertise for debugging
-            Log.d("BookingActivity", "Setting expertise text to: $expertise (raw subjects: ${tutorProfile.subjects})")
+                                // Find the index of the selected subject and select it in the adapter
+                                val selectedIndex = subjects.indexOfFirst { it.subject.equals(selectedSubject, ignoreCase = true) }
+                                if (selectedIndex >= 0) {
+                                    // Programmatically select the subject in the adapter
+                                    subjectAdapter.selectSubject(selectedIndex)
+                                }
+                            } else if (subjects.isNotEmpty()) {
+                                // If no subject selected yet, select the first one
+                                selectedSubject = subjects[0].subject
+                                subjectAdapter.selectSubject(0)
+                            }
+                        }
+                    },
+                    onFailure = { e ->
+                        Log.e("BookingActivity", "Error loading tutor subjects: ${e.message}")
+                        withContext(Dispatchers.Main) {
+                            // If we fail to load subjects, try using subjects from the tutor profile
+                            viewModel.bookingState.value?.tutorProfile?.subjects?.let { profileSubjects ->
+                                if (profileSubjects.isNotEmpty()) {
+                                    Log.d("BookingActivity", "Using profile subjects: $profileSubjects")
 
-            // Set rating - use exactly what comes from the API
-            tutorRatingText.rating = tutorProfile.rating
+                                    // Create TutorSubject objects from the profile subjects
+                                    val subjectsFromProfile = profileSubjects.mapIndexed { index, subject ->
+                                        NetworkUtils.TutorSubject(
+                                            id = index.toLong(),
+                                            tutorProfileId = tutorId,
+                                            subject = subject,
+                                            createdAt = ""
+                                        )
+                                    }
+                                    tutorSubjects = subjectsFromProfile
+                                    subjectAdapter.updateSubjects(subjectsFromProfile)
 
-            // Log the rating for debugging
-            Log.d("BookingActivity", "Setting rating to: ${tutorProfile.rating}")
-
-            // Set tutor image (if needed)
-            // tutorImage.setImageResource(R.drawable.tutor_placeholder)
-
-            // Logging for debugging
-            Log.d("BookingActivity", "Updated tutor profile UI with name: ${tutorProfile.name}, subjects: ${tutorProfile.subjects}")
-            Log.d("BookingActivity", "Tutor profile details - bio: ${tutorProfile.bio}, email: ${tutorProfile.email}, hourlyRate: ${tutorProfile.hourlyRate}")
-
-        } catch (e: Exception) {
-            Log.e("BookingActivity", "Error updating tutor profile UI: ${e.message}", e)
+                                    // Select the first subject if none selected
+                                    if (selectedSubject.isEmpty() && subjectsFromProfile.isNotEmpty()) {
+                                        selectedSubject = subjectsFromProfile[0].subject
+                                        subjectAdapter.selectSubject(0)
+                                    } else if (selectedSubject.isNotEmpty()) {
+                                        // Find the index of the selected subject and select it in the adapter
+                                        val selectedIndex = subjectsFromProfile.indexOfFirst { it.subject.equals(selectedSubject, ignoreCase = true) }
+                                        if (selectedIndex >= 0) {
+                                            // Programmatically select the subject in the adapter
+                                            subjectAdapter.selectSubject(selectedIndex)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                )
+            } catch (e: Exception) {
+                Log.e("BookingActivity", "Exception loading tutor subjects: ${e.message}", e)
+            }
         }
     }
 
     private fun showDatePicker() {
-        val datePickerDialog = DatePickerDialog(
+        val datePicker = DatePickerDialog(
             this,
-            { _, year, monthOfYear, dayOfMonth ->
+            { _, year, month, dayOfMonth ->
                 calendar.set(Calendar.YEAR, year)
-                calendar.set(Calendar.MONTH, monthOfYear)
+                calendar.set(Calendar.MONTH, month)
                 calendar.set(Calendar.DAY_OF_MONTH, dayOfMonth)
-                updateDateInView()
+
+                // Format the date
+                val formattedDate = dateFormatter.format(calendar.time)
+
+                // Update the UI with selected date
+                val selectedDateTextView = findViewById<TextView>(R.id.selectedDateTextView)
+                selectedDateTextView?.text = formattedDate
+
+                // Clear the selected time slot when a new date is selected
+                selectedTimeSlot = null
+
+                // Load availability for the selected day
+                val dayOfWeek = when (calendar.get(Calendar.DAY_OF_WEEK)) {
+                    Calendar.MONDAY -> "MONDAY"
+                    Calendar.TUESDAY -> "TUESDAY"
+                    Calendar.WEDNESDAY -> "WEDNESDAY"
+                    Calendar.THURSDAY -> "THURSDAY"
+                    Calendar.FRIDAY -> "FRIDAY"
+                    Calendar.SATURDAY -> "SATURDAY"
+                    Calendar.SUNDAY -> "SUNDAY"
+                    else -> ""
+                }
+
+                // Format the date for API call (yyyy-MM-dd)
+                val apiDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                val specificDate = apiDateFormat.format(calendar.time)
+
+                // Pass both the day of week and the specific date to the ViewModel
+                viewModel.loadTutorAvailability(dayOfWeek, specificDate)
             },
             calendar.get(Calendar.YEAR),
             calendar.get(Calendar.MONTH),
             calendar.get(Calendar.DAY_OF_MONTH)
         )
 
-        // Set min date to today
-        val today = Calendar.getInstance()
-        datePickerDialog.datePicker.minDate = today.timeInMillis
-
-        // Set max date to 3 months from now
-        val maxDate = Calendar.getInstance()
-        maxDate.add(Calendar.MONTH, 3)
-        datePickerDialog.datePicker.maxDate = maxDate.timeInMillis
-
-        datePickerDialog.show()
+        // Set minimum date to today
+        datePicker.datePicker.minDate = System.currentTimeMillis() - 1000
+        datePicker.show()
     }
 
-    private fun showTimePicker() {
-        val hour = calendar.get(Calendar.HOUR_OF_DAY)
-        val minute = calendar.get(Calendar.MINUTE)
-
-        val timePickerDialog = TimePickerDialog(
-            this,
-            { _, selectedHour, selectedMinute ->
-                calendar.set(Calendar.HOUR_OF_DAY, selectedHour)
-                calendar.set(Calendar.MINUTE, selectedMinute)
-                updateTimeInView()
-            },
-            hour,
-            minute,
-            false
-        )
-
-        timePickerDialog.show()
+    private fun selectMeetingLocation() {
+        // Launch map picker activity for location selection
+        val intent = Intent(this, MapPickerActivity::class.java)
+        startActivityForResult(intent, REQUEST_LOCATION_PICK)
     }
 
-    private fun updateDateInView() {
-        val dateFormat = SimpleDateFormat("EEEE, MMMM d, yyyy", Locale.getDefault())
-        // Update the selectedDateTextView instead of dateEditText
-        val selectedDateTextView = findViewById<TextView>(R.id.selectedDateTextView)
-        selectedDateTextView?.text = dateFormat.format(calendar.time)
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_LOCATION_PICK && resultCode == RESULT_OK && data != null) {
+            // Get location data from result
+            selectedMeetingLatitude = data.getDoubleExtra(MapPickerActivity.EXTRA_LATITUDE, 0.0)
+            selectedMeetingLongitude = data.getDoubleExtra(MapPickerActivity.EXTRA_LONGITUDE, 0.0)
+            selectedMeetingLocationName = data.getStringExtra(MapPickerActivity.EXTRA_LOCATION_NAME) ?: ""
 
-        // Reset selected time slot
-        selectedTimeSlot = null
+            // Update UI to show selected location
+            val locationDetailsCard = findViewById<View>(R.id.locationDetailsCard)
+            val selectedLocationText = findViewById<TextView>(R.id.selectedLocationText)
 
-        // Load time slots for the selected date
-        loadTimeSlots()
-    }
-
-    private fun loadTimeSlots() {
-        // Get day of week from calendar
-        val dayOfWeek = when (calendar.get(Calendar.DAY_OF_WEEK)) {
-            Calendar.MONDAY -> "MONDAY"
-            Calendar.TUESDAY -> "TUESDAY"
-            Calendar.WEDNESDAY -> "WEDNESDAY"
-            Calendar.THURSDAY -> "THURSDAY"
-            Calendar.FRIDAY -> "FRIDAY"
-            Calendar.SATURDAY -> "SATURDAY"
-            Calendar.SUNDAY -> "SUNDAY"
-            else -> "MONDAY" // Default to Monday
-        }
-
-        // Show loading state
-        noSlotsTextView.text = "Loading available time slots..."
-        noSlotsTextView.visibility = View.VISIBLE
-        timeSlotRecyclerView.visibility = View.GONE
-
-        // Load tutor availability for the selected day
-        viewModel.loadTutorAvailability(dayOfWeek)
-
-        // Observe availability state
-        viewModel.availabilityState.observe(this) { state ->
-            if (state.isLoading) {
-                noSlotsTextView.text = "Loading available time slots..."
-                noSlotsTextView.visibility = View.VISIBLE
-                timeSlotRecyclerView.visibility = View.GONE
-            } else if (state.error != null) {
-                noSlotsTextView.text = "Error loading time slots: ${state.error}"
-                noSlotsTextView.visibility = View.VISIBLE
-                timeSlotRecyclerView.visibility = View.GONE
-            } else if (state.availability.isEmpty()) {
-                noSlotsTextView.text = "No time slots available for this date"
-                noSlotsTextView.visibility = View.VISIBLE
-                timeSlotRecyclerView.visibility = View.GONE
-            } else {
-                // Generate time slots from availability
-                val timeSlots = generateTimeSlots(state.availability)
-
-                if (timeSlots.isEmpty()) {
-                    noSlotsTextView.text = "No time slots available for this date"
-                    noSlotsTextView.visibility = View.VISIBLE
-                    timeSlotRecyclerView.visibility = View.GONE
-                } else {
-                    // Update adapter with time slots
-                    timeSlotAdapter.updateTimeSlots(timeSlots)
-                    noSlotsTextView.visibility = View.GONE
-                    timeSlotRecyclerView.visibility = View.VISIBLE
-                }
+            if (selectedMeetingLocationName.isNotEmpty()) {
+                locationDetailsCard?.visibility = View.VISIBLE
+                selectedLocationText?.text = selectedMeetingLocationName
             }
-        }
-    }
-
-    private fun generateTimeSlots(availability: List<NetworkUtils.TutorAvailability>): List<String> {
-        val timeSlots = mutableListOf<String>()
-
-        for (slot in availability) {
-            // Parse start and end times
-            val startTime = parseTime(slot.startTime)
-            val endTime = parseTime(slot.endTime)
-
-            // Generate hourly slots
-            var currentTime = startTime
-            while (currentTime.before(endTime)) {
-                timeSlots.add(timeFormatter.format(currentTime.time))
-                currentTime.add(Calendar.HOUR_OF_DAY, 1)
-            }
-        }
-
-        return timeSlots
-    }
-
-    private fun parseTime(timeString: String): Calendar {
-        val time = Calendar.getInstance()
-        try {
-            val parsedTime = timeFormatter.parse(timeString)
-            if (parsedTime != null) {
-                time.time = parsedTime
-                time.set(
-                    calendar.get(Calendar.YEAR),
-                    calendar.get(Calendar.MONTH),
-                    calendar.get(Calendar.DAY_OF_MONTH)
-                )
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        return time
-    }
-
-    private fun updateTimeInView() {
-        val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
-        // Since there's no specific time text view in the layout,
-        // we might need to update a different view or handle this differently
-        // For now, we'll just log the selected time
-        val selectedTime = timeFormat.format(calendar.time)
-        println("Selected time: $selectedTime")
-    }
-
-    private fun updateTotalPrice() {
-        // Since totalPriceText doesn't exist in the layout, we'll just calculate the total price
-        // and store it for later use, but not update any UI element
-        val tutorProfile = viewModel.bookingState.value?.tutorProfile
-        if (tutorProfile != null) {
-            val totalPrice = tutorProfile.hourlyRate * selectedDuration
-            // Store the total price for later use if needed
-            // For debugging purposes, we'll log the total price
-            println("Total price: $${String.format("%.2f", totalPrice)}")
         }
     }
 
@@ -470,15 +474,8 @@ class BookingActivity : AppCompatActivity() {
 
         // Check if date is selected
         val selectedDateTextView = findViewById<TextView>(R.id.selectedDateTextView)
-        if (selectedDateTextView?.text == "Select a date") {
+        if (selectedDateTextView?.text.isNullOrEmpty() || selectedDateTextView?.text == "Select a date") {
             Toast.makeText(this, "Please select a date", Toast.LENGTH_SHORT).show()
-            isValid = false
-        }
-
-        // Check if date is in the future
-        val now = Calendar.getInstance()
-        if (calendar.before(now)) {
-            Toast.makeText(this, "Please select a future date and time", Toast.LENGTH_SHORT).show()
             isValid = false
         }
 
@@ -488,10 +485,15 @@ class BookingActivity : AppCompatActivity() {
             isValid = false
         }
 
-        // Check if topic is entered
-        val topicEditText = findViewById<TextInputEditText>(R.id.topicEditText)
-        if (topicEditText?.text.isNullOrEmpty()) {
-            Toast.makeText(this, "Please enter a topic", Toast.LENGTH_SHORT).show()
+        // Check if subject is selected
+        if (selectedSubject.isEmpty()) {
+            Toast.makeText(this, "Please select a subject", Toast.LENGTH_SHORT).show()
+            isValid = false
+        }
+
+        // If in-person session, check if location is selected
+        if (selectedSessionType == "In-Person" && selectedMeetingLocationName.isEmpty()) {
+            Toast.makeText(this, "Please select a meeting location", Toast.LENGTH_SHORT).show()
             isValid = false
         }
 
@@ -499,174 +501,258 @@ class BookingActivity : AppCompatActivity() {
     }
 
     private fun bookSession() {
-        // Show progress
-        progressBar.visibility = View.VISIBLE
-        bookButton.isEnabled = false
+        // Get student ID from shared preferences
+        val sharedPreferences = getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
+        val studentId = sharedPreferences.getLong("user_id", -1)
 
-        // Get values from inputs
-        // Set the calendar time to the selected time slot
-        val timeSlot = selectedTimeSlot ?: return
-
-        try {
-            // Parse the selected time slot
-            val parsedTime = timeFormatter.parse(timeSlot)
-            if (parsedTime != null) {
-                // Set the hour and minute from the selected time slot
-                val timeCalendar = Calendar.getInstance()
-                timeCalendar.time = parsedTime
-
-                calendar.set(Calendar.HOUR_OF_DAY, timeCalendar.get(Calendar.HOUR_OF_DAY))
-                calendar.set(Calendar.MINUTE, timeCalendar.get(Calendar.MINUTE))
-                calendar.set(Calendar.SECOND, 0)
-                calendar.set(Calendar.MILLISECOND, 0)
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-            Toast.makeText(this, "Invalid time format", Toast.LENGTH_SHORT).show()
-            progressBar.visibility = View.GONE
-            bookButton.isEnabled = true
+        if (studentId == -1L) {
+            Toast.makeText(this, "Please login to request a session", Toast.LENGTH_SHORT).show()
             return
         }
 
-        val startTime = apiDateTimeFormatter.format(calendar.time)
-
-        // Calculate end time (1 hour session)
-        val endCalendar = (calendar.clone() as Calendar).apply {
-            add(Calendar.MINUTE, (selectedDuration * 60).toInt())
+        // Parse selected time slot for start and end time
+        val timeSlotParts = selectedTimeSlot?.split(" - ")
+        if (timeSlotParts == null || timeSlotParts.size != 2) {
+            Toast.makeText(this, "Invalid time slot format", Toast.LENGTH_SHORT).show()
+            return
         }
-        val endTime = apiDateTimeFormatter.format(endCalendar.time)
 
-        // Get topic from the topic edit text
-        val topicEditText = findViewById<TextInputEditText>(R.id.topicEditText)
-        val notes = topicEditText?.text?.toString() ?: ""
+        val startTimeString = timeSlotParts[0]
+        val endTimeString = timeSlotParts[1]
 
-        // Use the selected session type from the radio buttons
-        // This was set in setupListeners()
+        // Create Calendar instances for start and end times
+        val startCalendar = calendar.clone() as Calendar
+        val endCalendar = calendar.clone() as Calendar
 
-        // Calculate total price
-        val tutorProfile = viewModel.bookingState.value?.tutorProfile
-        val totalPrice = tutorProfile?.hourlyRate?.times(selectedDuration) ?: 0.0
+        // Parse time strings to set hours and minutes
+        val startTimeParts = startTimeString.split(":")
+        val startHour = startTimeParts[0].toInt()
+        val startMinute = startTimeParts[1].toInt()
 
-        // Create booking request
+        val endTimeParts = endTimeString.split(":")
+        val endHour = endTimeParts[0].toInt()
+        val endMinute = endTimeParts[1].toInt()
+
+        startCalendar.set(Calendar.HOUR_OF_DAY, startHour)
+        startCalendar.set(Calendar.MINUTE, startMinute)
+
+        endCalendar.set(Calendar.HOUR_OF_DAY, endHour)
+        endCalendar.set(Calendar.MINUTE, endMinute)
+
+        // Format for API
+        val startTimeFormatted = apiDateTimeFormatter.format(startCalendar.time)
+        val endTimeFormatted = apiDateTimeFormatter.format(endCalendar.time)
+
+        // Get notes
+        val notes = notesEditText.text.toString().trim()
+
+        // Session location data (for in-person sessions)
+        val locationData = if (selectedSessionType == "In-Person") {
+            "{\"latitude\":$selectedMeetingLatitude,\"longitude\":$selectedMeetingLongitude,\"name\":\"$selectedMeetingLocationName\"}"
+        } else {
+            null
+        }
+
+        // Book session via ViewModel
         viewModel.bookSession(
-            startTime = startTime,
-            endTime = endTime,
-            subject = "General", // Default subject since we don't have a dropdown
+            startTime = startTimeFormatted,
+            endTime = endTimeFormatted,
+            subject = selectedSubject,
             sessionType = selectedSessionType,
-            notes = notes
-        ) { success ->
-            if (success) {
-                // If booking is successful, proceed to payment
-                processPayment(totalPrice)
-            } else {
+            notes = notes,
+            callback = { success ->
                 runOnUiThread {
-                    progressBar.visibility = View.GONE
-                    bookButton.isEnabled = true
-                    Toast.makeText(this, "Failed to book session", Toast.LENGTH_LONG).show()
+                    if (success) {
+                        Toast.makeText(this, "Session request sent! Waiting for tutor to accept.", Toast.LENGTH_LONG).show()
+                        finish()
+                    } else {
+                        Toast.makeText(this, "Failed to request session. Please try again.", Toast.LENGTH_LONG).show()
+                    }
                 }
             }
-        }
+        )
     }
 
-    private fun processPayment(amount: Double) {
-        // Show payment processing state
-        progressBar.visibility = View.VISIBLE
-        errorText.visibility = View.GONE
-        errorText.text = "Processing payment..."
-
-        // Get the tutor name for the payment description
-        val tutorProfile = viewModel.bookingState.value?.tutorProfile
-        val tutorName = tutorProfile?.name ?: "Tutor (ID: $tutorId)"
-
-        // Launch coroutine for payment processing
+    /**
+     * Start a conversation with the tutor
+     */
+    private fun startChatWithTutor() {
         lifecycleScope.launch {
             try {
-                // Create a payment source using Paymongo
-                val callbackUrl = "https://judify.com/payment/callback"
-                val result = PaymentUtils.createPaymentSource(
-                    amount = amount,
-                    description = "Tutoring Session with $tutorName",
-                    callbackUrl = callbackUrl
-                )
-
+                // Show progress indicator
+                showLoading(true, "Starting conversation...")
+                
+                // Get the current user ID from preferences
+                val currentUserId = com.mobile.utils.PreferenceUtils.getUserId(this@BookingActivity)
+                if (currentUserId == null || currentUserId <= 0) {
+                    Toast.makeText(this@BookingActivity, "You need to be logged in to send messages", Toast.LENGTH_SHORT).show()
+                    showLoading(false)
+                    return@launch
+                }
+                
+                // Create conversation with tutor using the new API method
+                val result = NetworkUtils.createConversationWithTutor(currentUserId, tutorId)
+                
+                // Hide progress indicator
+                showLoading(false)
+                
+                // Handle result
                 result.fold(
-                    onSuccess = { source ->
-                        // In a real app, you would:
-                        // 1. Store the payment source ID in your backend
-                        // 2. Redirect the user to the payment page using the source.redirect.checkout_url
-                        // 3. Handle the callback when the user completes or cancels the payment
-
-                        // For demo purposes, we'll simulate a successful payment
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(
-                                this@BookingActivity,
-                                "Payment processed successfully! Reference: ${source.reference}",
-                                Toast.LENGTH_LONG
-                            ).show()
-
-                            // Show success and finish activity
-                            progressBar.visibility = View.GONE
-                            finish()
+                    onSuccess = { conversation ->
+                        Log.d("BookingActivity", "Created conversation: ${conversation.id}")
+                        
+                        // Navigate to MessageActivity
+                        val intent = Intent(this@BookingActivity, com.mobile.ui.chat.MessageActivity::class.java).apply {
+                            putExtra("CONVERSATION", conversation)
                         }
+                        startActivity(intent)
                     },
-                    onFailure = { exception ->
-                        withContext(Dispatchers.Main) {
-                            progressBar.visibility = View.GONE
-                            bookButton.isEnabled = true
-                            errorText.visibility = View.VISIBLE
-                            errorText.text = "Payment error: ${exception.message}"
-
-                            Toast.makeText(
-                                this@BookingActivity,
-                                "Payment failed: ${exception.message}",
-                                Toast.LENGTH_LONG
-                            ).show()
-                        }
+                    onFailure = { error ->
+                        Log.e("BookingActivity", "Failed to create conversation", error)
+                        Toast.makeText(
+                            this@BookingActivity,
+                            "Could not start conversation: ${error.message}",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 )
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    progressBar.visibility = View.GONE
-                    bookButton.isEnabled = true
-                    errorText.visibility = View.VISIBLE
-                    errorText.text = "Payment error: ${e.message}"
-
-                    Toast.makeText(
-                        this@BookingActivity,
-                        "Payment failed: ${e.message}",
-                        Toast.LENGTH_LONG
-                    ).show()
-                }
+                showLoading(false)
+                Log.e("BookingActivity", "Error starting conversation", e)
+                Toast.makeText(
+                    this@BookingActivity,
+                    "Error: ${e.message}",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         }
     }
-
-    private fun showBookingSuccess() {
-        // Show success message and finish activity
-        Toast.makeText(this, "Session booked successfully!", Toast.LENGTH_LONG).show()
-        finish()
+    
+    /**
+     * Show or hide loading indicators with optional message
+     */
+    private fun showLoading(isLoading: Boolean, message: String = "") {
+        if (isLoading) {
+            progressBar.visibility = View.VISIBLE
+            errorText.text = message
+            errorText.visibility = if (message.isNotEmpty()) View.VISIBLE else View.GONE
+        } else {
+            progressBar.visibility = View.GONE
+            errorText.visibility = View.GONE
+        }
     }
 
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        if (item.itemId == android.R.id.home) {
-            onBackPressedDispatcher.onBackPressed()
-            return true
-        }
-        return super.onOptionsItemSelected(item)
+    override fun onSupportNavigateUp(): Boolean {
+        onBackPressed()
+        return true
     }
 
     companion object {
         const val EXTRA_TUTOR_ID = "extra_tutor_id"
-        const val EXTRA_COURSE_ID = "extra_course_id"
-        const val EXTRA_COURSE_TITLE = "extra_course_title"
+        const val EXTRA_SUBJECT_ID = "extra_subject_id"
+        const val EXTRA_SUBJECT_NAME = "extra_subject_name"
+        const val REQUEST_LOCATION_PICK = 1001
 
         fun newIntent(context: Context, tutorId: Long): Intent {
             return Intent(context, BookingActivity::class.java).apply {
                 putExtra(EXTRA_TUTOR_ID, tutorId)
             }
         }
+
+        fun newIntent(context: Context, tutorId: Long, subjectId: Long, subjectName: String): Intent {
+            return Intent(context, BookingActivity::class.java).apply {
+                putExtra(EXTRA_TUTOR_ID, tutorId)
+                putExtra(EXTRA_SUBJECT_ID, subjectId)
+                putExtra(EXTRA_SUBJECT_NAME, subjectName)
+            }
+        }
     }
 }
 
-// Factory for creating BookingViewModel with a parameter
-// Removing duplicate factory class since we've moved it to a separate file 
+// Subject adapter for displaying and selecting tutor subjects
+class TutorSubjectAdapter(
+    private var subjects: List<NetworkUtils.TutorSubject>,
+    private val onSubjectSelected: (NetworkUtils.TutorSubject) -> Unit
+) : RecyclerView.Adapter<TutorSubjectAdapter.SubjectViewHolder>() {
+
+    private var selectedPosition = -1
+
+    inner class SubjectViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        val subjectCard: CardView = itemView as CardView
+        val subjectText: TextView = itemView.findViewById(R.id.subjectNameTextView)
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): SubjectViewHolder {
+        val view = android.view.LayoutInflater.from(parent.context)
+            .inflate(R.layout.item_subject, parent, false)
+        return SubjectViewHolder(view)
+    }
+
+    override fun onBindViewHolder(holder: SubjectViewHolder, position: Int) {
+        val subject = subjects[position]
+        holder.subjectText.text = subject.subject
+
+        // Set selected state
+        val isSelected = position == selectedPosition
+        holder.subjectCard.setCardBackgroundColor(
+            ContextCompat.getColor(
+                holder.itemView.context,
+                if (isSelected) R.color.primary_blue else R.color.white
+            )
+        )
+        holder.subjectText.setTextColor(
+            ContextCompat.getColor(
+                holder.itemView.context,
+                if (isSelected) R.color.white else R.color.black
+            )
+        )
+
+        // Set click listener
+        holder.itemView.setOnClickListener {
+            val previousSelected = selectedPosition
+            selectedPosition = holder.adapterPosition
+
+            // Update UI for previous selected item if necessary
+            if (previousSelected != -1) {
+                notifyItemChanged(previousSelected)
+            }
+
+            // Update UI for newly selected item
+            notifyItemChanged(selectedPosition)
+
+            // Notify callback
+            onSubjectSelected(subject)
+        }
+    }
+
+    override fun getItemCount(): Int = subjects.size
+
+    fun updateSubjects(newSubjects: List<NetworkUtils.TutorSubject>) {
+        subjects = newSubjects
+        // Reset selection when new subjects are loaded
+        selectedPosition = -1
+
+        // Log to ensure we're updating with all subjects
+        Log.d("TutorSubjectAdapter", "Updated with ${newSubjects.size} subjects: ${newSubjects.map { it.subject }}")
+
+        notifyDataSetChanged()
+    }
+
+    fun selectSubject(position: Int) {
+        if (position in 0 until subjects.size) {
+            val previousSelected = selectedPosition
+            selectedPosition = position
+
+            // Update UI for previous selected item if necessary
+            if (previousSelected != -1 && previousSelected != position) {
+                notifyItemChanged(previousSelected)
+            }
+
+            // Update UI for newly selected item
+            notifyItemChanged(selectedPosition)
+
+            // Notify callback
+            onSubjectSelected(subjects[position])
+        }
+    }
+}
