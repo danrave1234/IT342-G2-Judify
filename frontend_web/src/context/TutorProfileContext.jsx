@@ -79,13 +79,24 @@ export const TutorProfileProvider = ({ children }) => {
       return { success: false, message: 'No tutor profile found' };
     }
 
+    // Make sure we have a profile ID
+    if (!tutorProfile.profileId) {
+      console.error('Cannot update profile: Missing profile ID', tutorProfile);
+      return { success: false, message: 'Profile ID is missing, cannot update' };
+    }
+
     setLoading(true);
     setError(null);
 
     try {
+      console.log('Updating tutor profile with ID:', tutorProfile.profileId);
+      console.log('Update data:', profileData);
 
       const response = await tutorProfileApi.updateProfile(tutorProfile.profileId, profileData);
 
+      console.log('Profile update response:', response);
+      
+      // Update the local state with the response data
       setTutorProfile(response.data);
 
       // Also update the user's profile picture in localStorage if it's included in the profile data
@@ -101,6 +112,7 @@ export const TutorProfileProvider = ({ children }) => {
       toast.success('Tutor profile updated successfully');
       return { success: true, profile: response.data };
     } catch (err) {
+      console.error('Error updating tutor profile:', err);
       const message = err.response?.data?.message || 'Failed to update tutor profile';
       setError(message);
       toast.error(message);
