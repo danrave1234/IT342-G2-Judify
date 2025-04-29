@@ -4,6 +4,7 @@ import edu.cit.Judify.Email.EmailService;
 import edu.cit.Judify.Notification.NotificationEntity;
 import edu.cit.Judify.Notification.NotificationService;
 import edu.cit.Judify.User.UserEntity;
+import edu.cit.Judify.User.UserRepository;
 import jakarta.mail.MessagingException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,15 +29,18 @@ public class TutoringSessionService {
     private final TutoringSessionRepository sessionRepository;
     private final EmailService emailService;
     private final NotificationService notificationService;
+    private final UserRepository userRepository;
 
     @Autowired
     public TutoringSessionService(
             TutoringSessionRepository sessionRepository,
             EmailService emailService,
-            NotificationService notificationService) {
+            NotificationService notificationService,
+            UserRepository userRepository) {
         this.sessionRepository = sessionRepository;
         this.emailService = emailService;
         this.notificationService = notificationService;
+        this.userRepository = userRepository;
     }
 
     @Transactional
@@ -236,5 +240,14 @@ public class TutoringSessionService {
 
         Pageable pageable = PageRequest.of(page, size, Sort.by("startTime").descending());
         return sessionRepository.findByStatus(status, pageable);
+    }
+
+    /**
+     * Find a user by their username
+     * @param username The username to search for
+     * @return The found user entity or null if not found
+     */
+    public UserEntity findUserByUsername(String username) {
+        return userRepository.findByUsername(username).orElse(null);
     }
 } 

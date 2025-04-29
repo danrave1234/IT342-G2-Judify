@@ -6,6 +6,7 @@ import edu.cit.Judify.Message.MessageEntity;
 import edu.cit.Judify.Message.MessageService;
 import edu.cit.Judify.User.UserEntity;
 import edu.cit.Judify.User.UserService;
+import edu.cit.Judify.Message.DTO.MessageDTO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +17,8 @@ import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 @Controller
@@ -128,8 +131,12 @@ public class WebSocketController {
         ConversationEntity conversation = conversationOpt.get();
         UserEntity sender = userOpt.get();
         
-        // Find the other participant in the conversation
-        conversation.getParticipants().stream()
+        // Get both participants from the conversation (student and tutor)
+        List<UserEntity> participants = new ArrayList<>();
+        participants.add(conversation.getStudent());
+        participants.add(conversation.getTutor());
+        
+        participants.stream()
             .filter(user -> !user.getUserId().equals(sender.getUserId()))
             .findFirst()
             .ifPresent(receiver -> {
@@ -181,8 +188,12 @@ public class WebSocketController {
             UserEntity sender = userOpt.get();
             ConversationEntity conversation = conversationOpt.get();
             
-            // Find the other participant in the conversation
-            conversation.getParticipants().stream()
+            // Get both participants from the conversation (student and tutor)
+            List<UserEntity> participants = new ArrayList<>();
+            participants.add(conversation.getStudent());
+            participants.add(conversation.getTutor());
+            
+            participants.stream()
                 .filter(user -> !user.getUserId().equals(sender.getUserId()))
                 .findFirst()
                 .ifPresent(receiver -> {
@@ -236,15 +247,21 @@ public class WebSocketController {
                 // Database conversation exists, create and save message
                 ConversationEntity conversation = conversationOpt.get();
                 
+                // Create message entity
                 messageEntity = new MessageEntity();
-                messageEntity.setSender(sender);
                 messageEntity.setConversation(conversation);
+                messageEntity.setSender(sender);
+                messageEntity.setReceiver(receiver);
                 messageEntity.setContent(chatMessage.getContent());
-                messageEntity.setTimestamp(chatMessage.getTimestamp());
                 messageEntity.setIsRead(false);
                 
-                // Save to database
-                messageEntity = messageService.createMessage(messageEntity);
+                // Save to database using the MessageService from the latest implementation
+                MessageDTO msgDTO = new MessageDTO();
+                msgDTO.setConversationId(conversation.getConversationId());
+                msgDTO.setSenderId(sender.getUserId());
+                msgDTO.setReceiverId(receiver.getUserId());
+                msgDTO.setContent(chatMessage.getContent());
+                messageEntity = messageService.sendMessage(msgDTO);
                 
                 // Update the chat message with the saved message ID
                 chatMessage.setMessageId(messageEntity.getMessageId().toString());

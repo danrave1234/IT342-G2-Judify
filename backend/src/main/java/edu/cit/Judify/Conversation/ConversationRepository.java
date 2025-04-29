@@ -11,8 +11,6 @@ import edu.cit.Judify.User.UserEntity;
 
 @Repository
 public interface ConversationRepository extends JpaRepository<ConversationEntity, Long> {
-    List<ConversationEntity> findByParticipantsContaining(UserEntity participant);
-
     List<ConversationEntity> findByStudentOrTutor(UserEntity student, UserEntity tutor);
 
     /**
