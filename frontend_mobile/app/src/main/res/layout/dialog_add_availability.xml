@@ -1,89 +1,167 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:padding="20dp"
+    android:background="@drawable/rounded_dialog_background">
 
-    <TextView
-        android:id="@+id/dialog_title"
+    <!-- Dialog Header with Blue Accent -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Add Availability"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:textColor="?android:textColorPrimary"
-        android:layout_marginBottom="16dp" />
+        android:orientation="horizontal"
+        android:layout_marginBottom="20dp">
 
-    <TextView
+        <View
+            android:layout_width="4dp"
+            android:layout_height="24dp"
+            android:background="@color/primary_blue"
+            android:layout_gravity="center_vertical"
+            android:layout_marginEnd="12dp" />
+
+        <TextView
+            android:id="@+id/dialog_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Add Availability"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:textColor="@color/primary_blue" />
+    </LinearLayout>
+
+    <!-- Day of Week Selection -->
+    <com.google.android.material.textfield.TextInputLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Day of Week"
-        android:textSize="16sp"
-        android:textColor="?android:textColorPrimary"
-        android:layout_marginBottom="8dp" />
+        android:layout_marginBottom="16dp"
+        android:hint="Day of Week"
+        app:boxCornerRadiusBottomEnd="8dp"
+        app:boxCornerRadiusBottomStart="8dp"
+        app:boxCornerRadiusTopEnd="8dp"
+        app:boxCornerRadiusTopStart="8dp"
+        app:startIconDrawable="@drawable/ic_calendar"
+        app:startIconTint="@color/primary_blue"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
 
-    <Spinner
-        android:id="@+id/dayOfWeekSpinner"
+        <Spinner
+            android:id="@+id/dayOfWeekSpinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="56dp"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <!-- Time Selections with Icons -->
+    <com.google.android.material.textfield.TextInputLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="16dp" />
+        android:layout_marginBottom="16dp"
+        android:hint="Start Time"
+        app:boxCornerRadiusBottomEnd="8dp"
+        app:boxCornerRadiusBottomStart="8dp"
+        app:boxCornerRadiusTopEnd="8dp"
+        app:boxCornerRadiusTopStart="8dp"
+        app:startIconDrawable="@drawable/ic_time"
+        app:startIconTint="@color/primary_blue"
+        app:hintTextColor="@color/primary_blue"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
-    <TextView
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/startTimeEditText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="none"
+            android:focusable="false"
+            android:clickable="true"
+            android:minHeight="56dp"
+            android:hint="Select start time" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.textfield.TextInputLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Start Time"
-        android:textSize="16sp"
-        android:textColor="?android:textColorPrimary"
-        android:layout_marginBottom="8dp" />
+        android:layout_marginBottom="24dp"
+        android:hint="End Time"
+        app:boxCornerRadiusBottomEnd="8dp"
+        app:boxCornerRadiusBottomStart="8dp"
+        app:boxCornerRadiusTopEnd="8dp"
+        app:boxCornerRadiusTopStart="8dp"
+        app:startIconDrawable="@drawable/ic_time"
+        app:startIconTint="@color/primary_blue"
+        app:hintTextColor="@color/primary_blue"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
-    <EditText
-        android:id="@+id/startTimeEditText"
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/endTimeEditText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="none"
+            android:focusable="false"
+            android:clickable="true"
+            android:minHeight="56dp"
+            android:hint="Select end time" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <!-- Information Card -->
+    <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:inputType="none"
-        android:focusable="false"
-        android:clickable="true"
-        android:hint="Select start time"
-        android:layout_marginBottom="16dp" />
+        android:layout_marginBottom="24dp"
+        app:cardCornerRadius="8dp"
+        app:cardBackgroundColor="#E3F2FD"
+        app:cardElevation="0dp">
 
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="End Time"
-        android:textSize="16sp"
-        android:textColor="?android:textColorPrimary"
-        android:layout_marginBottom="8dp" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="12dp">
 
-    <EditText
-        android:id="@+id/endTimeEditText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:inputType="none"
-        android:focusable="false"
-        android:clickable="true"
-        android:hint="Select end time"
-        android:layout_marginBottom="16dp" />
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/ic_info"
+                android:layout_gravity="center_vertical"
+                app:tint="@color/primary_blue" />
 
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:text="Students will be able to book sessions during these time slots. Make sure you're available during these hours."
+                android:textSize="14sp"
+                android:textColor="@color/primary_blue" />
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- Action Buttons -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="end">
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/cancelButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Cancel"
             android:layout_marginEnd="8dp"
+            app:cornerRadius="8dp"
             style="@style/Widget.MaterialComponents.Button.TextButton" />
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/saveButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Save"
+            app:cornerRadius="8dp"
+            android:backgroundTint="@color/primary_blue"
+            app:icon="@drawable/ic_check"
+            app:iconGravity="textStart"
             style="@style/Widget.MaterialComponents.Button" />
     </LinearLayout>
 </LinearLayout>

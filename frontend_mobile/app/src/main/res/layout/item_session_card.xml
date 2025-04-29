@@ -39,6 +39,16 @@
             android:text="2:00 PM - 3:30 PM"
             android:textSize="14sp"
             android:textColor="?android:textColorSecondary" />
+            
+        <TextView
+            android:id="@+id/sessionRate"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="$25/hour"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="@color/primary_blue"
+            android:layout_marginTop="4dp" />
 
         <LinearLayout
             android:layout_width="match_parent"

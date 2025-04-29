@@ -19,8 +19,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import edu.cit.Judify.Conversation.ConversationEntity;
 import edu.cit.Judify.Conversation.ConversationService;
+import edu.cit.Judify.TutorProfile.TutorProfileService;
 import edu.cit.Judify.TutoringSession.DTO.TutoringSessionDTO;
 import edu.cit.Judify.TutoringSession.DTO.TutoringSessionDTOMapper;
 import edu.cit.Judify.User.UserEntity;
@@ -41,6 +41,9 @@ public class TutoringSessionController {
     private final TutoringSessionService sessionService;
     private final TutoringSessionDTOMapper sessionDTOMapper;
     private final ConversationService conversationService;
+
+    @Autowired
+    private TutorProfileService tutorProfileService;
 
     @Autowired
     public TutoringSessionController(TutoringSessionService sessionService, 
@@ -85,12 +88,9 @@ public class TutoringSessionController {
                     System.out.println("Set student ID in DTO: " + student.getUserId());
                 } else {
                     System.out.println("Student not found for username: " + username);
-                    return ResponseEntity.badRequest().body(null);
                 }
             } else {
-                System.out.println("No authentication found and no student ID provided in request.");
-                return ResponseEntity.status(org.springframework.http.HttpStatus.BAD_REQUEST)
-                    .body(null);
+                System.out.println("No authentication found. Student ID must be provided in request.");
             }
         } else {
             System.out.println("Student ID was provided in the request: " + sessionDTO.getStudentId());
@@ -120,14 +120,8 @@ public class TutoringSessionController {
             TutoringSessionEntity session = sessionDTOMapper.toEntity(sessionDTO);
             System.out.println("Converted DTO to entity, student ID: " + (session.getStudent() != null ? session.getStudent().getUserId() : "null"));
 
-            // Create a conversation for negotiation between tutor and student
-            // Use findOrCreateStudentTutorConversation to ensure consistent use of studentId and tutorId
-            ConversationEntity savedConversation = conversationService.findOrCreateStudentTutorConversation(
-                session.getStudent(), session.getTutor());
-
-            // Link the conversation to the session
-            session.setConversation(savedConversation);
-
+            // No longer automatically create conversation for each booked session
+            
             TutoringSessionEntity savedSession = sessionService.createSession(session);
             System.out.println("Session saved successfully with ID: " + savedSession.getSessionId());
 

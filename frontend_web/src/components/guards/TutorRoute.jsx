@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import { useUser } from '../../context/UserContext';
+import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 
 /**
@@ -7,6 +8,7 @@ import LoadingSpinner from '../common/LoadingSpinner';
  */
 const TutorRoute = ({ children }) => {
   const { user, loading, isTutor } = useUser();
+  const { currentUser, loading: authLoading, isTutor: authIsTutor } = useAuth();
 
   // Direct localStorage check as a fallback
   const checkLocalStorage = () => {
@@ -33,7 +35,7 @@ const TutorRoute = ({ children }) => {
   };
 
   // If still loading, show spinner
-  if (loading) {
+  if (loading || authLoading) {
     return (
       <div className="flex justify-center items-center h-screen">
         <LoadingSpinner size="xl" />
@@ -41,18 +43,23 @@ const TutorRoute = ({ children }) => {
     );
   }
 
-  // First check if user exists and is a tutor via the context
+  // First check Auth context
+  if (currentUser && authIsTutor()) {
+    return children;
+  }
+  
+  // Then check User context
   if (user && isTutor()) {
     return children;
   }
   
   // If no user in context, try localStorage
-  if (!user && checkLocalStorage()) {
+  if (!currentUser && !user && checkLocalStorage()) {
     return children;
   }
   
   // User exists but is not a tutor, redirect to home
-  if (user) {
+  if (currentUser || user) {
     console.log("TutorRoute: User is not a tutor, redirecting to home");
     return <Navigate to="/" replace />;
   }
