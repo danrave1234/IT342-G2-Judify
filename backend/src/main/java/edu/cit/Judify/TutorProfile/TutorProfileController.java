@@ -66,7 +66,7 @@ public class TutorProfileController {
     public ResponseEntity<Page<TutorProfileDTO>> getAllTutorProfilesPaginated(
             @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Page size") @RequestParam(defaultValue = "10") int size,
-            @Parameter(description = "Filter by expertise (optional)") @RequestParam(required = false) String expertise,
+            @Parameter(description = "Filter by expertise (renamed to 'Course' in the frontend)") @RequestParam(required = false) String expertise,
             @Parameter(description = "Filter by minimum hourly rate (optional)") @RequestParam(required = false) Double minRate,
             @Parameter(description = "Filter by maximum hourly rate (optional)") @RequestParam(required = false) Double maxRate,
             @Parameter(description = "Filter by minimum rating (optional)") @RequestParam(required = false) Double minRating) {
@@ -334,3 +334,4 @@ public class TutorProfileController {
         }
     }
 }
+

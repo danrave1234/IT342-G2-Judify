@@ -18,6 +18,8 @@ public class UserDTOMapper {
         dto.setFirstName(entity.getFirstName());
         dto.setLastName(entity.getLastName());
         dto.setRole(entity.getRole());
+        dto.setProfilePicture(entity.getProfilePicture());
+        dto.setContactDetails(entity.getContactDetails());
         dto.setCreatedAt(entity.getCreatedAt());
         dto.setUpdatedAt(entity.getUpdatedAt());
         return dto;
@@ -35,6 +37,8 @@ public class UserDTOMapper {
         entity.setFirstName(dto.getFirstName());
         entity.setLastName(dto.getLastName());
         entity.setRole(dto.getRole());
+        entity.setProfilePicture(dto.getProfilePicture());
+        entity.setContactDetails(dto.getContactDetails());
         // Note: Password and other sensitive fields should be handled separately
         entity.setCreatedAt(dto.getCreatedAt());
         entity.setUpdatedAt(dto.getUpdatedAt());

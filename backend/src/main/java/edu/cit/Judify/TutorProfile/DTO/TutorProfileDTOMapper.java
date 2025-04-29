@@ -25,6 +25,7 @@ public class TutorProfileDTOMapper {
         dto.setTotalReviews(entity.getTotalReviews());
         dto.setLatitude(entity.getLatitude());
         dto.setLongitude(entity.getLongitude());
+        dto.setShareLocation(entity.getShareLocation());
         dto.setCreatedAt(entity.getCreatedAt());
         return dto;
     }
@@ -44,6 +45,7 @@ public class TutorProfileDTOMapper {
         entity.setTotalReviews(dto.getTotalReviews());
         entity.setLatitude(dto.getLatitude());
         entity.setLongitude(dto.getLongitude());
+        entity.setShareLocation(dto.getShareLocation());
         entity.setCreatedAt(dto.getCreatedAt());
         return entity;
     }

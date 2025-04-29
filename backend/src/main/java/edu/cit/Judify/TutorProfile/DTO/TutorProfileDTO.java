@@ -10,19 +10,21 @@ public class TutorProfileDTO {
     private String firstName;
     private String lastName;
     private String bio;
-    private String expertise;
+    private String expertise; // Renamed to "course" in the frontend
     private Double hourlyRate;
     private Set<String> subjects;
     private Double rating;
     private Integer totalReviews;
     private Double latitude;
     private Double longitude;
+    private Boolean shareLocation;
     private Date createdAt;
 
     // Default constructor
     public TutorProfileDTO() {
         this.rating = 0.0;
         this.totalReviews = 0;
+        this.shareLocation = false; // Default to false for privacy
     }
 
     // Getters and Setters
@@ -121,6 +123,7 @@ public class TutorProfileDTO {
     public void setCreatedAt(Date createdAt) {
         this.createdAt = createdAt;
     }
+    
     public Double getLatitude() {
         return latitude;
     }
@@ -136,4 +139,13 @@ public class TutorProfileDTO {
     public void setLongitude(Double longitude) {
         this.longitude = longitude;
     }
+    
+    public Boolean getShareLocation() {
+        return shareLocation;
+    }
+
+    public void setShareLocation(Boolean shareLocation) {
+        this.shareLocation = shareLocation;
+    }
 }
+

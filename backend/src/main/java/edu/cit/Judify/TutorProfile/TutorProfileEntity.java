@@ -1,5 +1,6 @@
 package edu.cit.Judify.TutorProfile;
 
+import edu.cit.Judify.Course.CourseEntity;
 import edu.cit.Judify.TutorSubject.TutorSubjectEntity;
 import edu.cit.Judify.User.UserEntity;
 import jakarta.persistence.*;
@@ -37,6 +38,8 @@ public class TutorProfileEntity {
     private Double latitude;
 
     private Double longitude;
+    
+    private Boolean shareLocation;
 
     @Temporal(TemporalType.TIMESTAMP)
     private Date createdAt;
@@ -46,6 +49,7 @@ public class TutorProfileEntity {
         this.createdAt = new Date();
         this.rating = 0.0;
         this.totalReviews = 0;
+        this.shareLocation = false; // Default to false for privacy
     }
 
     // Getters and Setters
@@ -158,5 +162,33 @@ public class TutorProfileEntity {
 
     public void setLongitude(Double longitude) {
         this.longitude = longitude;
+    }
+    
+    public Boolean getShareLocation() {
+        return shareLocation;
+    }
+
+    public void setShareLocation(Boolean shareLocation) {
+        this.shareLocation = shareLocation;
+    }
+
+    public Set<CourseEntity> getCourses() {
+        return courses;
+    }
+
+    public void setCourses(Set<CourseEntity> courses) {
+        this.courses = courses;
+    }
+
+    // Helper method to add a course
+    public void addCourse(CourseEntity course) {
+        courses.add(course);
+        course.setTutor(this);
+    }
+
+    // Helper method to remove a course
+    public void removeCourse(CourseEntity course) {
+        courses.remove(course);
+        course.setTutor(null);
     }
 }

@@ -21,7 +21,11 @@ export const SessionProvider = ({ children }) => {
     try {
       const response = await tutoringSessionApi.createSession(sessionData);
       toast.success('Session scheduled successfully');
-      return { success: true, session: response.data };
+      return { 
+        success: true, 
+        session: response.data, 
+        tutorId: sessionData.tutorId 
+      };
     } catch (err) {
       const message = err.response?.data?.message || 'Failed to schedule session';
       setError(message);
