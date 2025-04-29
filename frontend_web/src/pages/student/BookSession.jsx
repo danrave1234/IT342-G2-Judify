@@ -1,12 +1,12 @@
-import { useState, useEffect, useCallback } from 'react'; // Added useCallback
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useUser } from '../../context/UserContext';
 import { useSession } from '../../context/SessionContext';
 import { SESSION_STATUS } from '../../types';
-import { tutorProfileApi } from '../../api/api'; // Assuming API object is default export
+import { tutorProfileApi } from '../../api/api';
 import API from '../../api/api'; // Import the default export
 import { toast } from 'react-toastify';
-import { format, startOfDay, addMonths, parseISO } from 'date-fns'; // Keep parseISO if needed elsewhere
+import { format, startOfDay, addMonths, parseISO } from 'date-fns';
 
 // Import the DatePicker component
 import DatePicker from '../../components/common/DatePicker';
@@ -47,7 +47,7 @@ const BookSession = () => {
 
     try {
       let tutorData;
-      console.log('Attempting to fetch tutor data with ID:', currentTutorId);
+      console.log('BookSession.jsx: Attempting to fetch tutor data with ID:', currentTutorId);
 
       // Use tutorProfileApi for profile fetching
       try {
@@ -55,7 +55,7 @@ const BookSession = () => {
         tutorData = tutorResponse.data;
         console.log('Successfully fetched tutor profile by profileId:', currentTutorId);
       } catch (error) {
-        console.log(`Error fetching by profileId (${currentTutorId}), trying userId:`, error.message);
+        console.warn(`Error fetching by profileId (${currentTutorId}), trying userId:`, error.message);
         try {
           const tutorResponse = await tutorProfileApi.getProfileByUserId(currentTutorId);
           tutorData = tutorResponse.data;
@@ -71,14 +71,15 @@ const BookSession = () => {
       }
       console.log('Retrieved tutor data:', tutorData);
 
+      // --- FIX: Store both userId and profileId in tutor state ---
       setTutor({
-        id: tutorData.userId,
-        profileId: tutorData.profileId || currentTutorId,
+        profileId: tutorData.profileId || currentTutorId, // Ensure profileId is stored
+        userId: tutorData.userId, // Keep userId for availability fetching etc.
         name: `${tutorData.firstName} ${tutorData.lastName}`,
         profilePicture: tutorData.profilePicture || 'https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png?20150327203541',
         rate: tutorData.hourlyRate || 35,
         subjects: tutorData.subjects || ['General Tutoring'],
-      });
+      }); // --- END FIX ---
 
       // Fetch availability using the tutor's userId
       const tutorUserId = tutorData.userId;
@@ -267,7 +268,7 @@ const BookSession = () => {
     return tutor.rate * sessionInfo.duration;
   };
 
-  // --- handleSubmit (Keep as is) ---
+  // --- handleSubmit ---
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -287,7 +288,7 @@ const BookSession = () => {
       return;
     }
     // Ensure tutor ID is available
-    if (!tutor || !tutor.id) {
+    if (!tutor || !tutor.profileId) { // Check for profileId now
       setError('Tutor information is missing.');
       toast.error('Tutor information is missing.');
       return;
@@ -301,8 +302,8 @@ const BookSession = () => {
       const endTime = new Date(startTime);
       endTime.setMinutes(endTime.getMinutes() + sessionInfo.duration * 60);
 
+      // --- FIX: Use profileId from tutor state for submission ---
       const sessionData = {
-        tutorId: tutor.id, // Use the correct tutor ID from state
         studentId: user.userId,
         subject: sessionInfo.subject,
         notes: sessionInfo.notes,
@@ -311,11 +312,11 @@ const BookSession = () => {
         price: calculateTotalPrice(),
         status: SESSION_STATUS.SCHEDULED, // Or maybe PENDING if negotiation is needed
         locationData: sessionInfo.isOnline ? null : 'In person - TBD',
-        meetingLink: sessionInfo.isOnline ? null : null,
         // Include acceptance status
         studentAccepted: true,
         tutorAccepted: false,
-      };
+        tutorId: tutor.profileId, // Use profileId here
+      }; // --- END FIX ---
 
       console.log("Submitting session data:", sessionData);
 
@@ -326,7 +327,7 @@ const BookSession = () => {
         // Store necessary info for payment page
         localStorage.setItem('pendingSessionPayment', JSON.stringify({
           sessionId: result.session.sessionId,
-          tutorId: tutor.id,
+          tutorId: tutor.profileId, // Use profileId here too
           tutorName: tutor.name,
           subject: sessionInfo.subject,
           startTime: startTime.toISOString(),
@@ -375,7 +376,7 @@ const BookSession = () => {
         {/* Back Link */}
         <div className="mb-6">
           {/* Use tutor.profileId if available, otherwise tutor.id */}
-          <Link to={`/tutors/${tutor.profileId || tutor.id}`} className="text-primary-600 dark:text-primary-500 flex items-center hover:underline">
+          <Link to={`/tutors/${tutor.profileId || tutor.userId}`} className="text-primary-600 dark:text-primary-500 flex items-center hover:underline">
             ← Back to tutor profile
           </Link>
         </div>
@@ -480,7 +481,7 @@ const BookSession = () => {
                       <p className="text-yellow-600 dark:text-yellow-400 text-sm">
                         <strong>No available dates found.</strong> This tutor may not have set their availability for the next month.
                       </p>
-                      <p className="text-yellow-500 dark:text-yellow-500 text-xs mt-1">
+                      <p className="text-xs text-yellow-500 dark:text-yellow-500 mt-1">
                         Please check back later or contact the tutor directly via chat.
                       </p>
                     </div>
