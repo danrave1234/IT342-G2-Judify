@@ -46,4 +46,5 @@
     
     <!-- New color values -->
     <color name="light_gray">#DDDDDD</color>
+    <color name="gray">#757575</color>
 </resources>

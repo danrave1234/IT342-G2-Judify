@@ -1,0 +1,58 @@
+steps:
+  # Step 1: Ensure mvnw is executable
+  # We use the simple 'ubuntu' image which has basic shell commands like chmod.
+  # The 'entrypoint: bash' lets us run shell commands.
+  # Cloud Build mounts your source code at /workspace.
+  - name: 'ubuntu'
+    entrypoint: 'bash'
+    args: ['-c', 'chmod +x /workspace/backend/mvnw']
+    id: 'Set mvnw executable'
+
+  # Step 2: Use Google Cloud Buildpacks to build the image
+  # This is similar to what Cloud Run tries automatically, but we run it explicitly
+  # after fixing permissions. We tell it where the source is ('backend/').
+  - name: 'gcr.io/k8s-skaffold/pack'
+    args:
+      - build
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/${_SERVICE_NAME}:${COMMIT_SHA}' # Output image name
+      - '--builder=gcr.io/buildpacks/builder'                 # Standard Google builder
+      - '--path=.'                                            # Source code path relative to the 'dir' below
+    dir: 'backend/'                                           # Change directory *before* running pack
+    id: 'Build Image with Buildpacks'
+
+  # Step 3: Push the built image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', '${_REGION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/${_SERVICE_NAME}:${COMMIT_SHA}']
+    id: 'Push Image'
+
+  # Step 4: Deploy the image to Cloud Run
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - '${_SERVICE_NAME}' # Your Cloud Run service name
+      - '--image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/${_SERVICE_NAME}:${COMMIT_SHA}' # Image just built
+      - '--region=${_REGION}'
+      - '--platform=managed'
+      - '--allow-unauthenticated' # Or configure auth
+      # Add '--set-env-vars=...' here ONLY if you didn't set them in Cloud Run UI
+    id: 'Deploy to Cloud Run'
+
+# Define the final image name
+images:
+  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/${_SERVICE_NAME}:${COMMIT_SHA}'
+
+# Use the Compute Engine Service Account (as configured before)
+serviceAccount: 'projects/${PROJECT_ID}/serviceAccounts/795422705086-compute@developer.gserviceaccount.com'
+
+# Explicitly set logging option to satisfy the requirement for non-default SA
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+# Define substitutions (variables)
+substitutions:
+  _SERVICE_NAME: judify
+  _REGION: asia-east1
+
+# Set a timeout
+timeout: '1200s' # 20 minutes
