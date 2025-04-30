@@ -16,6 +16,7 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addMapping("/**")
                 .allowedOrigins("http://localhost:5173")
                 .allowedOrigins("http://192.168.1.10:8080")
+                .allowedOrigins("https://judify.vercel.app")
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*");
 //                .allowCredentials(true);
@@ -29,6 +30,7 @@ public class WebConfig implements WebMvcConfigurer {
         config.setAllowCredentials(true);
         config.addAllowedOrigin("http://localhost:5173");
         config.addAllowedOrigin("http://192.168.1.10:8080");
+        config.addAllowedOrigin("https://judify.vercel.app");
         config.addAllowedHeader("*");
         config.addAllowedMethod("*");
         
