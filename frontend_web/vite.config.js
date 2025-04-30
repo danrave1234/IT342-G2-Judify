@@ -12,13 +12,15 @@ export default defineConfig({
       '/api': {
         target: 'https://judify-795422705086.asia-east1.run.app',
         changeOrigin: true,
-        secure: true
+        secure: true,
+        rewrite: (path) => path
       },
       '/ws': {
         target: 'https://judify-795422705086.asia-east1.run.app',
         ws: true,
         changeOrigin: true,
         secure: true,
+        rewrite: (path) => path
       }
     }
   },

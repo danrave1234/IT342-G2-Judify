@@ -11,7 +11,8 @@ const isProduction = () => {
      !window.location.hostname.includes('127.0.0.1'));
 };
 
-// Configure axios defaults
+// Configure axios defaults - don't include /api in baseURL for production
+// The /api prefix is added in the individual API calls
 const api = axios.create({
   baseURL: isProduction() ? BACKEND_URL : '',
   timeout: 15000, // 15 seconds timeout

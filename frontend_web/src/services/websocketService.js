@@ -90,10 +90,12 @@ class MessageService {
     console.log('Setting up WebSocket connection...');
     
     // Create WebSocket connection - use absolute URL in production
+    // In production, we use /ws directly, in development we use the proxy
     const socketUrl = isProduction() ? 
       `${WS_URL}/ws` : 
       '/ws';
     
+    console.log(`Connecting to WebSocket at: ${socketUrl}`);
     const socket = new SockJS(socketUrl);
     this.stompClient = Stomp.over(socket);
     
@@ -333,8 +335,9 @@ class MessageService {
       // This helps ensure the message is stored even if WebSocket fails
       if (isNumericId) {
         try {
-          // Try to save the message via REST API as backup
-          const response = await axios.post('/api/messages/sendMessage', {
+          const baseUrl = getBaseUrl();
+          // Try to save the message via REST API as backup - ensure we have /api prefix
+          const response = await axios.post(`${baseUrl}/api/messages/sendMessage`, {
             conversationId: Number(message.conversationId),
             senderId: message.senderId,
             content: message.content
@@ -404,6 +407,7 @@ class MessageService {
       
       // First, try to get messages from the backend using the modern endpoint
       try {
+        // Ensure we have /api prefix
         const response = await axios.get(`${baseUrl}/api/messages/conversation/${conversationId}`, {
           params: {
             page,
@@ -453,6 +457,7 @@ class MessageService {
         
         // Try the fallback endpoint that might exist on some backend versions
         try {
+          // Ensure we have /api prefix
           const fallbackResponse = await axios.get(`${baseUrl}/api/messages`, {
             params: {
               conversationId,
