@@ -6,6 +6,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -25,6 +26,7 @@ import com.mobile.databinding.ActivityTutorDashboardBinding
 import com.mobile.ui.chat.ChatFragment
 import com.mobile.ui.map.MapFragment
 import com.mobile.ui.profile.ProfileFragment
+import com.mobile.ui.sessions.SessionsFragment
 import com.mobile.utils.NetworkUtils
 import com.mobile.utils.PreferenceUtils
 import kotlinx.coroutines.delay
@@ -41,6 +43,7 @@ class TutorDashboardActivity : AppCompatActivity() {
     private lateinit var availabilityAdapter: TutorAvailabilityAdapter
     private val availabilityList = mutableListOf<NetworkUtils.TutorAvailability>()
     private var currentTutorId: Long = 0
+    private var currentTutorHourlyRate: Double = 0.0
 
     override fun onDestroy() {
         try {
@@ -78,6 +81,9 @@ class TutorDashboardActivity : AppCompatActivity() {
 
         // Set up swipe to refresh
         setupSwipeRefresh()
+
+        // Prevent search edit text auto-focusing
+        setupSearchBar()
 
         // Load real data
         loadRealData()
@@ -146,17 +152,21 @@ class TutorDashboardActivity : AppCompatActivity() {
             val dayOfWeek = dayOfWeekSpinner.selectedItem.toString().uppercase()
             val startTime = startTimeEditText.text.toString()
             val endTime = endTimeEditText.text.toString()
+            
+            // Get the 24-hour format times from tags before dismissing the dialog
+            val startTime24 = startTimeEditText.tag as? String ?: startTime
+            val endTime24 = endTimeEditText.tag as? String ?: endTime
 
             if (startTime.isEmpty() || endTime.isEmpty()) {
                 Toast.makeText(this, "Please select both start and end times", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
-            // Create the availability slot
-            createAvailabilitySlot(dayOfWeek, startTime, endTime)
-
             // Dismiss the dialog
             dialog.dismiss()
+            
+            // Create the availability slot with the captured time values
+            createAvailabilitySlot(dayOfWeek, startTime24, endTime24)
         }
 
         dialog.show()
@@ -214,17 +224,21 @@ class TutorDashboardActivity : AppCompatActivity() {
             val dayOfWeek = dayOfWeekSpinner.selectedItem.toString().uppercase()
             val startTime = startTimeEditText.text.toString()
             val endTime = endTimeEditText.text.toString()
+            
+            // Get the 24-hour format times from tags before dismissing the dialog
+            val startTime24 = startTimeEditText.tag as? String ?: startTime
+            val endTime24 = endTimeEditText.tag as? String ?: endTime
 
             if (startTime.isEmpty() || endTime.isEmpty()) {
                 Toast.makeText(this, "Please select both start and end times", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
-            // Update the availability slot
-            updateAvailabilitySlot(availability.id, dayOfWeek, startTime, endTime)
-
             // Dismiss the dialog
             dialog.dismiss()
+            
+            // Update the availability slot with the captured time values
+            updateAvailabilitySlot(availability.id, dayOfWeek, startTime24, endTime24)
         }
 
         dialog.show()
@@ -249,19 +263,52 @@ class TutorDashboardActivity : AppCompatActivity() {
         TimePickerDialog(
             this,
             { _, selectedHour, selectedMinute ->
-                // Format the time
-                val formattedTime = String.format(
-                    Locale.getDefault(),
-                    "%02d:%02d",
-                    selectedHour,
-                    selectedMinute
-                )
-                editText.setText(formattedTime)
+                // Format the time in 12-hour format for display (h:mm a)
+                val displayFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+                val backendFormat = SimpleDateFormat("HH:mm", Locale.getDefault()) // 24-hour format for backend
+
+                calendar.set(Calendar.HOUR_OF_DAY, selectedHour)
+                calendar.set(Calendar.MINUTE, selectedMinute)
+
+                // Display the time in 12-hour format with AM/PM
+                val displayTime = displayFormat.format(calendar.time)
+                editText.setText(displayTime)
+                
+                // Store the 24-hour format as a tag for use when saving
+                val backendTime = backendFormat.format(calendar.time)
+                editText.tag = backendTime
             },
             hour,
             minute,
-            true // 24-hour format
+            false // Use 12-hour format in the picker dialog
         ).show()
+    }
+
+    // Helper function to get the 24-hour format time from an EditText
+    private fun getTime24Hour(editText: EditText): String {
+        // Check if we have a 24-hour format time stored as a tag
+        if (editText.tag != null && editText.tag is String) {
+            return editText.tag as String
+        }
+        
+        // Otherwise, try to parse the visible text
+        val timeText = editText.text.toString()
+        
+        try {
+            // Parse the 12-hour format time
+            val inputFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+            val outputFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+            
+            val date = inputFormat.parse(timeText)
+            if (date != null) {
+                return outputFormat.format(date)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing time: ${e.message}", e)
+        }
+        
+        // Return the original text if parsing fails
+        return timeText
     }
 
     private fun setupBottomNavigation() {
@@ -274,9 +321,9 @@ class TutorDashboardActivity : AppCompatActivity() {
                     return@setOnItemSelectedListener true
                 }
                 R.id.navigation_sessions -> {
-                    // Show the map fragment instead of sessions
+                    // Show the sessions/booking fragment instead of map
                     showMainContent(false)
-                    loadFragment(MapFragment())
+                    loadFragment(SessionsFragment())
                     return@setOnItemSelectedListener true
                 }
                 R.id.navigation_map -> {
@@ -382,6 +429,46 @@ class TutorDashboardActivity : AppCompatActivity() {
             loadFragment(ProfileFragment())
             val bottomNavigation = findViewById<BottomNavigationView>(R.id.bottomNavigation)
             bottomNavigation.selectedItemId = R.id.navigation_profile
+        }
+    }
+
+    /**
+     * Prevents search edit text elements from auto-focusing when navigating between screens
+     */
+    private fun setupSearchBar() {
+        // Find all search edit text views in the activity
+        val rootView = window.decorView.findViewById<ViewGroup>(android.R.id.content)
+        disableSearchEditTextAutoFocus(rootView)
+    }
+    
+    /**
+     * Recursively finds and configures all EditText views with "search" in their ID
+     * to prevent auto-focus and showing keyboard
+     */
+    private fun disableSearchEditTextAutoFocus(viewGroup: ViewGroup) {
+        for (i in 0 until viewGroup.childCount) {
+            val child = viewGroup.getChildAt(i)
+            
+            // Check if this is an EditText with "search" in its ID
+            if (child is EditText && child.id != View.NO_ID) {
+                val idString = resources.getResourceEntryName(child.id)
+                if (idString.contains("search", ignoreCase = true)) {
+                    // Disable focus and make not focusable in touch mode
+                    child.isFocusable = false
+                    child.isFocusableInTouchMode = false
+                    // Enable focusing only when explicitly clicked
+                    child.setOnClickListener {
+                        child.isFocusableInTouchMode = true
+                        child.isFocusable = true
+                        child.requestFocus()
+                    }
+                }
+            }
+            
+            // Recursively check child view groups
+            if (child is ViewGroup) {
+                disableSearchEditTextAutoFocus(child)
+            }
         }
     }
 
@@ -504,6 +591,9 @@ class TutorDashboardActivity : AppCompatActivity() {
 
                                     // Store tutor ID for later use
                                     currentTutorId = tutorProfile.id
+                                    
+                                    // Store hourly rate for session cards
+                                    currentTutorHourlyRate = tutorProfile.hourlyRate
 
                                     // Load subjects
                                     loadSubjects(tutorProfile.subjects)
@@ -659,93 +749,59 @@ class TutorDashboardActivity : AppCompatActivity() {
                         binding.availabilityRecyclerView.visibility = View.VISIBLE
                     }
                 } else {
-                    // Handle error with fallback data
-                    Log.e(TAG, "Error loading availability, using fallback data")
-
-                    // Create fallback availability data
-                    val fallbackAvailability = createFallbackAvailabilityData(tutorId)
-
-                    // Update the list and adapter with fallback data
+                    // Handle error without using fallback data
+                    Log.e(TAG, "Error loading availability")
+                    
+                    // Clear any existing data
                     availabilityList.clear()
-                    availabilityList.addAll(fallbackAvailability)
                     availabilityAdapter.notifyDataSetChanged()
-
-                    binding.noAvailabilityText.visibility = View.GONE
-                    binding.availabilityRecyclerView.visibility = View.VISIBLE
-
-                    // Show a toast indicating we're using cached data
+                    
+                    // Show error message
+                    binding.noAvailabilityText.text = "Could not load availability. Please try again later."
+                    binding.noAvailabilityText.visibility = View.VISIBLE
+                    binding.availabilityRecyclerView.visibility = View.GONE
+                    
+                    // Show a toast indicating the error
                     Toast.makeText(
                         this@TutorDashboardActivity,
-                        "Using cached availability data. Pull down to refresh.",
+                        "Unable to load availability. Please check your connection.",
                         Toast.LENGTH_SHORT
                     ).show()
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading availability: ${e.message}", e)
 
-                // Create fallback availability data
-                val fallbackAvailability = createFallbackAvailabilityData(tutorId)
-
-                // Update the list and adapter with fallback data
+                // Clear any existing data
                 availabilityList.clear()
-                availabilityList.addAll(fallbackAvailability)
                 availabilityAdapter.notifyDataSetChanged()
-
-                if (fallbackAvailability.isEmpty()) {
-                    binding.noAvailabilityText.text = "Could not load availability. Please try again later."
-                    binding.noAvailabilityText.visibility = View.VISIBLE
-                    binding.availabilityRecyclerView.visibility = View.GONE
-                } else {
-                    binding.noAvailabilityText.visibility = View.GONE
-                    binding.availabilityRecyclerView.visibility = View.VISIBLE
-
-                    // Show a toast indicating we're using fallback data
-                    Toast.makeText(
-                        this@TutorDashboardActivity,
-                        "Using cached availability data. Pull down to refresh.",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
+                
+                // Show error message
+                binding.noAvailabilityText.text = "Could not load availability. Please try again later."
+                binding.noAvailabilityText.visibility = View.VISIBLE
+                binding.availabilityRecyclerView.visibility = View.GONE
+                
+                // Show a toast indicating the error
+                Toast.makeText(
+                    this@TutorDashboardActivity,
+                    "Unable to load availability. Please check your connection.",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         }
     }
 
     // Helper method to create fallback availability data when network requests fail
     private fun createFallbackAvailabilityData(tutorId: Long): List<NetworkUtils.TutorAvailability> {
-        // Check if we already have data in availabilityList
-        if (availabilityList.isNotEmpty()) {
-            return availabilityList
-        }
-
-        // Otherwise create some default availability slots
-        return listOf(
-            NetworkUtils.TutorAvailability(
-                id = System.currentTimeMillis(),
-                tutorId = tutorId,
-                dayOfWeek = "MONDAY",
-                startTime = "09:00",
-                endTime = "12:00"
-            ),
-            NetworkUtils.TutorAvailability(
-                id = System.currentTimeMillis() + 1,
-                tutorId = tutorId,
-                dayOfWeek = "WEDNESDAY",
-                startTime = "13:00",
-                endTime = "16:00"
-            ),
-            NetworkUtils.TutorAvailability(
-                id = System.currentTimeMillis() + 2,
-                tutorId = tutorId,
-                dayOfWeek = "FRIDAY",
-                startTime = "10:00",
-                endTime = "14:00"
-            )
-        )
+        // Don't create fallback data anymore - just return an empty list
+        return emptyList()
     }
 
     private fun createAvailabilitySlot(dayOfWeek: String, startTime: String, endTime: String) {
         lifecycleScope.launch {
             try {
+                // Use the 24-hour time values directly passed to this method
+                Log.d(TAG, "Creating availability with 24-hour times: start=$startTime, end=$endTime")
+                
                 val result = NetworkUtils.createTutorAvailability(
                     tutorId = currentTutorId,
                     dayOfWeek = dayOfWeek,
@@ -770,6 +826,9 @@ class TutorDashboardActivity : AppCompatActivity() {
     private fun updateAvailabilitySlot(id: Long, dayOfWeek: String, startTime: String, endTime: String) {
         lifecycleScope.launch {
             try {
+                // Use the 24-hour time values directly passed to this method
+                Log.d(TAG, "Updating availability with 24-hour times: start=$startTime, end=$endTime")
+                
                 val result = NetworkUtils.updateTutorAvailability(
                     id = id,
                     tutorId = currentTutorId,
@@ -902,6 +961,7 @@ class TutorDashboardActivity : AppCompatActivity() {
         val dateText = cardView.findViewById<TextView>(R.id.sessionDate)
         val timeText = cardView.findViewById<TextView>(R.id.sessionTime)
         val statusText = cardView.findViewById<TextView>(R.id.sessionStatus)
+        val rateText = cardView.findViewById<TextView>(R.id.sessionRate)
 
         // Format date and time
         val dateTimeFormatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
@@ -921,12 +981,17 @@ class TutorDashboardActivity : AppCompatActivity() {
                 dateText.text = formattedDate
                 timeText.text = "$formattedStartTime - $formattedEndTime"
                 statusText.text = session.status
+                
+                // Display the hourly rate from the stored tutor profile
+                val formattedRate = "%.2f".format(currentTutorHourlyRate)
+                rateText.text = "$$formattedRate/hour"
             } else {
                 // Fallback if parsing fails
                 titleText.text = session.subject
                 dateText.text = "Date not available"
                 timeText.text = "Time not available"
                 statusText.text = session.status
+                rateText.text = "Rate unavailable"
             }
         } catch (e: Exception) {
             // Fallback if parsing fails
@@ -934,6 +999,7 @@ class TutorDashboardActivity : AppCompatActivity() {
             dateText.text = "Date not available"
             timeText.text = "Time not available"
             statusText.text = session.status
+            rateText.text = "Rate unavailable"
         }
 
         // Add margin to the card

@@ -5,8 +5,10 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.View
+import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.widget.CheckBox
+import android.widget.EditText
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
@@ -70,6 +72,9 @@ class TutorSearchActivity : AppCompatActivity() {
         setupRecyclerView()
         setupObservers()
         setupBottomNavigation()
+        
+        // Prevent search edit text auto-focusing
+        disableSearchEditTextAutoFocus()
 
         // Load random tutors initially
         viewModel.loadRandomTutors()
@@ -226,6 +231,61 @@ class TutorSearchActivity : AppCompatActivity() {
                     return@setOnItemSelectedListener true
                 }
                 else -> return@setOnItemSelectedListener false
+            }
+        }
+    }
+
+    /**
+     * Prevents the search EditText from auto-focusing when the activity starts
+     */
+    private fun disableSearchEditTextAutoFocus() {
+        // Disable initial focus on the search EditText
+        searchEditText.isFocusable = false
+        searchEditText.isFocusableInTouchMode = false
+        
+        // Enable focusing only when explicitly clicked
+        searchEditText.setOnClickListener {
+            searchEditText.isFocusableInTouchMode = true
+            searchEditText.isFocusable = true
+            searchEditText.requestFocus()
+        }
+        
+        // Also disable auto-focus for any other search EditText in the activity
+        val rootView = window.decorView.findViewById<ViewGroup>(android.R.id.content)
+        disableSearchEditTextAutoFocusRecursive(rootView)
+    }
+    
+    /**
+     * Recursively finds and configures all EditText views with "search" in their ID
+     * to prevent auto-focus and showing keyboard
+     */
+    private fun disableSearchEditTextAutoFocusRecursive(viewGroup: ViewGroup) {
+        for (i in 0 until viewGroup.childCount) {
+            val child = viewGroup.getChildAt(i)
+            
+            // Check if this is an EditText with "search" in its ID
+            if (child is EditText && child.id != View.NO_ID && child != searchEditText) {
+                try {
+                    val idString = resources.getResourceEntryName(child.id)
+                    if (idString.contains("search", ignoreCase = true)) {
+                        // Disable focus and make not focusable in touch mode
+                        child.isFocusable = false
+                        child.isFocusableInTouchMode = false
+                        // Enable focusing only when explicitly clicked
+                        child.setOnClickListener {
+                            child.isFocusableInTouchMode = true
+                            child.isFocusable = true
+                            child.requestFocus()
+                        }
+                    }
+                } catch (e: Exception) {
+                    // Resource name might not be available for all views
+                }
+            }
+            
+            // Recursively check child view groups
+            if (child is ViewGroup) {
+                disableSearchEditTextAutoFocusRecursive(child)
             }
         }
     }
