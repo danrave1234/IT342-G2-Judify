@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { toast } from 'react-toastify';
-import { FaGoogle, FaApple, FaFacebook } from 'react-icons/fa';
+import { FaGoogle } from 'react-icons/fa';
 import { useUser } from '../../context/UserContext';
 import { studentProfileApi, tutorProfileApi } from '../../api/api';
 
@@ -454,12 +454,7 @@ const Register = () => {
           >
             <FaGoogle className="text-red-500" />
           </button>
-          <button type="button" className="auth-social-button">
-            <FaApple className="text-gray-800 dark:text-white" />
-          </button>
-          <button type="button" className="auth-social-button">
-            <FaFacebook className="text-primary-700" />
-          </button>
+
         </div>
       </div>
 
