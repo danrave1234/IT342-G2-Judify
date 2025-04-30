@@ -81,7 +81,7 @@ class LearnerDashboardActivity : AppCompatActivity() {
 
         // Setup search bar
         setupSearchBar()
-        
+
         // Load real data
         loadRealData()
     }
@@ -482,19 +482,27 @@ class LearnerDashboardActivity : AppCompatActivity() {
             val timeFormatter = SimpleDateFormat("h:mm a", Locale.getDefault())
 
             try {
+                // Don't set timezone - treat server time as local time
+
                 val startDateTime = dateTimeFormatter.parse(session.startTime)
                 val endDateTime = dateTimeFormatter.parse(session.endTime)
 
                 if (startDateTime != null && endDateTime != null) {
+                    // Don't change timezone for display
+
                     val formattedDate = dateFormatter.format(startDateTime)
                     val formattedStartTime = timeFormatter.format(startDateTime)
                     val formattedEndTime = timeFormatter.format(endDateTime)
+
+                    // Log time information for debugging
+                    Log.d(TAG, "Session time - Original: ${session.startTime} to ${session.endTime}")
+                    Log.d(TAG, "Session time - Formatted: $formattedStartTime to $formattedEndTime")
 
                     holder.date.text = formattedDate
                     holder.time.text = "$formattedStartTime - $formattedEndTime"
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error formatting date: ${e.message}")
+                Log.e(TAG, "Error formatting date: ${e.message}", e)
                 holder.date.text = "Invalid date"
                 holder.time.text = "Invalid time"
             }
@@ -674,7 +682,7 @@ class LearnerDashboardActivity : AppCompatActivity() {
     private fun disableSearchEditTextAutoFocus(viewGroup: ViewGroup) {
         for (i in 0 until viewGroup.childCount) {
             val child = viewGroup.getChildAt(i)
-            
+
             // Check if this is an EditText with "search" in its ID
             if (child is EditText && child.id != View.NO_ID) {
                 val idString = resources.getResourceEntryName(child.id)
@@ -682,7 +690,7 @@ class LearnerDashboardActivity : AppCompatActivity() {
                     // Disable focus and make not focusable in touch mode
                     child.isFocusable = false
                     child.isFocusableInTouchMode = false
-                    
+
                     // Special handling for searchEditText in learner dashboard
                     // which already has a click listener to navigate to search
                     if (child.id != R.id.searchEditText) {
@@ -695,14 +703,14 @@ class LearnerDashboardActivity : AppCompatActivity() {
                     }
                 }
             }
-            
+
             // Recursively check child view groups
             if (child is ViewGroup) {
                 disableSearchEditTextAutoFocus(child)
             }
         }
     }
-    
+
     /**
      * Prevents search edit text elements from auto-focusing when navigating between screens
      */
@@ -729,10 +737,10 @@ class LearnerDashboardActivity : AppCompatActivity() {
                         val user = userResult.getOrNull()
                         if (user != null) {
                             Log.d(TAG, "Successfully loaded user data for: ${user.firstName} ${user.lastName}")
-                            
+
                             // Update UI with user data if needed
                             // Example: Update profile image, name, etc.
-                            
+
                             // Load additional data if necessary
                             // loadAdditionalUserData(user.userId)
                         } else {
