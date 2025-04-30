@@ -4,6 +4,7 @@ import { useUser } from '../../context/UserContext';
 import { useWebSocket } from '../../context/WebSocketContext';
 import { toast } from 'react-toastify';
 import ErrorBoundary from '../../components/common/ErrorBoundary';
+import axios from 'axios';
 
 const TutorMessagesFallback = () => {
   return (
@@ -80,12 +81,114 @@ const TutorMessages = () => {
 
     const loadInitialConversations = async () => {
       try {
-        const result = await getConversations();
-        if (result.success) {
-          setConversations(result.conversations || []);
+        console.log('Trying to fetch tutor conversations directly from API...');
+        
+        // Try multiple direct API endpoints for tutor conversations in order
+        const endpoints = [
+          // First try the standard endpoints
+          `/api/conversations`,
+          // Then try more specific endpoints if available
+          `/api/conversations/findByUserRole/${user.userId}/TUTOR`,
+          `/api/conversations/user/${user.userId}`
+        ];
+        
+        let foundConversations = false;
+        
+        for (const endpoint of endpoints) {
+          try {
+            console.log(`Trying direct endpoint: ${endpoint}`);
+            const response = await axios.get(endpoint);
+            
+            if (response.data) {
+              let conversationsData = response.data;
+              
+              // Handle different response formats
+              if (!Array.isArray(conversationsData) && conversationsData.content) {
+                conversationsData = conversationsData.content;
+              }
+              
+              if (Array.isArray(conversationsData)) {
+                // Filter to include only conversations where this tutor is involved
+                const filteredConversations = conversationsData.filter(conv => {
+                  // Check several possible structures
+                  return (conv.tutor && conv.tutor.userId === user.userId) || 
+                         (conv.tutorId === user.userId) ||
+                         (conv.user1Id === user.userId) ||
+                         (conv.user2Id === user.userId);
+                });
+                
+                if (filteredConversations.length > 0) {
+                  console.log(`Found ${filteredConversations.length} tutor conversations via ${endpoint}`);
+                  
+                  // Map to the expected format
+                  const formattedConversations = filteredConversations.map(conv => {
+                    let studentId, studentUser;
+                    
+                    // Handle different API formats
+                    if (conv.student) {
+                      // Direct student/tutor format
+                      studentId = conv.student.userId;
+                      studentUser = conv.student;
+                    } else if (conv.studentId) {
+                      // ID-only format
+                      studentId = conv.studentId;
+                      studentUser = { userId: conv.studentId };
+                    } else if (conv.user1Id && conv.user1Id !== user.userId) {
+                      // Generic user format where user1 is the student
+                      studentId = conv.user1Id;
+                      studentUser = conv.user1 || { userId: conv.user1Id };
+                    } else if (conv.user2Id && conv.user2Id !== user.userId) {
+                      // Generic user format where user2 is the student
+                      studentId = conv.user2Id;
+                      studentUser = conv.user2 || { userId: conv.user2Id };
+                    } else {
+                      // Default case if we can't determine student
+                      studentId = 0;
+                      studentUser = { userId: 0 };
+                    }
+                    
+                    return {
+                      id: conv.conversationId || conv.id,
+                      conversationId: conv.conversationId || conv.id,
+                      serverConversationId: conv.conversationId || conv.id,
+                      user1Id: user.userId,
+                      user2Id: studentId,
+                      user1: user,
+                      user2: studentUser,
+                      student: studentUser,
+                      tutor: user,
+                      lastMessage: conv.lastMessage || "Start a conversation",
+                      updatedAt: conv.updatedAt || new Date().toISOString(),
+                      unreadCount: conv.unreadCount || 0
+                    };
+                  });
+                  
+                  setConversations(formattedConversations);
+                  foundConversations = true;
+                  break;
+                }
+              }
+            }
+          } catch (error) {
+            console.warn(`Endpoint ${endpoint} failed:`, error.message);
+            // Continue to the next endpoint
+          }
+        }
+        
+        // If we didn't find any conversations via direct API calls, try using the context
+        if (!foundConversations) {
+          console.log('No conversations found via direct API, trying context...');
+          const result = await getConversations();
+          
+          if (result.success && result.conversations.length > 0) {
+            console.log(`Found ${result.conversations.length} conversations via context`);
+            setConversations(result.conversations);
+          } else {
+            console.log('No conversations found via any method');
+          }
         }
       } catch (error) {
-        console.error('Error loading initial conversations:', error);
+        console.error('Error loading initial tutor conversations:', error);
       }
     };
 
@@ -94,22 +197,8 @@ const TutorMessages = () => {
     // Set up periodic fetching of new conversations
     // This is especially important for tutors to see when students initiate new conversations
     const interval = setInterval(async () => {
-      console.log('Checking for new conversations...');
-      try {
-        const result = await getConversations();
-        if (result.success) {
-          setConversations(prevConversations => {
-            // Only update if there are actually new or updated conversations
-            if (JSON.stringify(prevConversations) !== JSON.stringify(result.conversations)) {
-              console.log('New or updated conversations found');
-              return result.conversations || [];
-            }
-            return prevConversations;
-          });
-        }
-      } catch (error) {
-        console.error('Error checking for new conversations:', error);
-      }
+      console.log('Checking for new tutor conversations...');
+      loadInitialConversations();
     }, 15000); // Check every 15 seconds
 
     setFetchingInterval(interval);
@@ -310,13 +399,18 @@ const TutorMessages = () => {
     setError('');
     
     try {
+      // Get the ID of the student (receiver)
       const receiverId = activeConversation.user1Id === user.userId 
         ? activeConversation.user2Id 
         : activeConversation.user1Id;
       
-      console.log(`Sending message to ${receiverId} in conversation ${activeConversation.conversationId}`);
+      // Get the actual conversation ID
+      const conversationId = activeConversation.serverConversationId || activeConversation.conversationId || activeConversation.id;
       
-      const result = await sendMessage(activeConversation.conversationId, receiverId, newMessage.trim());
+      console.log(`Sending message to student ${receiverId} in conversation ${conversationId}`);
+      
+      const result = await sendMessage(conversationId, receiverId, newMessage.trim());
+      
       if (result.success) {
         setNewMessage('');
         // If this was stored locally only, show a small indicator
