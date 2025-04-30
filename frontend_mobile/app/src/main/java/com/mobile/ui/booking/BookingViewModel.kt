@@ -22,6 +22,7 @@ class BookingViewModel(
     private val subjectId: Long = -1,
     private val subjectName: String? = null
 ) : AndroidViewModel(application) {
+    private val TAG = "BookingViewModel"
     private val repository = BookingRepository()
     private val _bookingResult = MutableLiveData<Boolean>()
     val bookingResult: LiveData<Boolean> = _bookingResult
@@ -378,7 +379,11 @@ class BookingViewModel(
     ) {
         viewModelScope.launch {
             try {
-                _bookingState.value = _bookingState.value?.copy(isLoading = true)
+                _bookingState.value = _bookingState.value?.copy(
+                    isLoading = true,
+                    bookingComplete = false,  // Reset booking completion state
+                    error = null  // Clear any previous errors
+                )
 
                 // Get learner ID from SharedPreferences
                 val learnerId = sharedPreferences.getLong("user_id", -1).toString()
@@ -393,75 +398,62 @@ class BookingViewModel(
                 }
 
                 // Create a tutoring session through the NetworkUtils API
-                val result = NetworkUtils.createTutoringSession(
-                    tutorId = tutorId,
-                    studentId = learnerId.toLong(),
-                    startTime = startTime,
-                    endTime = endTime,
-                    subject = subject,
-                    sessionType = sessionType,
-                    notes = notes
-                )
-
-                result.fold(
-                    onSuccess = { _ ->
-                        _bookingState.value = _bookingState.value?.copy(
-                            isLoading = false,
-                            bookingComplete = true
-                        )
-                        callback(true)
-                    },
-                    onFailure = { exception ->
-                        // Fall back to the old method if the API call fails
-                        try {
-                            // Create booking object for the legacy API
-                            val legacyBooking = Booking(
-                                id = UUID.randomUUID().toString(),
-                                learnerId = learnerId,
-                                tutorId = tutorId.toString(),
-                                scheduleId = UUID.randomUUID().toString(), // This should come from backend
-                                status = "pending",
-                                startTime = startTime,
-                                endTime = endTime,
-                                subject = subject,
-                                sessionType = sessionType,
-                                notes = notes,
-                                createdAt = Date()
-                            )
-
-                            // Attempt to create the booking
-                            val fallbackResult = repository.createBooking(legacyBooking)
-                            fallbackResult.fold(
-                                onSuccess = {
-                                    _bookingState.value = _bookingState.value?.copy(
-                                        isLoading = false,
-                                        bookingComplete = true,
-                                        error = "Created using legacy system. Some features may be limited."
-                                    )
-                                    callback(true)
-                                },
-                                onFailure = { fallbackException ->
-                                    _bookingState.value = _bookingState.value?.copy(
-                                        isLoading = false,
-                                        error = fallbackException.message ?: "Failed to create booking"
-                                    )
-                                    callback(false)
-                                }
-                            )
-                        } catch (e: Exception) {
+                NetworkUtils.createSession(
+                    learnerId,
+                    tutorId,
+                    startTime,
+                    endTime,
+                    subject,
+                    sessionType,
+                    "",  // Empty string for location since it's not being passed to this method
+                    notes
+                ).collect { result ->
+                    try {
+                        if (result.isSuccess) {
+                            Log.d(TAG, "Session created successfully")
+                            
                             _bookingState.value = _bookingState.value?.copy(
                                 isLoading = false,
-                                error = exception.message ?: "Failed to create booking"
+                                bookingComplete = true,  // Set booking completion to true
+                                error = null
                             )
+                            
+                            // Call the callback with success
+                            callback(true)
+                            
+                        } else {
+                            val error = result.exceptionOrNull()
+                            Log.e(TAG, "Error creating session: ${error?.message}")
+                            
+                            _bookingState.value = _bookingState.value?.copy(
+                                isLoading = false,
+                                bookingComplete = false,
+                                error = error?.message ?: "Unknown error creating session"
+                            )
+                            
+                            // Call the callback with failure
                             callback(false)
                         }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Exception in bookSession: ${e.message}", e)
+                        
+                        _bookingState.value = _bookingState.value?.copy(
+                            isLoading = false,
+                            bookingComplete = false,
+                            error = e.message ?: "Exception creating session"
+                        )
+                        
+                        // Call the callback with failure
+                        callback(false)
                     }
-                )
+                }
             } catch (e: Exception) {
-                _bookingState.value = _bookingState.value?.copy(
+                Log.e("BookingViewModel", "Exception during booking: ${e.message}", e)
+                _bookingState.postValue(_bookingState.value?.copy(
                     isLoading = false,
+                    bookingComplete = false,
                     error = e.message ?: "An error occurred"
-                )
+                ))
                 callback(false)
             }
         }

@@ -150,15 +150,18 @@
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/messageButton"
                                 android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
+                                android:layout_height="56dp"
                                 android:layout_marginTop="8dp"
-                                android:layout_marginBottom="24dp"
                                 android:text="Message Tutor"
+                                android:textSize="16sp"
                                 android:textAllCaps="false"
+                                app:cornerRadius="12dp"
+                                android:backgroundTint="#E0E0E0"
+                                android:textColor="@color/black"
                                 app:icon="@drawable/ic_message"
                                 app:iconGravity="textStart"
-                                app:backgroundTint="@color/accent_color"
-                                style="@style/Widget.MaterialComponents.Button" />
+                                app:iconTint="@color/black"
+                                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
                         </LinearLayout>
                     </LinearLayout>
                 </LinearLayout>
@@ -628,30 +631,58 @@
                 android:textSize="16sp"
                 android:textStyle="bold"
                 android:textAllCaps="false"
+                android:layout_marginBottom="16dp"
                 app:cornerRadius="12dp"
                 android:backgroundTint="@color/primary_blue"
                 app:icon="@drawable/ic_check"
                 app:iconGravity="textStart" />
 
-            <!-- Progress and Error States -->
-            <ProgressBar
-                android:id="@+id/progressBar"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center_horizontal"
-                android:layout_marginTop="16dp"
-                android:visibility="gone"
-                android:indeterminateTint="@color/primary_blue" />
-
+            <!-- Error Text Display -->
             <TextView
                 android:id="@+id/errorTextView"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="16dp"
                 android:textColor="@color/error"
                 android:textSize="14sp"
                 android:gravity="center"
                 android:visibility="gone" />
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
+
+    <!-- Improved Loading Overlay - Full screen with semi-transparent background -->
+    <FrameLayout
+        android:id="@+id/progressOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#80000000"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_gravity="center"
+            android:gravity="center"
+            android:padding="24dp"
+            android:background="@drawable/bg_loading_dialog">
+
+            <ProgressBar
+                android:id="@+id/progressBar"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:indeterminateTint="@color/primary_blue" />
+
+            <TextView
+                android:id="@+id/loadingText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="Processing your booking..."
+                android:textColor="@color/black"
+                android:textSize="16sp" />
+        </LinearLayout>
+    </FrameLayout>
 </androidx.coordinatorlayout.widget.CoordinatorLayout> 

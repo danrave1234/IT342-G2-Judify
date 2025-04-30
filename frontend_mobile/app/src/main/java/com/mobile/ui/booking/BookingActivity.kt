@@ -295,12 +295,8 @@ class BookingActivity : AppCompatActivity() {
                 updateSessionSummary()
             }
             
-            // Handle loading state
-            if (state.isLoading) {
-                progressBar.visibility = View.VISIBLE
-            } else {
-                progressBar.visibility = View.GONE
-            }
+            // Handle loading state - IMPORTANT FIX: Only show progressBar when actively loading
+            progressBar.visibility = if (state.isLoading) View.VISIBLE else View.GONE
             
             // Handle errors
             state.error?.let { 
@@ -308,6 +304,12 @@ class BookingActivity : AppCompatActivity() {
                 errorText.visibility = View.VISIBLE
             } ?: run {
                 errorText.visibility = View.GONE
+            }
+            
+            // Handle successful booking completion
+            if (state.bookingComplete) {
+                // Show confirmation dialog and finish activity
+                showBookingConfirmationDialog()
             }
         }
         
@@ -345,14 +347,6 @@ class BookingActivity : AppCompatActivity() {
             
             // Log for debugging
             Log.d("BookingActivity", "Updated time slots: ${formattedTimeSlots.size} slots available")
-        }
-        
-        // Observe booking result
-        viewModel.bookingResult.observe(this) { success ->
-            if (success) {
-                Toast.makeText(this, "Session request sent! Waiting for tutor to accept.", Toast.LENGTH_LONG).show()
-                finish()
-            }
         }
     }
 
@@ -539,13 +533,17 @@ class BookingActivity : AppCompatActivity() {
     }
 
     private fun bookSession() {
+        showLoading(true, "Booking your session...")
+        
         if (selectedTimeSlot == null) {
             Toast.makeText(this, "Please select a time slot", Toast.LENGTH_SHORT).show()
+            showLoading(false)
             return
         }
         
         if (selectedSubject.isEmpty()) {
             Toast.makeText(this, "Please select a subject", Toast.LENGTH_SHORT).show()
+            showLoading(false)
             return
         }
         
@@ -555,11 +553,15 @@ class BookingActivity : AppCompatActivity() {
         
         // Split the selected time slot to get start time
         val timeParts = selectedTimeSlot!!.split(" - ")
-        if (timeParts.isEmpty()) return
+        if (timeParts.isEmpty()) {
+            showLoading(false)
+            return
+        }
         
         val selectedDate = findViewById<TextView>(R.id.selectedDateTextView).text.toString()
         if (selectedDate == "Select a date") {
             Toast.makeText(this, "Please select a date", Toast.LENGTH_SHORT).show()
+            showLoading(false)
             return
         }
         
@@ -605,8 +607,11 @@ class BookingActivity : AppCompatActivity() {
                 sessionType = selectedSessionType,
                 notes = notes
             ) { success ->
-                if (!success) {
-                    runOnUiThread {
+                // Note: This callback will be called by the ViewModel and should handle hiding loading
+                runOnUiThread {
+                    showLoading(false)
+                    if (!success) {
+                        // Only show error toast - successful booking is handled by the observer
                         Toast.makeText(this, "Failed to book session. Please try again.", Toast.LENGTH_SHORT).show()
                     }
                 }
@@ -614,6 +619,7 @@ class BookingActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Log.e("BookingActivity", "Error booking session: ${e.message}", e)
             Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+            showLoading(false)
         }
     }
 
@@ -711,19 +717,139 @@ class BookingActivity : AppCompatActivity() {
      * Show or hide loading indicators with optional message
      */
     private fun showLoading(isLoading: Boolean, message: String = "") {
+        val progressOverlay = findViewById<View>(R.id.progressOverlay)
+        val loadingText = findViewById<TextView>(R.id.loadingText)
+        
         if (isLoading) {
-            progressBar.visibility = View.VISIBLE
-            errorText.text = message
-            errorText.visibility = if (message.isNotEmpty()) View.VISIBLE else View.GONE
+            // Set the loading message if provided
+            if (message.isNotEmpty()) {
+                loadingText.text = message
+            } else {
+                loadingText.text = "Processing your booking..."
+            }
+            
+            // Show the full screen overlay
+            progressOverlay.visibility = View.VISIBLE
         } else {
-            progressBar.visibility = View.GONE
-            errorText.visibility = View.GONE
+            // Hide the overlay when done
+            progressOverlay.visibility = View.GONE
+        }
+    }
+
+    // Add a new method to show a styled confirmation dialog
+    private fun showBookingConfirmationDialog() {
+        try {
+            Log.d("BookingActivity", "Showing booking confirmation dialog")
+            
+            // Set result code immediately to indicate success
+            setResult(RESULT_OK)
+            Log.d("BookingActivity", "Set result code to RESULT_OK")
+            
+            // Determine if we can use Material Design dialog
+            val canUseMaterialDialog = try {
+                // Check if the MaterialComponents class is available
+                Class.forName("com.google.android.material.dialog.MaterialAlertDialogBuilder")
+                true
+            } catch (e: ClassNotFoundException) {
+                Log.w("BookingActivity", "MaterialAlertDialogBuilder not available, using AppCompat dialog")
+                false
+            }
+            
+            // Get the tutor name from the viewModel
+            val tutorName = viewModel.bookingState.value?.tutorProfile?.name ?: "the tutor"
+            val message = "Your session has been booked successfully! " +
+                          "You'll receive a notification when $tutorName confirms the session."
+            
+            // Create the appropriate dialog builder
+            if (canUseMaterialDialog) {
+                // Use Material Design dialog if available
+                val builder = androidx.appcompat.app.AlertDialog.Builder(this, R.style.AlertDialogTheme)
+                builder.setTitle("Booking Successful")
+                builder.setMessage(message)
+                builder.setPositiveButton("View My Sessions") { _, _ ->
+                    // Set a special result code to indicate we should switch to sessions tab
+                    Log.d("BookingActivity", "User clicked 'View My Sessions', setting RESULT_VIEW_SESSIONS")
+                    setResult(RESULT_VIEW_SESSIONS)
+                    Log.d("BookingActivity", "Finishing activity after 'View My Sessions'")
+                    
+                    // As a safety measure, directly navigate to LearnerDashboardActivity with a flag to show sessions
+                    try {
+                        val intent = Intent(this, Class.forName("com.mobile.ui.dashboard.LearnerDashboardActivity"))
+                        intent.putExtra("SHOW_SESSIONS", true)
+                        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                        startActivity(intent)
+                    } catch (e: Exception) {
+                        Log.e("BookingActivity", "Error navigating to dashboard: ${e.message}", e)
+                    }
+                    
+                    finish()
+                }
+                builder.setNegativeButton("Done") { _, _ -> 
+                    Log.d("BookingActivity", "User clicked 'Done', keeping RESULT_OK")
+                    Log.d("BookingActivity", "Finishing activity after 'Done'")
+                    finish()
+                }
+                
+                // Create and show the dialog
+                val dialog = builder.create()
+                dialog.setCancelable(false) // Prevent dismissal by tapping outside
+                dialog.show()
+                Log.d("BookingActivity", "Dialog shown successfully")
+            } else {
+                // Fallback to standard Android dialog
+                val builder = androidx.appcompat.app.AlertDialog.Builder(this)
+                builder.setTitle("Booking Successful")
+                builder.setMessage(message)
+                builder.setPositiveButton("View My Sessions") { _, _ -> 
+                    // Set a special result code to indicate we should switch to sessions tab
+                    Log.d("BookingActivity", "User clicked 'View My Sessions', setting RESULT_VIEW_SESSIONS")
+                    setResult(RESULT_VIEW_SESSIONS)
+                    Log.d("BookingActivity", "Finishing activity after 'View My Sessions'")
+                    
+                    // As a safety measure, directly navigate to LearnerDashboardActivity with a flag to show sessions
+                    try {
+                        val intent = Intent(this, Class.forName("com.mobile.ui.dashboard.LearnerDashboardActivity"))
+                        intent.putExtra("SHOW_SESSIONS", true)
+                        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                        startActivity(intent)
+                    } catch (e: Exception) {
+                        Log.e("BookingActivity", "Error navigating to dashboard: ${e.message}", e)
+                    }
+                    
+                    finish()
+                }
+                builder.setNegativeButton("Done") { _, _ -> 
+                    Log.d("BookingActivity", "User clicked 'Done', keeping RESULT_OK")
+                    Log.d("BookingActivity", "Finishing activity after 'Done'")
+                    finish()
+                }
+                
+                // Create and show the dialog
+                val dialog = builder.create()
+                dialog.setCancelable(false) // Prevent dismissal by tapping outside
+                dialog.show()
+                Log.d("BookingActivity", "Dialog shown successfully")
+            }
+        } catch (e: Exception) {
+            Log.e("BookingActivity", "Error showing confirmation dialog: ${e.message}", e)
+            Toast.makeText(this, "Session booked successfully!", Toast.LENGTH_LONG).show()
+            Log.d("BookingActivity", "Finishing activity after toast fallback")
+            finish()
         }
     }
 
     override fun onSupportNavigateUp(): Boolean {
+        // When the up button is pressed, set result as canceled and finish
+        setResult(RESULT_CANCELED)
+        Log.d("BookingActivity", "Navigate up pressed, setting RESULT_CANCELED")
         onBackPressed()
         return true
+    }
+
+    override fun onBackPressed() {
+        setResult(RESULT_CANCELED)
+        Log.d("BookingActivity", "Back button pressed, setting RESULT_CANCELED")
+        super.onBackPressed()
     }
 
     companion object {
@@ -731,6 +857,8 @@ class BookingActivity : AppCompatActivity() {
         const val EXTRA_SUBJECT_ID = "extra_subject_id"
         const val EXTRA_SUBJECT_NAME = "extra_subject_name"
         const val REQUEST_LOCATION_PICK = 1001
+        const val REQUEST_BOOKING = 2001
+        const val RESULT_VIEW_SESSIONS = 100 // Custom result code to show sessions
 
         fun newIntent(context: Context, tutorId: Long): Intent {
             return Intent(context, BookingActivity::class.java).apply {

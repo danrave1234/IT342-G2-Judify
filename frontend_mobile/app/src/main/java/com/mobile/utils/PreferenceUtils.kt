@@ -265,4 +265,20 @@ object PreferenceUtils {
         }
         return sharedPreferences.getLong(KEY_TUTOR_ID, -1)
     }
+
+    /**
+     * Save a boolean value with a custom key
+     */
+    fun saveBoolean(context: Context, key: String, value: Boolean) {
+        val editor = getPreferences(context).edit()
+        editor.putBoolean(key, value)
+        editor.apply()
+    }
+
+    /**
+     * Get a boolean value with a custom key
+     */
+    fun getBoolean(context: Context, key: String, defaultValue: Boolean): Boolean {
+        return getPreferences(context).getBoolean(key, defaultValue)
+    }
 } 

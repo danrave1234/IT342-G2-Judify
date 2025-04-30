@@ -84,6 +84,104 @@ class LearnerDashboardActivity : AppCompatActivity() {
         
         // Load real data
         loadRealData()
+        
+        // Check if we need to show sessions section (from booking completion)
+        if (intent.getBooleanExtra("SHOW_SESSIONS", false)) {
+            Log.d(TAG, "SHOW_SESSIONS flag detected, scrolling to sessions section")
+            
+            // Give the UI time to render before scrolling
+            binding.dashboardScrollView.post {
+                try {
+                    val sessionsHeader = findViewWithText(binding.root, "All Sessions")
+                    if (sessionsHeader != null) {
+                        val yPosition = sessionsHeader.y.toInt()
+                        Log.d(TAG, "Found sessions header at position $yPosition, scrolling")
+                        binding.dashboardScrollView.smoothScrollTo(0, yPosition - 50) // Offset to see the header
+                    } else {
+                        // Fallback to showing the RecyclerView
+                        binding.allSessionsRecyclerView.y.let { yPosition ->
+                            Log.d(TAG, "Could not find header, using RecyclerView at position $yPosition")
+                            binding.dashboardScrollView.smoothScrollTo(0, yPosition.toInt() - 100)
+                        }
+                    }
+                    
+                    // Show a toast to confirm successful booking
+                    Toast.makeText(this, "Session booked successfully!", Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error scrolling to sessions: ${e.message}", e)
+                }
+            }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        Log.d(TAG, "onResume called")
+        
+        // Refresh data when returning to the dashboard, but only if we're showing main content
+        if (binding.dashboardScrollView.visibility == View.VISIBLE) {
+            // We don't need to refresh every time, only if there might be changes
+            val refreshNeeded = PreferenceUtils.getBoolean(this, "needs_session_refresh", false)
+            if (refreshNeeded) {
+                Log.d(TAG, "Session refresh needed, reloading data")
+                // Reset the flag
+                PreferenceUtils.saveBoolean(this, "needs_session_refresh", false)
+                // Reload data
+                loadRealData()
+            }
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        Log.d(TAG, "onActivityResult: requestCode=$requestCode, resultCode=$resultCode")
+        
+        if (requestCode == BookingActivity.REQUEST_BOOKING) {
+            Log.d(TAG, "Returned from BookingActivity")
+            
+            if (resultCode == RESULT_OK || resultCode == BookingActivity.RESULT_VIEW_SESSIONS) {
+                Log.d(TAG, "Booking was successful, setting refresh flag and reloading sessions")
+                
+                // Set flag that we need to refresh sessions
+                PreferenceUtils.saveBoolean(this, "needs_session_refresh", true)
+                
+                // Refresh sessions list when returning from booking
+                loadLearnerSessions()
+                
+                // If the result is to view sessions, update UI to focus on sessions
+                if (resultCode == BookingActivity.RESULT_VIEW_SESSIONS) {
+                    Log.d(TAG, "RESULT_VIEW_SESSIONS received, scrolling to sessions section")
+                    
+                    // Scroll to sessions section - find the view by looking at TextView with "All Sessions" text
+                    binding.dashboardScrollView.post {
+                        try {
+                            val sessionsHeader = findViewWithText(binding.root, "All Sessions")
+                            if (sessionsHeader != null) {
+                                val yPosition = sessionsHeader.y.toInt()
+                                Log.d(TAG, "Found sessions header at position $yPosition, scrolling")
+                                binding.dashboardScrollView.smoothScrollTo(0, yPosition - 50) // Offset to see the header
+                            } else {
+                                // Fallback to showing the RecyclerView
+                                binding.allSessionsRecyclerView.y.let { yPosition ->
+                                    Log.d(TAG, "Could not find header, using RecyclerView at position $yPosition")
+                                    binding.dashboardScrollView.smoothScrollTo(0, yPosition.toInt() - 100)
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error scrolling to sessions: ${e.message}", e)
+                        }
+                    }
+                    
+                    // Show a success message
+                    Toast.makeText(this, "Session booked successfully!", Toast.LENGTH_SHORT).show()
+                } else {
+                    Log.d(TAG, "Standard success result received, showing toast")
+                    Toast.makeText(this, "Session booked successfully!", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                Log.d(TAG, "Booking was canceled or unsuccessful, resultCode=$resultCode")
+            }
+        }
     }
 
     // Load tutors from the network
@@ -163,12 +261,11 @@ class LearnerDashboardActivity : AppCompatActivity() {
             val formattedRating = String.format("%.1f", tutor.rating)
             tutorRatingBadge.text = formattedRating
 
-            // Set click listener to view tutor profile
+            // Set click listener to view tutor profile - use startActivityForResult
             tutorView.setOnClickListener {
-                val intent = Intent(this, BookingActivity::class.java).apply {
-                    putExtra(BookingActivity.EXTRA_TUTOR_ID, tutor.id)
-                }
-                startActivity(intent)
+                Log.d(TAG, "Tutor clicked: ${tutor.id} - ${tutor.name}")
+                val intent = BookingActivity.newIntent(this, tutor.id)
+                startActivityForResult(intent, BookingActivity.REQUEST_BOOKING)
             }
 
             container.addView(tutorView)
@@ -770,6 +867,21 @@ class LearnerDashboardActivity : AppCompatActivity() {
                 Toast.LENGTH_SHORT
             ).show()
         }
+    }
+
+    /**
+     * Helper function to find a TextView with specific text in the view hierarchy
+     */
+    private fun findViewWithText(root: View, text: String): TextView? {
+        if (root is TextView && root.text == text) {
+            return root
+        } else if (root is ViewGroup) {
+            for (i in 0 until root.childCount) {
+                val found = findViewWithText(root.getChildAt(i), text)
+                if (found != null) return found
+            }
+        }
+        return null
     }
 
 }
