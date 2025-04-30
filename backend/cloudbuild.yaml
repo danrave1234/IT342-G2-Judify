@@ -14,15 +14,15 @@ steps:
   - name: 'gcr.io/k8s-skaffold/pack'
     args:
       - build
-      - 'gcr.io/${PROJECT_ID}/${_SERVICE_NAME}:${COMMIT_SHA}' # Output image name
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/${_SERVICE_NAME}:${COMMIT_SHA}' # Output image name
       - '--builder=gcr.io/buildpacks/builder'                 # Standard Google builder
       - '--path=.'                                            # Source code path relative to the 'dir' below
     dir: 'backend/'                                           # Change directory *before* running pack
     id: 'Build Image with Buildpacks'
 
-  # Step 3: Push the built image to Container Registry
+  # Step 3: Push the built image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io/${PROJECT_ID}/${_SERVICE_NAME}:${COMMIT_SHA}']
+    args: ['push', '${_REGION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/${_SERVICE_NAME}:${COMMIT_SHA}']
     id: 'Push Image'
 
   # Step 4: Deploy the image to Cloud Run
@@ -31,7 +31,7 @@ steps:
       - run
       - deploy
       - '${_SERVICE_NAME}' # Your Cloud Run service name
-      - '--image=gcr.io/${PROJECT_ID}/${_SERVICE_NAME}:${COMMIT_SHA}' # Image just built
+      - '--image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/${_SERVICE_NAME}:${COMMIT_SHA}' # Image just built
       - '--region=${_REGION}'
       - '--platform=managed'
       - '--allow-unauthenticated' # Or configure auth
@@ -40,7 +40,7 @@ steps:
 
 # Define the final image name
 images:
-  - 'gcr.io/${PROJECT_ID}/${_SERVICE_NAME}:${COMMIT_SHA}'
+  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/${_SERVICE_NAME}:${COMMIT_SHA}'
 
 # Use the Compute Engine Service Account (as configured before)
 serviceAccount: 'projects/${PROJECT_ID}/serviceAccounts/795422705086-compute@developer.gserviceaccount.com'
