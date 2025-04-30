@@ -1,6 +1,5 @@
 HELP.md
 target/
-!.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
 
@@ -37,3 +36,7 @@ build/
 
 ## .env.local
 .env.local
+
+package-lock.json
+
+credentials.json

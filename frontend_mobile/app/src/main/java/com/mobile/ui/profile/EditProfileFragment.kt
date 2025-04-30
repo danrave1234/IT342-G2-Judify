@@ -28,9 +28,7 @@ class EditProfileFragment : Fragment() {
     private lateinit var profileImage: CircleImageView
     private lateinit var firstNameEditText: EditText
     private lateinit var lastNameEditText: EditText
-    private lateinit var usernameEditText: EditText
     private lateinit var emailEditText: EditText
-    private lateinit var contactDetailsEditText: EditText
     private lateinit var bioEditText: EditText
     private lateinit var saveButton: Button
     private lateinit var cancelButton: Button // Keep for potential future use or alternative UI
@@ -105,9 +103,7 @@ class EditProfileFragment : Fragment() {
         profileImage = view.findViewById(R.id.profileImageView)
         firstNameEditText = view.findViewById(R.id.firstNameEditText)
         lastNameEditText = view.findViewById(R.id.lastNameEditText)
-        usernameEditText = view.findViewById(R.id.usernameEditText)
         emailEditText = view.findViewById(R.id.emailEditText)
-        contactDetailsEditText = view.findViewById(R.id.contactDetailsEditText)
         bioEditText = view.findViewById(R.id.bioEditText)
         saveButton = view.findViewById(R.id.saveButton)
         cancelButton = view.findViewById(R.id.cancelButton)
@@ -201,8 +197,10 @@ class EditProfileFragment : Fragment() {
         firstNameEditText.setText(firstName)
         lastNameEditText.setText(lastName)
         emailEditText.setText(user.email)
-        usernameEditText.setText(user.username ?: "") // Populate username here
 
+        // Check for contactDetails from the NetworkUtils call
+        // This will be populated via setupObservers -> loadAdditionalFromPreferences
+        
         if (user.profileImageUrl != null && user.profileImageUrl.isNotEmpty()) {
             // TODO: Load image from URL using Glide or Picasso
             profileImage.setImageResource(R.drawable.default_profile)
@@ -213,12 +211,31 @@ class EditProfileFragment : Fragment() {
 
     // Loads only fields not part of the User model (bio, contact)
     private fun loadAdditionalFromPreferences() {
-        Log.d(TAG, "Loading additional fields (bio, contact) from preferences.")
+        Log.d(TAG, "Loading additional fields (bio) from preferences.")
         val context = requireContext()
-        val contactDetails = PreferenceUtils.getUserContactDetails(context)
-        contactDetailsEditText.setText(contactDetails ?: "") // Set to empty string if null
-        val bio = PreferenceUtils.getUserBio(context)
-        bioEditText.setText(bio ?: "") // Set to empty string if null
+        
+        // Determine if bio section should be visible based on user role
+        val userRole = PreferenceUtils.getUserRole(context)
+        if (userRole.equals("LEARNER", ignoreCase = true) || userRole.equals("STUDENT", ignoreCase = true)) {
+            // Hide bio for learners/students
+            val bioSection = view?.findViewById<TextView>(R.id.bioSection)
+            val bioCard = view?.findViewById<View>(R.id.bioCard)
+            bioSection?.visibility = View.GONE
+            bioCard?.visibility = View.GONE
+            Log.d(TAG, "Hiding bio section for role: $userRole")
+        } else {
+            // Only load bio for non-student roles
+            val bio = PreferenceUtils.getUserBio(context)
+            
+            // Make sure to set empty string if null, not the string "null"
+            if (bio == "null" || bio == null) {
+                bioEditText.setText("")
+                Log.d(TAG, "Cleared 'null' bio value")
+            } else {
+                bioEditText.setText(bio)
+                Log.d(TAG, "Bio from preferences: '$bio'")
+            }
+        }
     }
 
     // Loads all fields from preferences (fallback)
@@ -228,25 +245,51 @@ class EditProfileFragment : Fragment() {
         firstNameEditText.setText(PreferenceUtils.getUserFirstName(context) ?: "")
         lastNameEditText.setText(PreferenceUtils.getUserLastName(context) ?: "")
         emailEditText.setText(PreferenceUtils.getUserEmail(context) ?: "")
-        usernameEditText.setText(PreferenceUtils.getUserUsername(context) ?: "")
-        contactDetailsEditText.setText(PreferenceUtils.getUserContactDetails(context) ?: "")
-        bioEditText.setText(PreferenceUtils.getUserBio(context) ?: "")
+        
+        // Determine if bio section should be visible based on user role
+        val userRole = PreferenceUtils.getUserRole(context)
+        if (userRole.equals("LEARNER", ignoreCase = true) || userRole.equals("STUDENT", ignoreCase = true)) {
+            // Hide bio for learners/students
+            val bioSection = view?.findViewById<TextView>(R.id.bioSection)
+            val bioCard = view?.findViewById<View>(R.id.bioCard)
+            bioSection?.visibility = View.GONE
+            bioCard?.visibility = View.GONE
+            Log.d(TAG, "Hiding bio section for role: $userRole (fallback load)")
+        } else {
+            // Only load bio for non-student roles
+            val bio = PreferenceUtils.getUserBio(context)
+            
+            // Make sure to set empty string if null, not the string "null"
+            if (bio == "null" || bio == null) {
+                bioEditText.setText("")
+                Log.d(TAG, "Cleared 'null' bio value (fallback)")
+            } else {
+                bioEditText.setText(bio)
+                Log.d(TAG, "Bio from preferences (fallback): '$bio'")
+            }
+        }
     }
 
 
     private fun saveProfile() {
         val firstName = firstNameEditText.text.toString().trim()
         val lastName = lastNameEditText.text.toString().trim()
-        val username = usernameEditText.text.toString().trim()
+        // Get username from preferences instead of UI since we removed the field
+        val username = PreferenceUtils.getUserUsername(requireContext()) ?: ""
         val email = emailEditText.text.toString().trim()
-        // Handle potentially empty strings correctly, don't save "null"
-        val contactDetails = contactDetailsEditText.text.toString().trim().let { if (it.equals("null", ignoreCase = true)) "" else it }
-        val bio = bioEditText.text.toString().trim().let { if (it.equals("null", ignoreCase = true)) "" else it }
-
+        
+        // Use existing contact details from preferences, don't update it
+        val contactDetails = PreferenceUtils.getUserContactDetails(requireContext()) ?: ""
+        
+        // Get bio only if user is not a student/learner
+        val userRole = PreferenceUtils.getUserRole(requireContext())
+        val bio = if (!userRole.equals("LEARNER", ignoreCase = true) && !userRole.equals("STUDENT", ignoreCase = true)) {
+            bioEditText.text.toString().trim().let { if (it.equals("null", ignoreCase = true)) "" else it }
+        } else ""
 
         // Basic validation
-        if (firstName.isEmpty() || lastName.isEmpty() || username.isEmpty() || email.isEmpty()) {
-            Toast.makeText(requireContext(), "Please fill in all required fields (First Name, Last Name, Username, Email)", Toast.LENGTH_LONG).show()
+        if (firstName.isEmpty() || lastName.isEmpty() || email.isEmpty()) {
+            Toast.makeText(requireContext(), "Please fill in all required fields (First Name, Last Name, Email)", Toast.LENGTH_LONG).show()
             return
         }
         if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
@@ -257,12 +300,23 @@ class EditProfileFragment : Fragment() {
 
         Log.d(TAG, "Attempting to save profile: firstName=$firstName, lastName=$lastName, username=$username, email=$email, contact='$contactDetails', bio='$bio'")
 
-        // Save username and bio directly to preferences immediately for faster UI update
-        // Pass empty string "" if the field is empty, not null or "null"
+        // Save directly to preferences for faster UI update
+        // We still keep username in preferences for the backend API calls
         PreferenceUtils.saveUserUsername(requireContext(), username)
-        PreferenceUtils.saveUserBio(requireContext(), bio)
-        PreferenceUtils.saveUserContactDetails(requireContext(), contactDetails) // Also save contact details to prefs
-        Log.d(TAG, "Username, Bio, and ContactDetails saved directly to preferences.")
+        
+        // Only save bio if user is not a learner/student
+        if (!userRole.equals("LEARNER", ignoreCase = true) && !userRole.equals("STUDENT", ignoreCase = true)) {
+            PreferenceUtils.saveUserBio(requireContext(), bio)
+            Log.d(TAG, "Saved bio to preferences: '$bio'")
+        } else {
+            // For learners/students, save empty bio
+            PreferenceUtils.saveUserBio(requireContext(), "")
+            Log.d(TAG, "Saved empty bio for student/learner")
+        }
+        
+        // Don't update contact details, keep existing value
+        
+        Log.d(TAG, "Username and Bio saved directly to preferences.")
 
         // Call ViewModel to update the profile (this will handle loading state and backend update)
         viewModel.updateUserProfile(firstName, lastName, email, username, contactDetails)

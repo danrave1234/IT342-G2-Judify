@@ -172,11 +172,11 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
      * @param firstName First name
      * @param lastName Last name
      * @param email Email address
-     * @param username Username
-     * @param contactDetails Optional contact details (phone number)
+     * @param username Username (now fetched from preferences rather than UI)
+     * @param contactDetails Optional contact details from preferences (field removed from UI)
      */
     fun updateUserProfile(firstName: String, lastName: String, email: String, username: String, contactDetails: String?) {
-        Log.d(TAG, "updateUserProfile called: name=$firstName $lastName, email=$email, username=$username, contact=$contactDetails")
+        Log.d(TAG, "updateUserProfile called: name=$firstName $lastName, email=$email, username=$username, contact='$contactDetails'")
         val currentState = _profileState.value ?: ProfileState()
         // Set loading state, clear previous error and success flag
         _profileState.value = currentState.copy(isLoading = true, error = null, isUpdateSuccessful = false)
@@ -186,6 +186,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
             try {
                 val context = getApplication<Application>()
                 val userId = PreferenceUtils.getUserId(context)
+                val userRole = PreferenceUtils.getUserRole(context)
 
                 if (userId != null) {
                     Log.d(TAG, "Updating user ID: $userId")
@@ -198,9 +199,9 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                         firstName = firstName,
                         lastName = lastName,
                         profilePicture = currentState.user?.profileImageUrl, // Keep existing image URL
-                        contactDetails = contactDetails ?: "", // Send empty string if null
-                        roles = PreferenceUtils.getUserRole(context) ?: "LEARNER", // Get role from prefs
-                        username = username // Include username
+                        contactDetails = contactDetails ?: "", // Send existing contact details from preferences
+                        roles = userRole, // Get role from prefs
+                        username = username // Include username from preferences
                     )
 
                     Log.d(TAG, "Calling NetworkUtils.updateUser for userId: $userId with user: $apiUser")
