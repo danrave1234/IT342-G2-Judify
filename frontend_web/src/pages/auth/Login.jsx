@@ -191,29 +191,6 @@ const Login = () => {
         </div>
       </form>
 
-      {/* Test account buttons for development */}
-      {process.env.NODE_ENV !== 'production' && (
-        <div className="mt-4 flex flex-col space-y-2">
-          <div className="text-xs text-gray-500 dark:text-gray-400 text-center">Development test accounts:</div>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              className="text-xs py-1 px-2 border border-gray-300 dark:border-gray-700 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
-              onClick={() => useTestAccount('student')}
-            >
-              Use Student Account
-            </button>
-            <button
-              type="button"
-              className="text-xs py-1 px-2 border border-gray-300 dark:border-gray-700 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
-              onClick={() => useTestAccount('tutor')}
-            >
-              Use Tutor Account
-            </button>
-          </div>
-        </div>
-      )}
-
       <div className="mt-6">
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
