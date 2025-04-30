@@ -48,7 +48,7 @@ export const authApi = {
     // Try multiple API formats since the backend might expect different formats
     try {
       // First attempt: Use params in a POST request (most likely format)
-      return await API.post(`/api/users/authenticate`, null, {
+      return await API.post(`/users/authenticate`, null, {
         params: {
           email: email,
           password: password
@@ -59,13 +59,13 @@ export const authApi = {
 
       try {
         // Second attempt: Use query string in URL (fallback)
-        return await API.post(`/api/users/authenticate?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`);
+        return await API.post(`/users/authenticate?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`);
       } catch (error2) {
         console.log('Second login attempt failed, trying sending in body:', error2);
 
         try {
           // Third attempt: Send credentials in request body
-          return await API.post('/api/users/authenticate', { email, password });
+          return await API.post('/users/authenticate', { email, password });
         } catch (error3) {
           console.error('All login attempts failed:', error3);
 
@@ -134,7 +134,7 @@ export const authApi = {
     });
 
     // Send the registration request to the new endpoint
-    return API.post('/api/users/register', registrationData, {
+    return API.post('/users/register', registrationData, {
       headers: {
         'Content-Type': 'application/json'
       }
@@ -156,8 +156,8 @@ export const authApi = {
       throw error;
     });
   },
-  getCurrentUserFromToken: () => API.get('/api/users/findById/' + JSON.parse(localStorage.getItem('user'))?.userId || 0),
-  resetPassword: (email) => API.post('/api/users/reset-password', { email }),
+  getCurrentUserFromToken: () => API.get('/users/findById/' + JSON.parse(localStorage.getItem('user'))?.userId || 0),
+  resetPassword: (email) => API.post('/users/reset-password', { email }),
 };
 
 // User API endpoints
@@ -166,11 +166,11 @@ export const userApi = {
     const userData = localStorage.getItem('user');
     if (!userData) return Promise.reject("No user logged in");
     const user = JSON.parse(userData);
-    return API.get(`/api/users/findById/${user.userId}`);
+    return API.get(`/users/findById/${user.userId}`);
   },
-  updateUser: (userId, userData) => API.put(`/api/users/updateUser/${userId}`, userData),
+  updateUser: (userId, userData) => API.put(`/users/updateUser/${userId}`, userData),
   uploadProfilePicture: (userId, formData) => 
-    API.post(`/api/users/${userId}/profile-picture`, formData, {
+    API.post(`/users/${userId}/profile-picture`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -178,7 +178,7 @@ export const userApi = {
   // New function to get users by role
   getUsersByRole: (role, params = {}) => {
     console.log(`Fetching users with role: ${role}`, params);
-    return API.get(`/api/users/findByRole/${role}`, { params });
+    return API.get(`/users/findByRole/${role}`, { params });
   },
   // New function to search users by name or username with role filter
   searchUsers: (query = '', role = 'TUTOR', params = {}) => {

@@ -11,15 +11,17 @@ const isProduction = () => {
      !window.location.hostname.includes('127.0.0.1'));
 };
 
-// Configure axios defaults - don't include /api in baseURL for production
-// The /api prefix is added in the individual API calls
+// Configure axios defaults - ALWAYS use the full backend URL
 const api = axios.create({
-  baseURL: isProduction() ? BACKEND_URL : '',
+  baseURL: BACKEND_URL,
   timeout: 15000, // 15 seconds timeout
   headers: {
     'Content-Type': 'application/json'
   }
 });
+
+// Log the current baseURL configuration
+console.log(`API configured with baseURL: ${api.defaults.baseURL}`);
 
 // Add request interceptor to include auth token
 api.interceptors.request.use(
@@ -28,6 +30,12 @@ api.interceptors.request.use(
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
+    
+    // Log API requests in development
+    if (!isProduction()) {
+      console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
+    }
+    
     return config;
   },
   (error) => {
