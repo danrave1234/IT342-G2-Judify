@@ -446,15 +446,13 @@ const Register = () => {
           </div>
         </div>
 
-        <div className="mt-6 grid grid-cols-3 gap-3">
-          <button 
-            type="button" 
-            className="auth-social-button"
-            onClick={handleGoogleSignup}
-          >
-            <FaGoogle className="text-red-500" />
+        <div className="mt-6 flex justify-center">
+          <button
+              type="button"
+              className="auth-social-button flex items-center justify-center"
+              onClick={handleGoogleSignup}>
+            <FaGoogle className="text-red-500 text-xl" />
           </button>
-
         </div>
       </div>
 
@@ -466,6 +464,7 @@ const Register = () => {
           </Link>
         </p>
       </div>
+
     </div>
   );
 };
