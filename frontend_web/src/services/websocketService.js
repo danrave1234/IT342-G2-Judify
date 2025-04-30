@@ -7,6 +7,31 @@ if (typeof window !== 'undefined' && typeof window.global === 'undefined') {
   window.global = window;
 }
 
+// Backend URL for production - use environment variable if available
+const BACKEND_URL = import.meta.env.VITE_API_URL || 'https://judify-795422705086.asia-east1.run.app';
+const WS_URL = import.meta.env.VITE_WS_URL || BACKEND_URL;
+
+// Determine if we're in production based on environment or URL
+const isProduction = () => {
+  return import.meta.env.PROD || 
+    (typeof window !== 'undefined' && 
+     !window.location.hostname.includes('localhost') && 
+     !window.location.hostname.includes('127.0.0.1'));
+};
+
+// Get the base URL for API calls
+const getBaseUrl = () => {
+  if (isProduction()) {
+    return BACKEND_URL;
+  }
+  return '';  // Use relative URLs in development
+};
+
+// Configure axios base URL
+if (isProduction()) {
+  axios.defaults.baseURL = BACKEND_URL;
+}
+
 class MessageService {
   constructor() {
     this.isConnected = false;
@@ -64,8 +89,12 @@ class MessageService {
     
     console.log('Setting up WebSocket connection...');
     
-    // Create WebSocket connection
-    const socket = new SockJS('/ws');
+    // Create WebSocket connection - use absolute URL in production
+    const socketUrl = isProduction() ? 
+      `${WS_URL}/ws` : 
+      '/ws';
+    
+    const socket = new SockJS(socketUrl);
     this.stompClient = Stomp.over(socket);
     
     // Disable heartbeat (optional, helps with debugging)
@@ -363,61 +392,25 @@ class MessageService {
 
   // Load conversation messages once
   async loadConversationMessages(conversationId, page = 0, size = 20) {
+    if (!this.userId) {
+      console.error('Not connected to message service');
+      return { success: false, messages: [], hasMore: false };
+    }
+    
     try {
-      console.log(`Loading messages for conversation ${conversationId}, page ${page}`);
+      console.log(`Loading messages for conversation ${conversationId}, page ${page}, size ${size}`);
       
-      // Check if user is a tutor (tutors should always use the server endpoint)
-      const userStr = localStorage.getItem('user');
-      const user = userStr ? JSON.parse(userStr) : null;
-      const isTutor = user?.role === 'TUTOR';
+      const baseUrl = getBaseUrl();
       
-      // Check if the conversationId is numeric or client-generated
-      const isNumericId = /^\d+$/.test(conversationId.toString());
-      
-      let response;
-      let messagesFromServer = false;
-      
-      // For tutors, always try the backend endpoints first
-      if (isTutor || isNumericId) {
-        // Try multiple approaches to ensure tutors can see student messages
-        const endpoints = [
-          // Primary endpoint
-          {
-            url: `/api/messages/findByConversationPaginated/${conversationId}`,
-            params: { page, size, order: 'ASC' } // ASC is oldest first, which is what we want
-          },
-          // Backup endpoint that might have different permission structure
-          {
-            url: `/api/conversations/${conversationId}/messages`,
-            params: { page, size, order: 'ASC' }
-          },
-          // Direct user messages endpoint for tutors
-          {
-            url: `/api/messages/conversation/${conversationId}`,
-            params: { page, size, order: 'ASC' }
+      // First, try to get messages from the backend using the modern endpoint
+      try {
+        const response = await axios.get(`${baseUrl}/api/messages/conversation/${conversationId}`, {
+          params: {
+            page,
+            size
           }
-        ];
-      
-        // Try each endpoint until one works
-        for (const endpoint of endpoints) {
-          try {
-            console.log(`Trying to fetch messages from endpoint: ${endpoint.url}`);
-            response = await axios.get(endpoint.url, { params: endpoint.params });
-            
-            if (response?.data) {
-              messagesFromServer = true;
-              console.log(`Successfully fetched messages using endpoint: ${endpoint.url}`);
-              break;
-            }
-          } catch (err) {
-            console.warn(`Endpoint ${endpoint.url} failed:`, err.message);
-            // Continue to the next endpoint
-          }
-        }
-      }
-      
-      // If we have server data, process it
-      if (messagesFromServer && response?.data) {
+        });
+        
         // Handle different response formats
         let messages = [];
         let hasMore = false;
@@ -455,32 +448,67 @@ class MessageService {
           totalPages: totalPages,
           totalElements: totalElements
         };
+      } catch (apiError) {
+        console.warn(`Primary message endpoint failed for conversation ${conversationId}:`, apiError.message);
+        
+        // Try the fallback endpoint that might exist on some backend versions
+        try {
+          const fallbackResponse = await axios.get(`${baseUrl}/api/messages`, {
+            params: {
+              conversationId,
+              page,
+              size
+            }
+          });
+          
+          // Handle different response formats
+          let messages = [];
+          let hasMore = false;
+          let totalPages = 1;
+          let totalElements = 0;
+          
+          if (Array.isArray(fallbackResponse.data)) {
+            // Direct array of messages
+            messages = fallbackResponse.data;
+            hasMore = false;
+            totalElements = messages.length;
+          } else if (fallbackResponse.data.content) {
+            // Paginated response
+            messages = fallbackResponse.data.content;
+            hasMore = fallbackResponse.data.totalPages > page + 1;
+            totalPages = fallbackResponse.data.totalPages;
+            totalElements = fallbackResponse.data.totalElements;
+          } else {
+            // Unknown format, try to extract messages
+            messages = fallbackResponse.data.messages || fallbackResponse.data;
+          }
+          
+          // Store messages in localStorage as backup
+          try {
+            const storageKey = `judify_messages_${conversationId}`;
+            localStorage.setItem(storageKey, JSON.stringify(messages));
+          } catch (e) {
+            console.warn('Failed to store messages in localStorage:', e);
+          }
+          
+          return {
+            success: true,
+            messages: messages,
+            hasMore: hasMore,
+            totalPages: totalPages,
+            totalElements: totalElements
+          };
+        } catch (fallbackError) {
+          console.error(`Fallback message endpoint failed for conversation ${conversationId}:`, fallbackError.message);
+          return {
+            success: false,
+            messages: [],
+            hasMore: false,
+            totalPages: 0,
+            totalElements: 0
+          };
+        }
       }
-      
-      // For client-generated IDs or if server request failed, check localStorage
-      const storageKey = `judify_messages_${conversationId}`;
-      const storedMessages = localStorage.getItem(storageKey);
-      
-      if (storedMessages) {
-        const parsedMessages = JSON.parse(storedMessages);
-        return {
-          success: true,
-          messages: parsedMessages,
-          hasMore: false,
-          totalPages: 1,
-          totalElements: parsedMessages.length,
-          fromLocalStorage: true
-        };
-      }
-      
-      // If no stored messages, return empty array
-      return {
-        success: true,
-        messages: [],
-        hasMore: false,
-        totalPages: 0,
-        totalElements: 0
-      };
       
     } catch (error) {
       console.error(`Error loading messages for conversation ${conversationId}:`, error);
@@ -516,61 +544,25 @@ class MessageService {
 
   // Load older messages (pagination)
   async loadMoreMessages(conversationId, page, size = 20) {
+    if (!this.userId) {
+      console.error('Not connected to message service');
+      return { success: false, messages: [], hasMore: false };
+    }
+    
     try {
-      console.log(`Loading more messages for conversation ${conversationId}, page ${page}`);
+      console.log(`Loading more messages for conversation ${conversationId}, page ${page}, size ${size}`);
       
-      // Check if user is a tutor
-      const userStr = localStorage.getItem('user');
-      const user = userStr ? JSON.parse(userStr) : null;
-      const isTutor = user?.role === 'TUTOR';
+      const baseUrl = getBaseUrl();
       
-      // Check if conversationId is numeric
-      const isNumericId = /^\d+$/.test(conversationId.toString());
-      
-      let response;
-      let messagesFromServer = false;
-      
-      // For tutors or numeric IDs, always try server endpoints
-      if (isTutor || isNumericId) {
-        // Try multiple approaches to ensure tutors can see student messages
-        const endpoints = [
-          // Primary endpoint
-          {
-            url: `/api/messages/findByConversationPaginated/${conversationId}`,
-            params: { page, size, order: 'DESC' }
-          },
-          // Backup endpoint
-          {
-            url: `/api/conversations/${conversationId}/messages`,
-            params: { page, size, order: 'DESC' }
-          },
-          // Direct user messages endpoint
-          {
-            url: `/api/messages/conversation/${conversationId}`,
-            params: { page, size, order: 'DESC' }
+      // First, try to get messages from the backend using the modern endpoint
+      try {
+        const response = await axios.get(`${baseUrl}/api/messages/conversation/${conversationId}`, {
+          params: {
+            page,
+            size
           }
-        ];
+        });
         
-        // Try each endpoint until one works
-        for (const endpoint of endpoints) {
-          try {
-            console.log(`Trying to fetch more messages from endpoint: ${endpoint.url}`);
-            response = await axios.get(endpoint.url, { params: endpoint.params });
-            
-            if (response?.data) {
-              messagesFromServer = true;
-              console.log(`Successfully fetched more messages using endpoint: ${endpoint.url}`);
-              break;
-            }
-          } catch (err) {
-            console.warn(`Endpoint ${endpoint.url} failed when loading more messages:`, err.message);
-            // Continue to the next endpoint
-          }
-        }
-      }
-      
-      // If we have server data, process it
-      if (messagesFromServer && response?.data) {
         // Handle different response formats
         let messages = [];
         let hasMore = false;
@@ -624,17 +616,83 @@ class MessageService {
           totalPages: totalPages,
           totalElements: totalElements
         };
+      } catch (apiError) {
+        console.warn(`Primary message endpoint failed for conversation ${conversationId}:`, apiError.message);
+        
+        // Try the fallback endpoint that might exist on some backend versions
+        try {
+          const fallbackResponse = await axios.get(`${baseUrl}/api/messages`, {
+            params: {
+              conversationId,
+              page,
+              size
+            }
+          });
+          
+          // Handle different response formats
+          let messages = [];
+          let hasMore = false;
+          let totalPages = 1;
+          let totalElements = 0;
+          
+          if (Array.isArray(fallbackResponse.data)) {
+            // Direct array of messages
+            messages = fallbackResponse.data;
+            hasMore = false;
+            totalElements = messages.length;
+          } else if (fallbackResponse.data.content) {
+            // Paginated response
+            messages = fallbackResponse.data.content;
+            hasMore = fallbackResponse.data.totalPages > page + 1;
+            totalPages = fallbackResponse.data.totalPages;
+            totalElements = fallbackResponse.data.totalElements;
+          } else {
+            // Unknown format, try to extract messages
+            messages = fallbackResponse.data.messages || fallbackResponse.data;
+          }
+          
+          // Update the local storage with the merged messages
+          try {
+            const storageKey = `judify_messages_${conversationId}`;
+            const existingMessagesStr = localStorage.getItem(storageKey);
+            
+            if (existingMessagesStr) {
+              const existingMessages = JSON.parse(existingMessagesStr);
+              
+              // Filter out duplicates (based on messageId)
+              const messageIds = new Set(existingMessages.map(m => m.messageId));
+              const uniqueNewMessages = messages.filter(m => !messageIds.has(m.messageId));
+              
+              // Merge and sort
+              const mergedMessages = [...existingMessages, ...uniqueNewMessages]
+                .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+              
+              localStorage.setItem(storageKey, JSON.stringify(mergedMessages));
+            } else {
+              localStorage.setItem(storageKey, JSON.stringify(messages));
+            }
+          } catch (e) {
+            console.warn('Failed to update messages in localStorage:', e);
+          }
+          
+          return {
+            success: true,
+            messages: messages,
+            hasMore: hasMore,
+            totalPages: totalPages,
+            totalElements: totalElements
+          };
+        } catch (fallbackError) {
+          console.error(`Fallback message endpoint failed for conversation ${conversationId}:`, fallbackError.message);
+          return {
+            success: false,
+            messages: [],
+            hasMore: false,
+            totalPages: 0,
+            totalElements: 0
+          };
+        }
       }
-      
-      // For client-generated IDs, we already have all messages in localStorage
-      return {
-        success: false,
-        messages: [],
-        hasMore: false,
-        totalPages: 0,
-        totalElements: 0,
-        error: 'No more messages available'
-      };
       
     } catch (error) {
       console.error(`Error loading more messages for conversation ${conversationId}:`, error);

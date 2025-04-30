@@ -10,15 +10,15 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        target: 'https://judify-795422705086.asia-east1.run.app',
         changeOrigin: true,
-        secure: false
+        secure: true
       },
       '/ws': {
-        target: 'http://localhost:8080',
+        target: 'https://judify-795422705086.asia-east1.run.app',
         ws: true,
         changeOrigin: true,
-        secure: false,
+        secure: true,
       }
     }
   },
