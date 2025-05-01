@@ -1,12 +1,15 @@
-import axios from 'axios';
+import api from '../services/api';
 
 // Create an axios instance with defaults
-const API = axios.create({
-  baseURL: '/api',
+const API = api.create({
+  baseURL: api.defaults.baseURL + '/api',
   headers: {
     'Content-Type': 'application/json',
   },
 });
+
+// Log API configuration
+console.log(`API client configured with baseURL: ${API.defaults.baseURL}`);
 
 // Request interceptor for adding auth token
 API.interceptors.request.use(
@@ -294,11 +297,10 @@ export const tutorAvailabilityApi = {
     // Log the request being made
     console.log(`Fetching availabilities for tutor ID: ${tutorId}`);
     
-    // Use the correct endpoint - no /api prefix to avoid duplicates
+    // Make the request and return
     const url = `/tutor-availability/findByTutor/${tutorId}`;
     console.log(`GET request to: ${url}`);
     
-    // Make the request and return
     return API.get(url)
       .then(response => {
         console.log('Availability API response successful:', response);
