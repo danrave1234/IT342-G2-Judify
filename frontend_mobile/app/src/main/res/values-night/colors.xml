@@ -21,5 +21,4 @@
 
     <!-- Other Colors -->
     <color name="error_color">#CF6679</color>
-    <color name="bottom_nav_color">@color/white</color>
 </resources> 

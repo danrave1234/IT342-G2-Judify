@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import edu.cit.Judify.Conversation.DTO.ConversationDTO;
@@ -40,13 +41,19 @@ public class ConversationController {
     private final ConversationDTOMapper conversationDTOMapper;
     private final UserService userService;
     private final TutorProfileService tutorProfileService;
+    private final edu.cit.Judify.TutoringSession.TutoringSessionService tutoringSessionService;
 
     @Autowired
-    public ConversationController(ConversationService conversationService, ConversationDTOMapper conversationDTOMapper, UserService userService, TutorProfileService tutorProfileService) {
+    public ConversationController(ConversationService conversationService, 
+                                 ConversationDTOMapper conversationDTOMapper, 
+                                 UserService userService, 
+                                 TutorProfileService tutorProfileService,
+                                 edu.cit.Judify.TutoringSession.TutoringSessionService tutoringSessionService) {
         this.conversationService = conversationService;
         this.conversationDTOMapper = conversationDTOMapper;
         this.userService = userService;
         this.tutorProfileService = tutorProfileService;
+        this.tutoringSessionService = tutoringSessionService;
     }
 
     @Operation(summary = "Create a new conversation or find existing", description = "Creates a new conversation between two users or returns an existing one")
@@ -152,7 +159,8 @@ public class ConversationController {
     @PostMapping("/createWithTutor/{studentUserId}/{tutorId}")
     public ResponseEntity<ConversationDTO> createConversationWithTutor(
             @Parameter(description = "Student user ID") @PathVariable Long studentUserId,
-            @Parameter(description = "Tutor profile ID") @PathVariable Long tutorId) {
+            @Parameter(description = "Tutor profile ID") @PathVariable Long tutorId,
+            @Parameter(description = "Session ID (optional)") @RequestParam(required = false) Long sessionId) {
         try {
             // Get student user
             UserEntity studentUser = userService.getUserById(studentUserId)
@@ -183,6 +191,19 @@ public class ConversationController {
             System.out.println("DEBUG: Created conversation ID: " + conversation.getConversationId() + 
                               " between student: " + conversation.getStudent().getUserId() + 
                               " and tutor: " + conversation.getTutor().getUserId());
+
+            // If sessionId is provided, update the session with the conversation
+            if (sessionId != null) {
+                try {
+                    System.out.println("DEBUG: Updating session " + sessionId + " with conversation " + conversation.getConversationId());
+                    tutoringSessionService.updateSessionWithConversation(sessionId, conversation);
+                    System.out.println("DEBUG: Successfully updated session with conversation");
+                } catch (Exception e) {
+                    // Log the error but don't fail the conversation creation
+                    System.out.println("ERROR: Failed to update session with conversation: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            }
 
             return ResponseEntity.ok(conversationDTOMapper.toDTO(conversation));
         } catch (RuntimeException e) {
@@ -223,11 +244,11 @@ public class ConversationController {
             if (!conversationOpt.isPresent()) {
                 return ResponseEntity.notFound().build();
             }
-            
+
             ConversationEntity conversation = conversationOpt.get();
-            
+
             // No need to modify the conversation - the DTO mapper will set the names correctly
-            
+
             // Return the conversation with updated names
             return ResponseEntity.ok(conversationDTOMapper.toDTO(conversation));
         } catch (Exception e) {

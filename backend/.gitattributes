@@ -1,2 +1,11 @@
+
+# Ensure mvnw script uses Linux line endings (LF)
+# The text attribute implies line ending normalization.
+# The eol=lf explicitly sets it to LF.
 /mvnw text eol=lf
+
+# Ensure Windows batch files use CRLF (if you have any, like mvnw.cmd)
 *.cmd text eol=crlf
+
+# You might want to ensure pom.xml is treated as text too
+pom.xml text

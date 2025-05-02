@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useUser } from './UserContext';
-import WebSocketService from '../services/WebSocketService';
+import WebSocketService from '../services/websocketService';
 import axios from 'axios';
 
 const WebSocketContext = createContext(null);

@@ -15,11 +15,13 @@
     <!-- Primary brand colors -->
     <color name="primary_blue">#4F6CFF</color>
     <color name="primary_blue_dark">#1E40AF</color>
+    <color name="primary_dark_blue">#1976D2</color>
     <color name="primary_blue_light">#E3F2FD</color>
     
     <!-- Secondary colors -->
     <color name="secondary_color">#03A9F4</color>
     <color name="secondary_color_dark">#0288D1</color>
+    <color name="secondary_dark_color">#018786</color>
     <color name="secondary_color_light">#B3E5FC</color>
     
     <!-- Accent colors -->
@@ -31,19 +33,26 @@
     <color name="text_primary">#212121</color>
     <color name="text_secondary">#757575</color>
     <color name="text_hint">#BDBDBD</color>
+    <color name="dark_text_secondary">#B3FFFFFF</color>
     
     <!-- Background colors -->
     <color name="background_light">#F5F5F5</color>
     <color name="background_dark">#121212</color>
     <color name="card_background">#FFFFFF</color>
     <color name="card_background_dark">#1E1E1E</color>
+    <color name="dark_background">#121212</color>
+    <color name="dark_surface">#1E1E1E</color>
+    <color name="dark_status_bar">#000000</color>
+    <color name="dark_nav_bar">#1E1E1E</color>
     
     <!-- Status colors -->
     <color name="success">#4CAF50</color>
     <color name="warning">#FF9800</color>
     <color name="error">#F44336</color>
+    <color name="error_color">#F44336</color>
     <color name="info">#2196F3</color>
     
     <!-- New color values -->
     <color name="light_gray">#DDDDDD</color>
+    <color name="gray">#757575</color>
 </resources>

@@ -81,9 +81,107 @@ class LearnerDashboardActivity : AppCompatActivity() {
 
         // Setup search bar
         setupSearchBar()
-        
+
         // Load real data
         loadRealData()
+
+        // Check if we need to show sessions section (from booking completion)
+        if (intent.getBooleanExtra("SHOW_SESSIONS", false)) {
+            Log.d(TAG, "SHOW_SESSIONS flag detected, scrolling to sessions section")
+
+            // Give the UI time to render before scrolling
+            binding.dashboardScrollView.post {
+                try {
+                    val sessionsHeader = findViewWithText(binding.root, "All Sessions")
+                    if (sessionsHeader != null) {
+                        val yPosition = sessionsHeader.y.toInt()
+                        Log.d(TAG, "Found sessions header at position $yPosition, scrolling")
+                        binding.dashboardScrollView.smoothScrollTo(0, yPosition - 50) // Offset to see the header
+                    } else {
+                        // Fallback to showing the RecyclerView
+                        binding.allSessionsRecyclerView.y.let { yPosition ->
+                            Log.d(TAG, "Could not find header, using RecyclerView at position $yPosition")
+                            binding.dashboardScrollView.smoothScrollTo(0, yPosition.toInt() - 100)
+                        }
+                    }
+
+                    // Show a toast to confirm successful booking
+                    Toast.makeText(this, "Session booked successfully!", Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error scrolling to sessions: ${e.message}", e)
+                }
+            }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        Log.d(TAG, "onResume called")
+
+        // Refresh data when returning to the dashboard, but only if we're showing main content
+        if (binding.dashboardScrollView.visibility == View.VISIBLE) {
+            // We don't need to refresh every time, only if there might be changes
+            val refreshNeeded = PreferenceUtils.getBoolean(this, "needs_session_refresh", false)
+            if (refreshNeeded) {
+                Log.d(TAG, "Session refresh needed, reloading data")
+                // Reset the flag
+                PreferenceUtils.saveBoolean(this, "needs_session_refresh", false)
+                // Reload data
+                loadRealData()
+            }
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        Log.d(TAG, "onActivityResult: requestCode=$requestCode, resultCode=$resultCode")
+
+        if (requestCode == BookingActivity.REQUEST_BOOKING) {
+            Log.d(TAG, "Returned from BookingActivity")
+
+            if (resultCode == RESULT_OK || resultCode == BookingActivity.RESULT_VIEW_SESSIONS) {
+                Log.d(TAG, "Booking was successful, setting refresh flag and reloading sessions")
+
+                // Set flag that we need to refresh sessions
+                PreferenceUtils.saveBoolean(this, "needs_session_refresh", true)
+
+                // Refresh sessions list when returning from booking
+                loadLearnerSessions()
+
+                // If the result is to view sessions, update UI to focus on sessions
+                if (resultCode == BookingActivity.RESULT_VIEW_SESSIONS) {
+                    Log.d(TAG, "RESULT_VIEW_SESSIONS received, scrolling to sessions section")
+
+                    // Scroll to sessions section - find the view by looking at TextView with "All Sessions" text
+                    binding.dashboardScrollView.post {
+                        try {
+                            val sessionsHeader = findViewWithText(binding.root, "All Sessions")
+                            if (sessionsHeader != null) {
+                                val yPosition = sessionsHeader.y.toInt()
+                                Log.d(TAG, "Found sessions header at position $yPosition, scrolling")
+                                binding.dashboardScrollView.smoothScrollTo(0, yPosition - 50) // Offset to see the header
+                            } else {
+                                // Fallback to showing the RecyclerView
+                                binding.allSessionsRecyclerView.y.let { yPosition ->
+                                    Log.d(TAG, "Could not find header, using RecyclerView at position $yPosition")
+                                    binding.dashboardScrollView.smoothScrollTo(0, yPosition.toInt() - 100)
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error scrolling to sessions: ${e.message}", e)
+                        }
+                    }
+
+                    // Show a success message
+                    Toast.makeText(this, "Session booked successfully!", Toast.LENGTH_SHORT).show()
+                } else {
+                    Log.d(TAG, "Standard success result received, showing toast")
+                    Toast.makeText(this, "Session booked successfully!", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                Log.d(TAG, "Booking was canceled or unsuccessful, resultCode=$resultCode")
+            }
+        }
     }
 
     // Load tutors from the network
@@ -163,12 +261,11 @@ class LearnerDashboardActivity : AppCompatActivity() {
             val formattedRating = String.format("%.1f", tutor.rating)
             tutorRatingBadge.text = formattedRating
 
-            // Set click listener to view tutor profile
+            // Set click listener to view tutor profile - use startActivityForResult
             tutorView.setOnClickListener {
-                val intent = Intent(this, BookingActivity::class.java).apply {
-                    putExtra(BookingActivity.EXTRA_TUTOR_ID, tutor.id)
-                }
-                startActivity(intent)
+                Log.d(TAG, "Tutor clicked: ${tutor.id} - ${tutor.name}")
+                val intent = BookingActivity.newIntent(this, tutor.id)
+                startActivityForResult(intent, BookingActivity.REQUEST_BOOKING)
             }
 
             container.addView(tutorView)
@@ -470,31 +567,113 @@ class LearnerDashboardActivity : AppCompatActivity() {
             return ViewHolder(view)
         }
 
+        /**
+         * Converts a time string in 24-hour format (HH:mm:ss) to 12-hour format (h:mm a)
+         */
+        private fun formatTime(timeString: String): String {
+            try {
+                // Extract hour and minute from the time string (format: HH:mm:ss or HH:mm)
+                val timeParts = timeString.split(":")
+                if (timeParts.size >= 2) {
+                    val hour = timeParts[0].toInt()
+                    val minute = timeParts[1].toInt()
+
+                    // Convert to 12-hour format
+                    val hour12 = when {
+                        hour == 0 -> 12 // 00:00 becomes 12:00 AM
+                        hour > 12 -> hour - 12 // 13:00 becomes 1:00 PM
+                        else -> hour // 10:00 stays as 10:00 AM
+                    }
+
+                    // Determine AM/PM
+                    val amPm = if (hour < 12) "AM" else "PM"
+
+                    // Format the time
+                    return String.format("%d:%02d %s", hour12, minute, amPm)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error formatting time: $timeString", e)
+            }
+
+            // Return original if parsing fails
+            return timeString
+        }
+
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             val session = sessions[position]
 
             // Set session details
             holder.subject.text = session.subject
 
-            // Format date and time
-            val dateTimeFormatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
-            val dateFormatter = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
-            val timeFormatter = SimpleDateFormat("h:mm a", Locale.getDefault())
-
             try {
-                val startDateTime = dateTimeFormatter.parse(session.startTime)
-                val endDateTime = dateTimeFormatter.parse(session.endTime)
-
-                if (startDateTime != null && endDateTime != null) {
-                    val formattedDate = dateFormatter.format(startDateTime)
-                    val formattedStartTime = timeFormatter.format(startDateTime)
-                    val formattedEndTime = timeFormatter.format(endDateTime)
-
-                    holder.date.text = formattedDate
-                    holder.time.text = "$formattedStartTime - $formattedEndTime"
+                // Extract date and time parts from the session time strings
+                val startTimeParts = if (session.startTime.contains("T")) {
+                    // ISO format (2025-05-05T17:00:00)
+                    val parts = session.startTime.split("T")
+                    if (parts.size == 2) {
+                        Pair(parts[0], parts[1]) // date, time
+                    } else {
+                        Pair("", "")
+                    }
+                } else {
+                    // SQL format (2025-05-05 17:00:00)
+                    val parts = session.startTime.split(" ")
+                    if (parts.size == 2) {
+                        Pair(parts[0], parts[1]) // date, time
+                    } else {
+                        Pair("", "")
+                    }
                 }
+
+                val endTimeParts = if (session.endTime.contains("T")) {
+                    val parts = session.endTime.split("T")
+                    if (parts.size == 2) {
+                        Pair(parts[0], parts[1]) // date, time
+                    } else {
+                        Pair("", "")
+                    }
+                } else {
+                    val parts = session.endTime.split(" ")
+                    if (parts.size == 2) {
+                        Pair(parts[0], parts[1]) // date, time
+                    } else {
+                        Pair("", "")
+                    }
+                }
+
+                // Format the date
+                val dateStr = startTimeParts.first
+                val dateFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                val displayDateFormatter = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+
+                val date = dateFormatter.parse(dateStr)
+                val formattedDate = if (date != null) {
+                    displayDateFormatter.format(date)
+                } else {
+                    "Date not available"
+                }
+
+                // Format the time using our simple formatter
+                val startTimeStr = startTimeParts.second
+                val endTimeStr = endTimeParts.second
+
+                // Get just the HH:mm part (remove seconds if present)
+                val startTimeHHMM = startTimeStr.split(".")[0].substring(0, Math.min(5, startTimeStr.length))
+                val endTimeHHMM = endTimeStr.split(".")[0].substring(0, Math.min(5, endTimeStr.length))
+
+                // Convert to 12-hour format
+                val formattedStartTime = formatTime(startTimeHHMM)
+                val formattedEndTime = formatTime(endTimeHHMM)
+
+                // Log time information for debugging
+                Log.d(TAG, "Session time - Original: '${session.startTime}' to '${session.endTime}'")
+                Log.d(TAG, "Session time - Extracted: '$startTimeHHMM' to '$endTimeHHMM'")
+                Log.d(TAG, "Session time - Formatted: '$formattedStartTime' to '$formattedEndTime'")
+
+                holder.date.text = formattedDate
+                holder.time.text = "$formattedStartTime - $formattedEndTime"
             } catch (e: Exception) {
-                Log.e(TAG, "Error formatting date: ${e.message}")
+                Log.e(TAG, "Error formatting date: ${e.message}", e)
                 holder.date.text = "Invalid date"
                 holder.time.text = "Invalid time"
             }
@@ -588,10 +767,11 @@ class LearnerDashboardActivity : AppCompatActivity() {
                                 openConversation(existingConversation.id, tutorId, session.tutorName)
                             } else {
                                 // Create new conversation using tutorId and studentId instead of user IDs
-                                Log.d(TAG, "Creating new conversation with studentId=$currentUserId, tutorId=$tutorId")
+                                Log.d(TAG, "Creating new conversation with studentId=$currentUserId, tutorId=$tutorId, sessionId=${session.id}")
 
                                 // Use createConversationWithTutor which handles the conversion of tutorId to userId
-                                val createResult = NetworkUtils.createConversationWithTutor(currentUserId, tutorId)
+                                // Pass the session ID to associate the conversation with the session
+                                val createResult = NetworkUtils.createConversationWithTutor(currentUserId, tutorId, session.id)
 
                                 if (createResult.isSuccess) {
                                     val newConversation = createResult.getOrNull()
@@ -674,7 +854,7 @@ class LearnerDashboardActivity : AppCompatActivity() {
     private fun disableSearchEditTextAutoFocus(viewGroup: ViewGroup) {
         for (i in 0 until viewGroup.childCount) {
             val child = viewGroup.getChildAt(i)
-            
+
             // Check if this is an EditText with "search" in its ID
             if (child is EditText && child.id != View.NO_ID) {
                 val idString = resources.getResourceEntryName(child.id)
@@ -682,7 +862,7 @@ class LearnerDashboardActivity : AppCompatActivity() {
                     // Disable focus and make not focusable in touch mode
                     child.isFocusable = false
                     child.isFocusableInTouchMode = false
-                    
+
                     // Special handling for searchEditText in learner dashboard
                     // which already has a click listener to navigate to search
                     if (child.id != R.id.searchEditText) {
@@ -695,14 +875,14 @@ class LearnerDashboardActivity : AppCompatActivity() {
                     }
                 }
             }
-            
+
             // Recursively check child view groups
             if (child is ViewGroup) {
                 disableSearchEditTextAutoFocus(child)
             }
         }
     }
-    
+
     /**
      * Prevents search edit text elements from auto-focusing when navigating between screens
      */
@@ -729,10 +909,10 @@ class LearnerDashboardActivity : AppCompatActivity() {
                         val user = userResult.getOrNull()
                         if (user != null) {
                             Log.d(TAG, "Successfully loaded user data for: ${user.firstName} ${user.lastName}")
-                            
+
                             // Update UI with user data if needed
                             // Example: Update profile image, name, etc.
-                            
+
                             // Load additional data if necessary
                             // loadAdditionalUserData(user.userId)
                         } else {
@@ -770,6 +950,21 @@ class LearnerDashboardActivity : AppCompatActivity() {
                 Toast.LENGTH_SHORT
             ).show()
         }
+    }
+
+    /**
+     * Helper function to find a TextView with specific text in the view hierarchy
+     */
+    private fun findViewWithText(root: View, text: String): TextView? {
+        if (root is TextView && root.text == text) {
+            return root
+        } else if (root is ViewGroup) {
+            for (i in 0 until root.childCount) {
+                val found = findViewWithText(root.getChildAt(i), text)
+                if (found != null) return found
+            }
+        }
+        return null
     }
 
 }
