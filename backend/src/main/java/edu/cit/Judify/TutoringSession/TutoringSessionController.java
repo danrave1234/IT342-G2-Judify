@@ -121,7 +121,7 @@ public class TutoringSessionController {
             System.out.println("Converted DTO to entity, student ID: " + (session.getStudent() != null ? session.getStudent().getUserId() : "null"));
 
             // No longer automatically create conversation for each booked session
-            
+
             TutoringSessionEntity savedSession = sessionService.createSession(session);
             System.out.println("Session saved successfully with ID: " + savedSession.getSessionId());
 
@@ -369,6 +369,26 @@ public class TutoringSessionController {
 
         Page<TutoringSessionDTO> sessionDTOs = sessions.map(sessionDTOMapper::toDTO);
         return ResponseEntity.ok(sessionDTOs);
+    }
+
+    @Operation(summary = "Check for overlapping approved sessions", 
+               description = "Checks if there are any approved sessions that overlap with the given time range for a specific tutor")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Check completed successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid input parameters")
+    })
+    @GetMapping("/checkOverlap")
+    public ResponseEntity<Boolean> checkOverlappingApprovedSessions(
+            @Parameter(description = "Tutor ID") @RequestParam Long tutorId,
+            @Parameter(description = "Start time") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Date startTime,
+            @Parameter(description = "End time") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Date endTime) {
+
+        if (tutorId == null || startTime == null || endTime == null) {
+            return ResponseEntity.badRequest().body(null);
+        }
+
+        boolean hasOverlap = sessionService.hasOverlappingApprovedSessions(tutorId, startTime, endTime);
+        return ResponseEntity.ok(hasOverlap);
     }
 
     @Operation(summary = "Accept a tutoring session", description = "Tutor accepts a pending tutoring session")

@@ -311,6 +311,7 @@ class TutorDashboardActivity : AppCompatActivity() {
         return timeText
     }
 
+
     private fun setupBottomNavigation() {
         val bottomNavigation = findViewById<BottomNavigationView>(R.id.bottomNavigation)
         bottomNavigation.setOnItemSelectedListener { item ->
@@ -661,46 +662,6 @@ class TutorDashboardActivity : AppCompatActivity() {
 
 
     /**
-     * Load mock tutoring sessions when real data can't be loaded
-     */
-    private fun loadMockSessions(tutorId: Long) {
-        // Set session counts
-        binding.totalSessionsCount.text = "5"
-        binding.upcomingSessionsCount.text = "2"
-
-        // Create mock session data
-        val mockSessions = listOf(
-            NetworkUtils.TutoringSession(
-                id = System.currentTimeMillis(),
-                tutorId = tutorId,
-                learnerId = "2",
-                startTime = getFormattedFutureTime(2), // 2 days from now
-                endTime = getFormattedFutureTime(2, hoursToAdd = 2), // 2 hours later
-                status = "CONFIRMED",
-                subject = "Mathematics",
-                sessionType = "ONLINE",
-                notes = "Review calculus concepts",
-                conversationId = null
-            ),
-            NetworkUtils.TutoringSession(
-                id = System.currentTimeMillis() + 1,
-                tutorId = tutorId,
-                learnerId = "3",
-                startTime = getFormattedFutureTime(5), // 5 days from now
-                endTime = getFormattedFutureTime(5, hoursToAdd = 1), // 1 hour later
-                status = "PENDING",
-                subject = "Physics",
-                sessionType = "IN_PERSON",
-                notes = "Prepare for final exam",
-                conversationId = null
-            )
-        )
-
-        // Display the mock sessions
-        displaySessions(mockSessions)
-    }
-
-    /**
      * Helper method to generate formatted future date strings for tests
      */
     private fun getFormattedFutureTime(daysToAdd: Int, hoursToAdd: Int = 0): String {
@@ -952,6 +913,38 @@ class TutorDashboardActivity : AppCompatActivity() {
         binding.noSessionsText.visibility = View.VISIBLE
     }
 
+    /**
+     * Converts a time string in 24-hour format (HH:mm:ss) to 12-hour format (h:mm a)
+     */
+    private fun formatTime(timeString: String): String {
+        try {
+            // Extract hour and minute from the time string (format: HH:mm:ss or HH:mm)
+            val timeParts = timeString.split(":")
+            if (timeParts.size >= 2) {
+                val hour = timeParts[0].toInt()
+                val minute = timeParts[1].toInt()
+
+                // Convert to 12-hour format
+                val hour12 = when {
+                    hour == 0 -> 12 // 00:00 becomes 12:00 AM
+                    hour > 12 -> hour - 12 // 13:00 becomes 1:00 PM
+                    else -> hour // 10:00 stays as 10:00 AM
+                }
+
+                // Determine AM/PM
+                val amPm = if (hour < 12) "AM" else "PM"
+
+                // Format the time
+                return String.format("%d:%02d %s", hour12, minute, amPm)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error formatting time: $timeString", e)
+        }
+
+        // Return original if parsing fails
+        return timeString
+    }
+
     private fun addSessionCard(session: NetworkUtils.TutoringSession) {
         // Create a card for the session
         val cardView = layoutInflater.inflate(R.layout.item_session_card, null) as CardView
@@ -966,61 +959,79 @@ class TutorDashboardActivity : AppCompatActivity() {
         // Log raw session data for debugging
         Log.d(TAG, "Raw session data - Start: '${session.startTime}', End: '${session.endTime}'")
 
-        // Format date and time - handle multiple possible server time formats
-        val isoDateTimeFormatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
-        val sqlDateTimeFormatter = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-        val dateFormatter = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
-        val timeFormatter = SimpleDateFormat("h:mm a", Locale.getDefault())
-
-        // Don't set timezone - treat server time as local time
-
         try {
-            // Try to parse with different formats based on the format detected
-            val startDateTime: Date?
-            val endDateTime: Date?
-
-            if (session.startTime.contains("T")) {
-                // ISO format (2025-05-05T20:00:00)
-                Log.d(TAG, "Parsing time using ISO format")
-                startDateTime = isoDateTimeFormatter.parse(session.startTime)
-                endDateTime = isoDateTimeFormatter.parse(session.endTime)
+            // Extract date and time parts from the session time strings
+            val startTimeParts = if (session.startTime.contains("T")) {
+                // ISO format (2025-05-05T17:00:00)
+                val parts = session.startTime.split("T")
+                if (parts.size == 2) {
+                    Pair(parts[0], parts[1]) // date, time
+                } else {
+                    Pair("", "")
+                }
             } else {
-                // SQL format (2025-05-05 20:00:00)
-                Log.d(TAG, "Parsing time using SQL format")
-                startDateTime = sqlDateTimeFormatter.parse(session.startTime)
-                endDateTime = sqlDateTimeFormatter.parse(session.endTime)
+                // SQL format (2025-05-05 17:00:00)
+                val parts = session.startTime.split(" ")
+                if (parts.size == 2) {
+                    Pair(parts[0], parts[1]) // date, time
+                } else {
+                    Pair("", "")
+                }
             }
 
-            if (startDateTime != null && endDateTime != null) {
-                // Don't change timezone for display
-
-                val formattedDate = dateFormatter.format(startDateTime)
-                val formattedStartTime = timeFormatter.format(startDateTime)
-                val formattedEndTime = timeFormatter.format(endDateTime)
-
-                // Log time information for debugging
-                Log.d(TAG, "Session time - Original: '${session.startTime}' to '${session.endTime}'")
-                Log.d(TAG, "Session time - Parsed Unix: ${startDateTime.time} to ${endDateTime.time}")
-                Log.d(TAG, "Session time - Formatted: '$formattedStartTime' to '$formattedEndTime'")
-                Log.d(TAG, "Current device timezone: ${TimeZone.getDefault().id}, offset: ${TimeZone.getDefault().rawOffset / 3600000}h")
-
-                titleText.text = session.subject
-                dateText.text = formattedDate
-                timeText.text = "$formattedStartTime - $formattedEndTime"
-                statusText.text = session.status
-
-                // Display the hourly rate from the stored tutor profile
-                val formattedRate = "%.2f".format(currentTutorHourlyRate)
-                rateText.text = "$$formattedRate/hour"
+            val endTimeParts = if (session.endTime.contains("T")) {
+                val parts = session.endTime.split("T")
+                if (parts.size == 2) {
+                    Pair(parts[0], parts[1]) // date, time
+                } else {
+                    Pair("", "")
+                }
             } else {
-                // Fallback if parsing fails
-                Log.e(TAG, "Failed to parse dates (null result)")
-                titleText.text = session.subject
-                dateText.text = "Date not available"
-                timeText.text = "Time not available"
-                statusText.text = session.status
-                rateText.text = "Rate unavailable"
+                val parts = session.endTime.split(" ")
+                if (parts.size == 2) {
+                    Pair(parts[0], parts[1]) // date, time
+                } else {
+                    Pair("", "")
+                }
             }
+
+            // Format the date
+            val dateStr = startTimeParts.first
+            val dateFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            val displayDateFormatter = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+
+            val date = dateFormatter.parse(dateStr)
+            val formattedDate = if (date != null) {
+                displayDateFormatter.format(date)
+            } else {
+                "Date not available"
+            }
+
+            // Format the time using our simple formatter
+            val startTimeStr = startTimeParts.second
+            val endTimeStr = endTimeParts.second
+
+            // Get just the HH:mm part (remove seconds if present)
+            val startTimeHHMM = startTimeStr.split(".")[0].substring(0, Math.min(5, startTimeStr.length))
+            val endTimeHHMM = endTimeStr.split(".")[0].substring(0, Math.min(5, endTimeStr.length))
+
+            // Convert to 12-hour format
+            val formattedStartTime = formatTime(startTimeHHMM)
+            val formattedEndTime = formatTime(endTimeHHMM)
+
+            // Log time information for debugging
+            Log.d(TAG, "Session time - Original: '${session.startTime}' to '${session.endTime}'")
+            Log.d(TAG, "Session time - Extracted: '$startTimeHHMM' to '$endTimeHHMM'")
+            Log.d(TAG, "Session time - Formatted: '$formattedStartTime' to '$formattedEndTime'")
+
+            titleText.text = session.subject
+            dateText.text = formattedDate
+            timeText.text = "$formattedStartTime - $formattedEndTime"
+            statusText.text = session.status
+
+            // Display the hourly rate from the stored tutor profile
+            val formattedRate = "%.2f".format(currentTutorHourlyRate)
+            rateText.text = "$$formattedRate/hour"
         } catch (e: Exception) {
             // Log the error for debugging
             Log.e(TAG, "Error parsing session time: ${e.message}", e)
@@ -1124,10 +1135,11 @@ class TutorDashboardActivity : AppCompatActivity() {
                             openConversation(existingConversation.id, studentId, learnerName)
                         } else {
                             // Create new conversation using tutorId and studentId
-                            Log.d(TAG, "Creating new conversation with tutorId=$tutorId, studentId=$studentId")
+                            Log.d(TAG, "Creating new conversation with tutorId=$tutorId, studentId=$studentId, sessionId=${session.id}")
 
                             // Use createConversationWithTutor which handles the conversion properly
-                            val createResult = NetworkUtils.createConversationWithTutor(studentId, tutorId)
+                            // Pass the session ID to associate the conversation with the session
+                            val createResult = NetworkUtils.createConversationWithTutor(studentId, tutorId, session.id)
 
                             if (createResult.isSuccess) {
                                 val newConversation = createResult.getOrNull()
