@@ -4,6 +4,7 @@ import { useUser } from '../context/UserContext';
 import { useWebSocket } from '../context/WebSocketContext';
 import { toast } from 'react-toastify';
 import ErrorBoundary from '../components/common/ErrorBoundary';
+import axios from 'axios';
 
 const MessagesFallback = () => {
   return (
@@ -73,14 +74,29 @@ const Messages = () => {
   useEffect(() => {
     console.log('Loading conversations...');
     const loadInitialConversations = async () => {
-      const result = await getConversations();
-      if (result.success) {
-        setConversations(result.conversations || []);
+      try {
+        const result = await getConversations();
+        if (result.success) {
+          console.log(`Loaded ${result.conversations.length} conversations`);
+          setConversations(result.conversations || []);
+        } else {
+          console.error('Failed to load conversations:', result.message);
+        }
+      } catch (error) {
+        console.error('Error loading initial conversations:', error);
       }
     };
 
     loadInitialConversations();
-  }, []);
+    
+    // Check connection status and notify user
+    if (!isConnected) {
+      toast.info('Offline mode: Messages will be saved locally', {
+        autoClose: 3000,
+        position: 'top-right',
+      });
+    }
+  }, [isConnected]);
   
   // Handle pre-selected user from navigation (e.g., from tutor profile or session)
   useEffect(() => {
@@ -183,6 +199,19 @@ const Messages = () => {
         console.error('Failed to load messages:', result?.message || 'Unknown error');
         // We'll still keep the conversation selected, just show empty state
       } else {
+        // Mark messages as read when viewing the conversation
+        try {
+          if (hasServerConversationId) {
+            // Call API to mark messages as read
+            await axios.put(`/api/messages/markAllAsRead/${actualConversationId}`, null, {
+              params: { userId: user.userId }
+            });
+            console.log('Marked all messages as read');
+          }
+        } catch (error) {
+          console.warn('Failed to mark messages as read:', error);
+        }
+        
         // Update unread count on this conversation
         setConversations(prevConversations => 
           prevConversations.map(conv => {
@@ -262,13 +291,78 @@ const Messages = () => {
     setError('');
     
     try {
+      // Get the ID of the tutor (receiver)
       const receiverId = activeConversation.user1Id === user.userId 
         ? activeConversation.user2Id 
         : activeConversation.user1Id;
       
-      console.log(`Sending message to ${receiverId} in conversation ${activeConversation.conversationId}`);
+      // Make sure we're using string IDs for client-generated conversations
+      // and number IDs for server conversations
+      let conversationId;
       
-      const result = await sendMessage(activeConversation.conversationId, receiverId, newMessage.trim());
+      // Check if this is a client-generated ID (contains non-numeric characters)
+      const isClientGenerated = activeConversation.id && 
+                             /[^0-9]/.test(activeConversation.id.toString());
+      
+      if (isClientGenerated) {
+        // Use the client ID as is (string)
+        conversationId = activeConversation.id || activeConversation.conversationId;
+        console.log(`Using client-generated conversation ID: ${conversationId}`);
+      } else {
+        // Try to get numeric ID for server conversations
+        conversationId = activeConversation.serverConversationId || 
+                      activeConversation.conversationId || 
+                      activeConversation.id;
+                      
+        // Ensure it's a number if it's a server ID
+        if (conversationId && !isNaN(Number(conversationId))) {
+          conversationId = Number(conversationId);
+          console.log(`Using server conversation ID: ${conversationId}`);
+        }
+      }
+      
+      console.log(`Sending message to tutor ${receiverId} in conversation ${conversationId}`);
+      
+      // For server-based conversations, try REST API
+      if (!isClientGenerated && conversationId && !isNaN(Number(conversationId))) {
+        try {
+          const response = await axios.post('/api/messages', {
+            conversationId: Number(conversationId),
+            senderId: Number(user.userId),
+            receiverId: Number(receiverId),
+            content: newMessage.trim()
+          });
+          
+          console.log('Message sent via REST API:', response.data);
+          
+          // Add the new message to the conversation
+          if (response.data) {
+            const result = {
+              success: true,
+              message: response.data,
+              delivery: 'server'
+            };
+            
+            setNewMessage('');
+            
+            // Ensure we scroll to the bottom after sending
+            setTimeout(() => {
+              if (messagesEndRef.current) {
+                messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+              }
+            }, 100);
+            
+            return;
+          }
+        } catch (restError) {
+          console.log('REST API message sending failed, falling back to WebSocket:', restError);
+          // Fall back to WebSocket via context
+        }
+      }
+      
+      // Fallback to WebSocket context
+      const result = await sendMessage(conversationId, receiverId, newMessage.trim());
+      
       if (result.success) {
         setNewMessage('');
         // If this was stored locally only, show a small indicator

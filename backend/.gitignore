@@ -37,6 +37,6 @@ build/
 ## .env.local
 .env.local
 
-package-lock.json
 
 credentials.json
+package-lock.json

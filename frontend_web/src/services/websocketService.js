@@ -270,20 +270,34 @@ class MessageService {
   joinConversation(conversationId) {
     if (!this.isConnected || !this.stompClient) {
       console.log(`Not connected yet, will join conversation ${conversationId} once connected`);
+      // Add to active conversations so it will be joined once connected
+      this.activeConversations.add(conversationId);
       return;
     }
     
     try {
       console.log(`Joining conversation ${conversationId}`);
       
-      // Send JOIN message to the server - no need to convert conversationId to number
+      // Check if the conversationId is client-generated (contains non-numeric characters)
+      const isClientGenerated = conversationId && 
+                             /[^0-9]/.test(conversationId.toString());
+      
+      // Send JOIN message to the server
+      // Keep ID as string for client-generated, convert to number for server
+      const messageConversationId = isClientGenerated ? 
+                                  conversationId : 
+                                  (Number(conversationId) || conversationId);
+      
       this.stompClient.send(`/app/chat.join/${conversationId}`, {}, JSON.stringify({
-        senderId: this.userId,
-        conversationId: conversationId, // Keep as string
-        type: 'JOIN'
+        senderId: Number(this.userId),
+        type: 'JOIN',
+        conversationId: messageConversationId
       }));
-    } catch (e) {
-      console.error(`Error joining conversation ${conversationId}:`, e);
+      
+      // Mark this conversation as active
+      this.activeConversations.add(conversationId);
+    } catch (error) {
+      console.error(`Error joining conversation ${conversationId}:`, error);
     }
   }
 
@@ -311,29 +325,33 @@ class MessageService {
   }
 
   async sendMessage(message) {
-    if (!this.isConnected || !this.stompClient) {
-      console.error('Not connected to WebSocket service');
+    if (!this.isConnected && !this.stompClient) {
+      console.warn('Not connected to WebSocket service, storing message locally only');
+      this.storeMessageLocally(message);
       return false;
     }
 
     try {
-      // Check if the conversationId is numeric or client-generated
-      const isNumericId = /^\d+$/.test(message.conversationId.toString());
+      // Check if the conversationId is client-generated (contains non-numeric characters)
+      const isClientGenerated = message.conversationId && 
+                             /[^0-9]/.test(message.conversationId.toString());
       
-      // Ensure the message has the correct format - but DON'T convert conversationId to number
+      // Ensure the message has the correct format
       const messageToSend = {
         ...message,
-        // Don't convert conversationId to Number, keep it as string
-        senderId: message.senderId ? Number(message.senderId) : message.senderId,
-        receiverId: message.receiverId ? Number(message.receiverId) : message.receiverId,
+        // Keep conversationId as string for client-generated IDs, convert to number for server IDs
+        conversationId: isClientGenerated ? 
+                       message.conversationId : 
+                       (Number(message.conversationId) || message.conversationId),
+        senderId: Number(message.senderId),
+        receiverId: Number(message.receiverId),
         type: 'CHAT'
       };
       
-      console.log('Sending message:', messageToSend);
+      console.log('Sending message via WebSocket:', messageToSend);
       
-      // If this is a numeric conversationId, also try to save via REST API
-      // This helps ensure the message is stored even if WebSocket fails
-      if (isNumericId) {
+      // For server-based (numeric) conversation IDs, try REST API 
+      if (!isClientGenerated && !isNaN(Number(message.conversationId))) {
         try {
           const baseUrl = getBaseUrl();
           // Try to save the message via REST API as backup - ensure we have /api prefix
@@ -343,25 +361,128 @@ class MessageService {
             content: message.content
           });
           console.log('Message saved via REST API:', response.data);
+          // Try different endpoints for sending messages
+          const endpoints = [
+            {
+              url: '/api/messages',
+              data: {
+                conversationId: Number(message.conversationId),
+                senderId: Number(message.senderId),
+                receiverId: Number(message.receiverId),
+                content: message.content
+              }
+            },
+            {
+              url: '/api/messages/sendMessage',
+              data: {
+                conversationId: Number(message.conversationId),
+                senderId: Number(message.senderId),
+                receiverId: Number(message.receiverId),
+                content: message.content
+              }
+            },
+            {
+              url: `/api/conversations/${Number(message.conversationId)}/messages`,
+              data: {
+                senderId: Number(message.senderId),
+                receiverId: Number(message.receiverId),
+                content: message.content
+              }
+            }
+          ];
+          
+          let messageSent = false;
+          
+          // Try each endpoint until one works
+          for (const endpoint of endpoints) {
+            try {
+              console.log(`Trying to send message via endpoint: ${endpoint.url}`);
+              const response = await axios.post(endpoint.url, endpoint.data);
+              
+              if (response?.data) {
+                console.log('Message sent via REST API:', response.data);
+                messageSent = true;
+                
+                // Store in localStorage as backup
+                this.storeMessageLocally(messageToSend);
+                break;
+              }
+            } catch (err) {
+              console.warn(`Endpoint ${endpoint.url} failed:`, err.message);
+              // Continue to next endpoint
+            }
+          }
+          
+          // If we successfully sent the message, return true
+          if (messageSent) {
+            return true;
+          }
+          
+          // If all endpoints failed, continue with WebSocket
+          console.warn('All REST API endpoints failed, falling back to WebSocket');
         } catch (apiError) {
           console.warn('Could not save message via REST API:', apiError);
           // Continue with WebSocket anyway
         }
       }
       
-      // Send the message via WebSocket
-      this.stompClient.send(`/app/chat.send/${messageToSend.conversationId}`, {}, JSON.stringify(messageToSend));
-      
-      return true;
-    } catch (e) {
-      console.error('Error sending message:', e);
-      
-      // Log more details about the error for debugging
-      if (e.response) {
-        console.error('Error response:', e.response.data);
-        console.error('Error status:', e.response.status);
+      // Make sure we're connected and the conversation is active
+      if (!this.isConversationActive(message.conversationId)) {
+        this.joinConversation(message.conversationId);
       }
       
+      // If connected to WebSocket, send the message
+      if (this.isConnected && this.stompClient) {
+        try {
+          // Send the message via WebSocket
+          this.stompClient.send(
+            `/app/chat.send/${messageToSend.conversationId}`, 
+            {}, 
+            JSON.stringify(messageToSend)
+          );
+          
+          // Always store locally as backup
+          this.storeMessageLocally(messageToSend);
+          return true;
+        } catch (wsError) {
+          console.warn('WebSocket message sending failed:', wsError);
+          // Fall back to local storage only
+          this.storeMessageLocally(messageToSend);
+          return false;
+        }
+      } else {
+        // Store locally if not connected
+        console.warn('WebSocket not connected, storing message locally only');
+        this.storeMessageLocally(messageToSend);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      // Try to store locally as last resort
+      try {
+        this.storeMessageLocally(message);
+      } catch (e) {
+        console.error('Failed to store message locally:', e);
+      }
+      return false;
+    }
+  }
+  
+  // Helper to store messages in localStorage
+  storeMessageLocally(message) {
+    try {
+      const storageKey = `judify_messages_${message.conversationId}`;
+      const storedMessages = localStorage.getItem(storageKey);
+      const messages = storedMessages ? JSON.parse(storedMessages) : [];
+      
+      // Add the new message and save back to localStorage
+      messages.push(message);
+      localStorage.setItem(storageKey, JSON.stringify(messages));
+      
+      console.log(`Stored message in localStorage for conversation ${message.conversationId}`);
+      return true;
+    } catch (e) {
+      console.error('Error storing message in localStorage:', e);
       return false;
     }
   }
@@ -412,6 +533,57 @@ class MessageService {
           params: {
             page,
             size
+      // Check if the conversationId is client-generated (contains non-numeric characters)
+      const isClientGenerated = conversationId && /[^0-9]/.test(conversationId.toString());
+      
+      let response;
+      let messagesFromServer = false;
+      
+      // For tutors or numeric IDs, always try server endpoints
+      if (isTutor || !isClientGenerated) {
+        // Try multiple approaches to ensure tutors can see student messages
+        const endpoints = [
+          // Primary endpoint for getting messages by conversation
+          {
+            url: `/api/messages/findByConversation/${conversationId}`,
+            params: {}
+          },
+          // New focused endpoint for tutor's messages
+          {
+            url: `/api/messages`,
+            params: { conversationId }
+          },
+          // Endpoint with conversation filtering
+          {
+            url: `/api/messages/conversation/${conversationId}`,
+            params: {}
+          },
+          // Paginated endpoint
+          {
+            url: `/api/messages/findByConversationPaginated/${conversationId}`,
+            params: { page, size }
+          },
+          // Conversation-centric endpoint
+          {
+            url: `/api/conversations/${conversationId}/messages`,
+            params: {}
+          }
+        ];
+      
+        // Try each endpoint until one works
+        for (const endpoint of endpoints) {
+          try {
+            console.log(`Trying to fetch messages from endpoint: ${endpoint.url}`);
+            response = await axios.get(endpoint.url, { params: endpoint.params });
+            
+            if (response?.data) {
+              messagesFromServer = true;
+              console.log(`Successfully fetched messages using endpoint: ${endpoint.url}`);
+              break;
+            }
+          } catch (err) {
+            console.warn(`Endpoint ${endpoint.url} failed:`, err.message);
+            // Continue to the next endpoint
           }
         });
         
@@ -435,19 +607,52 @@ class MessageService {
         } else {
           // Unknown format, try to extract messages
           messages = response.data.messages || response.data;
+          if (!Array.isArray(messages)) {
+            messages = []; // Ensure we always have an array
+          }
         }
+        
+        // Debug logging for messages
+        console.log(`Retrieved ${messages.length} messages from server for conversation ${conversationId}`);
+        
+        // Normalize message format to ensure consistent structure
+        const normalizedMessages = messages.map(msg => {
+          // Handle different message structures
+          let senderId = msg.senderId;
+          let receiverId = msg.receiverId;
+          
+          // If the message has sender/receiver objects instead of IDs
+          if (msg.sender && !msg.senderId) {
+            senderId = msg.sender.userId;
+          }
+          
+          if (msg.receiver && !msg.receiverId) {
+            receiverId = msg.receiver.userId;
+          }
+          
+          return {
+            messageId: msg.messageId || msg.id,
+            conversationId: msg.conversationId || conversationId,
+            senderId: senderId,
+            receiverId: receiverId,
+            content: msg.content,
+            timestamp: msg.timestamp || msg.createdAt || new Date().toISOString(),
+            isRead: msg.isRead || false
+          };
+        });
         
         // Store messages in localStorage as backup
         try {
           const storageKey = `judify_messages_${conversationId}`;
-          localStorage.setItem(storageKey, JSON.stringify(messages));
+          localStorage.setItem(storageKey, JSON.stringify(normalizedMessages));
+          console.log(`Stored ${normalizedMessages.length} messages in localStorage for backup`);
         } catch (e) {
           console.warn('Failed to store messages in localStorage:', e);
         }
         
         return {
           success: true,
-          messages: messages,
+          messages: normalizedMessages,
           hasMore: hasMore,
           totalPages: totalPages,
           totalElements: totalElements
@@ -514,6 +719,33 @@ class MessageService {
           };
         }
       }
+      
+      // For client-generated IDs or if server request failed, check localStorage
+      const storageKey = `judify_messages_${conversationId}`;
+      const storedMessages = localStorage.getItem(storageKey);
+      
+      if (storedMessages) {
+        const parsedMessages = JSON.parse(storedMessages);
+        console.log(`Retrieved ${parsedMessages.length} messages from localStorage for conversation ${conversationId}`);
+        return {
+          success: true,
+          messages: parsedMessages,
+          hasMore: false,
+          totalPages: 1,
+          totalElements: parsedMessages.length,
+          fromLocalStorage: true
+        };
+      }
+      
+      // If no stored messages, return empty array
+      console.log(`No messages found for conversation ${conversationId}`);
+      return {
+        success: true,
+        messages: [],
+        hasMore: false,
+        totalPages: 0,
+        totalElements: 0
+      };
       
     } catch (error) {
       console.error(`Error loading messages for conversation ${conversationId}:`, error);
