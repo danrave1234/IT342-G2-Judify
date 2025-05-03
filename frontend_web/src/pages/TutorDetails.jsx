@@ -104,7 +104,7 @@ const TutorDetails = () => {
             <div className="card p-6 mb-8">
               <div className="flex flex-col sm:flex-row items-center sm:items-start">
                 <img 
-                  src={tutor.profilePicture || "https://via.placeholder.com/150"} 
+                  src={tutor.profilePicture || 'https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png?20150327203541'}
                   alt={`${tutor.username}'s profile`}
                   className="w-32 h-32 rounded-full object-cover mb-4 sm:mb-0 sm:mr-6"
                 />
