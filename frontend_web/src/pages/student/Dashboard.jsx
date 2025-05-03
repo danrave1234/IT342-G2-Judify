@@ -277,7 +277,7 @@ const Dashboard = () => {
             See All →
           </Link>
         </div>
-        
+          
         {loadingTutors ? (
             <div className="flex justify-center items-center h-40">
               <div className="w-10 h-10 border-t-4 border-primary-600 border-solid rounded-full animate-spin"></div>
@@ -369,7 +369,7 @@ const Dashboard = () => {
           </div>
         )}
         </div>
-
+        
       {/* All Sessions Row */}
       <div className="mt-8">
         <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">All Sessions</h2>
