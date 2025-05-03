@@ -251,7 +251,7 @@ const FindTutors = () => {
       const tutorInfo = {
         id: idToUse,
         name: `${tutor.firstName || tutor.user?.firstName} ${tutor.lastName || tutor.user?.lastName}`,
-        profilePicture: tutor.profilePicture || tutor.user?.profilePicture || 'https://via.placeholder.com/150',
+        profilePicture: tutor.profilePicture || tutor.user?.profilePicture || 'https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png?20150327203541',
         subjects: tutor.subjects || []
       };
       localStorage.setItem('lastViewedTutor', JSON.stringify(tutorInfo));

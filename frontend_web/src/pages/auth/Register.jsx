@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { toast } from 'react-toastify';
-import { FaGoogle, FaApple, FaFacebook } from 'react-icons/fa';
+import { FaGoogle, FaArrowLeft } from 'react-icons/fa';
 import { useUser } from '../../context/UserContext';
 import { studentProfileApi, tutorProfileApi } from '../../api/api';
 
@@ -202,10 +202,15 @@ const Register = () => {
   };
 
   return (
-    <div>
-      <div className="text-center mb-6">
-        <Link to="/" className="auth-title">Judify</Link>
-        <h2 className="mt-4 text-xl font-bold text-gray-800 dark:text-white">Create your account</h2>
+    <div className="relative">
+      {/* Back button */}
+      <Link to="/" className="absolute top-0 left-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">
+        <FaArrowLeft className="text-xl" />
+      </Link>
+      
+      <div className="text-center mb-8">
+        <h1 className="text-primary-600 dark:text-primary-500 text-3xl font-bold mb-2">Judify</h1>
+        <h2 className="text-xl font-bold text-gray-800 dark:text-white">Create your account</h2>
         <p className="auth-subtitle">Join our community of learners and educators</p>
       </div>
 
@@ -442,23 +447,18 @@ const Register = () => {
             <div className="w-full border-t border-gray-300 dark:border-dark-600"></div>
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white dark:bg-dark-800 text-gray-500 dark:text-gray-400">Or continue with</span>
+            <span className="px-2 bg-white dark:bg-dark-800 text-gray-500 dark:text-gray-400">Or sign up with</span>
           </div>
         </div>
 
-        <div className="mt-6 grid grid-cols-3 gap-3">
+        <div className="mt-6 flex justify-center">
           <button 
             type="button" 
-            className="auth-social-button"
+            className="flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-dark-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-dark-800 hover:bg-gray-50 dark:hover:bg-dark-700"
             onClick={handleGoogleSignup}
           >
-            <FaGoogle className="text-red-500" />
-          </button>
-          <button type="button" className="auth-social-button">
-            <FaApple className="text-gray-800 dark:text-white" />
-          </button>
-          <button type="button" className="auth-social-button">
-            <FaFacebook className="text-primary-700" />
+            <FaGoogle className="h-5 w-5 text-red-500 mr-2" />
+            <span>Sign up with Google</span>
           </button>
         </div>
       </div>
@@ -466,7 +466,7 @@ const Register = () => {
       <div className="text-center mt-6">
         <p className="text-sm text-gray-600 dark:text-gray-400">
           Already have an account?{' '}
-          <Link to="/auth/login" className="auth-form-link">
+          <Link to="/login" className="auth-form-link">
             Sign in
           </Link>
         </p>
