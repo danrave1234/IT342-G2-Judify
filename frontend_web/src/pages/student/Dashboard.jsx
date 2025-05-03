@@ -279,9 +279,9 @@ const Dashboard = () => {
         </div>
         
         {loadingTutors ? (
-          <div className="flex justify-center items-center h-40">
-            <div className="w-10 h-10 border-t-4 border-primary-600 border-solid rounded-full animate-spin"></div>
-          </div>
+            <div className="flex justify-center items-center h-40">
+              <div className="w-10 h-10 border-t-4 border-primary-600 border-solid rounded-full animate-spin"></div>
+            </div>
         ) : tutorError ? (
           <div className="bg-red-100 dark:bg-red-900/20 rounded-lg p-4 text-red-800 dark:text-red-400 text-center">
             {tutorError}
@@ -311,8 +311,8 @@ const Dashboard = () => {
                           </span>
                         </div>
                       )}
-                    </div>
-                    <div>
+                      </div>
+                      <div>
                       <h3 className="font-medium text-gray-900 dark:text-white cursor-pointer hover:text-primary-600 dark:hover:text-primary-400">
                         {tutor.firstName} {tutor.lastName}
                       </h3>
@@ -323,10 +323,10 @@ const Dashboard = () => {
                     </div>
                   </div>
                   
-                  <div className="flex items-center text-sm text-gray-600 dark:text-gray-400 mb-1">
+                    <div className="flex items-center text-sm text-gray-600 dark:text-gray-400 mb-1">
                     <FaDollarSign className="mr-1 flex-shrink-0" />
                     <span>${tutor.hourlyRate || 0}/hour</span>
-                  </div>
+                    </div>
                   
                   <div className="flex flex-wrap gap-1 my-2">
                     {(tutor.subjects || []).slice(0, 2).map((subject, index) => (
@@ -355,9 +355,9 @@ const Dashboard = () => {
                   </button>
                 </div>
               ))}
+              </div>
             </div>
-          </div>
-        ) : (
+          ) : (
           <div className="bg-white dark:bg-dark-800 rounded-lg shadow-sm border border-gray-200 dark:border-dark-700 p-6 text-center">
             <p className="text-gray-600 dark:text-gray-400 mb-4">No tutors available at the moment.</p>
             <Link 
@@ -368,7 +368,7 @@ const Dashboard = () => {
             </Link>
           </div>
         )}
-      </div>
+        </div>
 
       {/* All Sessions Row */}
       <div className="mt-8">
@@ -434,4 +434,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard;
+export default Dashboard; 
