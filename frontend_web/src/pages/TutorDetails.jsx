@@ -93,7 +93,7 @@ const TutorDetails = () => {
     <div className="page-container py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
-          <Link to="/find-tutors" className="text-primary-600 dark:text-primary-500 flex items-center">
+          <Link to="/student/find-tutors" className="text-primary-600 dark:text-primary-500 flex items-center">
             ← Back to tutors
           </Link>
         </div>
