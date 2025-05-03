@@ -67,18 +67,39 @@ export const WebSocketProvider = ({ children }) => {
   }, [user]);
 
   // Load conversations from localStorage
-  const loadConversationsFromStorage = useCallback(() => {
-    if (!user) return;
+  const loadConversationsFromStorage = useCallback(async () => {
+    if (!user) return { success: false, message: 'No user logged in' };
     
     try {
-      const storedConversations = localStorage.getItem(`judify_conversations_${user.userId}`);
+      console.log('Loading conversations from localStorage');
+      const storageKey = `judify_conversations_${user.userId}`;
+      const storedConversations = localStorage.getItem(storageKey);
+      
       if (storedConversations) {
         const parsedConversations = JSON.parse(storedConversations);
+        console.log(`Loaded ${parsedConversations.length} conversations from localStorage`);
+        
         setConversations(parsedConversations);
-        console.log('Loaded conversations from localStorage:', parsedConversations.length);
+        return { 
+          success: true, 
+          conversations: parsedConversations,
+          message: 'Loaded conversations from localStorage'
+        };
+      } else {
+        console.log('No conversations found in localStorage');
+        return { 
+          success: true, 
+          conversations: [],
+          message: 'No conversations found in localStorage'
+        };
       }
     } catch (error) {
       console.error('Error loading conversations from localStorage:', error);
+      return { 
+        success: false, 
+        conversations: [],
+        message: 'Error loading conversations from localStorage'
+      };
     }
   }, [user]);
 
@@ -93,102 +114,166 @@ export const WebSocketProvider = ({ children }) => {
     }
   }, [user]);
 
-  // Fetch conversations from server API (for tutors especially)
-  const fetchConversationsFromServer = useCallback(async () => {
-    if (!user) return { success: false };
+  // Load conversations from the server
+  const getConversations = useCallback(async () => {
+    if (!user) return { success: false, message: 'No user logged in' };
+    
+    setLoading(true);
+    setError(null);
     
     try {
-      console.log('Fetching conversations from server API');
+      console.log('Fetching conversations from server for user:', user.userId);
       
-      // Check if backend is available first with a simpler endpoint
-      try {
-        // First try to ping a simpler endpoint to check if backend is available
-        await axios.get('/api/health');
-      } catch (pingError) {
-        console.warn('Backend server might be unavailable:', pingError.message);
-        // If we can't reach the backend, return local conversations instead
-        return { success: true, conversations };
-      }
-
-      try {
-        const response = await axios.get(`/api/conversations/findByUser/${user.userId}`);
+      // Try multiple endpoints to get conversations - needed for different user roles
+      const endpoints = [
+        `/api/conversations/user/${user.userId}`,
+        `/api/conversations/findByUser/${user.userId}`,
+        `/api/conversations/findByTutor/${user.userId}`,
+        `/api/conversations/findByStudent/${user.userId}`,
+        `/api/conversations` // Fallback to get all conversations and filter client-side
+      ];
       
-        if (response.data) {
-          const serverConversations = response.data;
+      let serverConversations = [];
+      let serverSuccess = false;
+      
+      // Try endpoints until one works
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`Trying to fetch conversations from endpoint: ${endpoint}`);
+          const response = await axios.get(endpoint);
           
-          // Merge with existing conversations from localStorage
-          // prioritizing server data but keeping local data for client-generated IDs
-          const mergedConversations = [...conversations];
-          
-          // Add or update conversations from server
-          serverConversations.forEach(serverConv => {
-            const existingIndex = mergedConversations.findIndex(
-              localConv => localConv.serverConversationId === serverConv.conversationId
-            );
-            
-            if (existingIndex >= 0) {
-              // Update existing conversation with server data
-              mergedConversations[existingIndex] = {
-                ...mergedConversations[existingIndex],
-                serverConversationId: serverConv.conversationId,
-                updatedAt: serverConv.updatedAt
-              };
-            } else {
-              // Add new conversation from server
-              // Need to add user details for conversation rendering
-              const otherUserId = serverConv.participantIds.find(id => id !== user.userId);
+          // Handle different response formats
+          if (response?.data) {
+            if (Array.isArray(response.data)) {
+              // Direct array of conversations
+              serverConversations = response.data;
               
-              mergedConversations.push({
-                id: `server_${serverConv.conversationId}`,
-                conversationId: `server_${serverConv.conversationId}`,
-                serverConversationId: serverConv.conversationId,
+              // If using the fallback all-conversations endpoint, filter to only include this user's conversations
+              if (endpoint === '/api/conversations') {
+                console.log('Using fallback endpoint, filtering conversations for current user');
+                serverConversations = serverConversations.filter(conv => 
+                  (conv.student && conv.student.userId === user.userId) || 
+                  (conv.tutor && conv.tutor.userId === user.userId)
+                );
+              }
+              
+              serverSuccess = true;
+              console.log(`Successfully fetched ${serverConversations.length} conversations from ${endpoint}`);
+              break;
+            } else if (response.data.content && Array.isArray(response.data.content)) {
+              // Paginated response
+              serverConversations = response.data.content;
+              serverSuccess = true;
+              console.log(`Successfully fetched ${serverConversations.length} conversations from ${endpoint} (paginated)`);
+              break;
+            } else if (response.data.conversations && Array.isArray(response.data.conversations)) {
+              // Wrapped in conversations field
+              serverConversations = response.data.conversations;
+              serverSuccess = true;
+              console.log(`Successfully fetched ${serverConversations.length} conversations from ${endpoint} (wrapped)`);
+              break;
+            }
+          }
+        } catch (err) {
+          console.warn(`Endpoint ${endpoint} failed:`, err.message);
+          // Continue to next endpoint
+        }
+      }
+      
+      if (serverSuccess && serverConversations.length > 0) {
+        // Map server conversations to include client-friendly IDs and properties
+        const processedConversations = serverConversations.map(conv => {
+          // Handle different conversation formats
+          let studentUser, tutorUser, otherUser, otherUserId;
+          
+          // Check if conversation has student/tutor fields
+          if (conv.student && conv.tutor) {
+            studentUser = conv.student;
+            tutorUser = conv.tutor;
+            
+            // Determine who the other user is based on current user role
+            if (user.userId === studentUser.userId) {
+              otherUser = tutorUser;
+              otherUserId = tutorUser.userId;
+            } else {
+              otherUser = studentUser;
+              otherUserId = studentUser.userId;
+            }
+          } 
+          // Handle different conversation formats (user1/user2 format)
+          else if (conv.user1 && conv.user2) {
+            if (conv.user1.userId === user.userId) {
+              otherUser = conv.user2;
+              otherUserId = conv.user2.userId;
+            } else {
+              otherUser = conv.user1;
+              otherUserId = conv.user1.userId;
+            }
+          }
+          // Handle minimal format with just IDs
+          else {
+            // Find the other user ID
+            if (conv.user1Id === user.userId) {
+              otherUserId = conv.user2Id;
+            } else if (conv.user2Id === user.userId) {
+              otherUserId = conv.user1Id;
+            } else if (conv.studentId === user.userId) {
+              otherUserId = conv.tutorId;
+            } else if (conv.tutorId === user.userId) {
+              otherUserId = conv.studentId;
+            }
+            
+            // Create minimal other user object
+            otherUser = { userId: otherUserId };
+          }
+          
+          // Basic conversation object with fallbacks for missing fields
+          return {
+            // Keep both client-side ID and server ID for reference
+            id: conv.conversationId || conv.id,
+            conversationId: conv.conversationId || conv.id,
+            serverConversationId: conv.conversationId || conv.id,
+            
+            // Add user references - ensure we have both IDs
                 user1Id: user.userId,
                 user2Id: otherUserId,
-                createdAt: serverConv.createdAt,
-                updatedAt: serverConv.updatedAt
-              });
-            }
-          });
-          
-          // Update state with merged conversations
-          setConversations(mergedConversations);
-          saveConversationsToStorage(mergedConversations);
-        
-          return { success: true, conversations: mergedConversations };
-        }
-      } catch (apiError) {
-        console.warn('Error fetching conversations from primary endpoint:', apiError.message);
-        
-        // Try a fallback endpoint if the primary one fails
-        try {
-          const fallbackResponse = await axios.get(`/api/conversations`);
-          if (fallbackResponse.data) {
-            // Filter conversations to only include those where this user is a participant
-            const userConversations = fallbackResponse.data.filter(conv => 
-              conv.participantIds && conv.participantIds.includes(user.userId)
-            );
+            user1: user,
+            user2: otherUser,
             
-            // Process these conversations similar to above
-            const mergedConversations = [...conversations];
-            // ... same processing as above
+            // Add student/tutor references if available
+            student: conv.student || (user.role === 'STUDENT' ? user : otherUser),
+            tutor: conv.tutor || (user.role === 'TUTOR' ? user : otherUser),
             
-            console.log('Successfully fetched conversations from fallback endpoint');
-            return { success: true, conversations: mergedConversations };
-          }
-        } catch (fallbackError) {
-          console.warn('Fallback conversation endpoint also failed:', fallbackError.message);
-          // Continue to return local conversations
-        }
+            // Extra data for display
+            lastMessage: conv.lastMessage || "Start a conversation",
+            updatedAt: conv.updatedAt || new Date().toISOString(),
+            unreadCount: conv.unreadCount || 0
+          };
+        });
+        
+        // Cache the processed conversations to localStorage for offline use
+        saveConversationsToStorage(processedConversations);
+        
+        return { 
+          success: true, 
+          conversations: processedConversations,
+          message: 'Loaded conversations from server'
+        };
       }
       
-      // If we get here, we couldn't fetch from server but have local data
-      return { success: true, conversations };
+      // Fall back to localStorage if server fetching failed
+      return await loadConversationsFromStorage();
+      
     } catch (error) {
-      console.error('Error fetching conversations from server:', error);
-      // Return local conversations as fallback
-      return { success: true, conversations };
+      console.error('Error fetching conversations:', error);
+      setError('Failed to load conversations');
+      
+      // Try to load from localStorage as fallback
+      return await loadConversationsFromStorage();
+    } finally {
+      setLoading(false);
     }
-  }, [user, conversations, saveConversationsToStorage]);
+  }, [user, saveConversationsToStorage, loadConversationsFromStorage]);
 
   // Save messages for a conversation to localStorage
   const saveMessagesToStorage = useCallback((conversationId, messagesArray) => {
@@ -473,208 +558,169 @@ export const WebSocketProvider = ({ children }) => {
   }, [user, activeConversation, hasMoreMessages, currentPage, messagePageSize]);
 
   // Set active conversation and handle switching between conversations
-  const setActiveConversationWithCleanup = useCallback((conversation) => {
+  const setActiveConversationWithCleanup = useCallback(async (conversation) => {
     if (!conversation) return;
     
-    // If we're already viewing this conversation, do nothing
-    if (activeConversation && 
-        (activeConversation.id === conversation.id || 
-         activeConversation.conversationId === conversation.conversationId)) {
+    // Ensure we're not setting the same conversation repeatedly
+    if (activeConversation?.id === conversation.id || 
+        activeConversation?.conversationId === conversation.conversationId) {
       return;
     }
     
-    // Unsubscribe from the current conversation if there is one
+    // Clean up the old subscription if necessary
     if (activeConversation) {
-      const prevConvId = activeConversation.conversationId || activeConversation.id;
-      const hasPrevServerConvId = activeConversation.serverConversationId && 
-                                 !isNaN(activeConversation.serverConversationId) && 
-                                 !isNaN(parseInt(activeConversation.serverConversationId));
-      
-      const prevActualConvId = hasPrevServerConvId ? activeConversation.serverConversationId : prevConvId;
-      
-      console.log(`Unsubscribing from previous conversation: ${prevActualConvId}`);
-      WebSocketService.unsubscribeFromConversation(prevActualConvId);
-    }
-    
-    // Clear messages from previous conversation
-    setMessages([]);
-    
-    // Set new active conversation
-    setActiveConversation(conversation);
-  }, [activeConversation]);
-
-  // Get all conversations
-  const getConversations = useCallback(async () => {
-    if (!user) return { success: false, message: 'No user logged in', conversations: [] };
-    
-    // Load from localStorage first for immediate display
-    loadConversationsFromStorage();
-    
-    // Then try to fetch from server to ensure we have the latest data
-    if (isConnected) {
-      const serverResult = await fetchConversationsFromServer();
-      if (serverResult.success) {
-        return { success: true, conversations: serverResult.conversations };
+      const oldConversationId = activeConversation.conversationId || activeConversation.id;
+      if (oldConversationId) {
+        console.log(`Cleaning up old conversation: ${oldConversationId}`);
+        WebSocketService.leaveConversation(oldConversationId);
       }
     }
     
-    return { success: true, conversations };
-  }, [user, conversations, loadConversationsFromStorage, fetchConversationsFromServer, isConnected]);
+    // Set the new active conversation
+    setActiveConversation(conversation);
+    
+    // Clear any existing messages when switching conversations
+    setMessages([]);
+    
+    console.log(`Set new active conversation: ${conversation.conversationId || conversation.id}`);
+  }, [activeConversation]);
 
   // Get or create a conversation with another user
-  const getOrCreateConversation = useCallback((otherUserId) => {
+  const getOrCreateConversation = useCallback(async (otherUserId) => {
     if (!user) return { success: false, message: 'No user logged in' };
-    if (!otherUserId) return { success: false, message: 'No recipient specified' };
-    
-    setLoading(true);
     
     try {
-      console.log(`Creating/finding conversation between ${user.userId} and ${otherUserId}`);
+      console.log(`Getting or creating conversation with user ${otherUserId}`);
       
-      // Ensure otherUserId is treated as a number for comparison
-      const numericOtherId = Number(otherUserId);
-      
-      // Check if conversation already exists
-      let conversation = conversations.find(conv => 
-        (conv.user1Id === user.userId && conv.user2Id === numericOtherId) || 
-        (conv.user1Id === numericOtherId && conv.user2Id === user.userId)
+      // Check if we already have a conversation with this user
+      const existingConversation = conversations.find(conv => 
+        (conv.user1Id === user.userId && conv.user2Id === Number(otherUserId)) ||
+        (conv.user1Id === Number(otherUserId) && conv.user2Id === user.userId)
       );
       
-      console.log('Existing conversations:', conversations);
-      console.log('Found existing conversation:', conversation);
+      if (existingConversation) {
+        console.log('Found existing conversation:', existingConversation);
+        return { success: true, conversation: existingConversation };
+      }
       
-      // If no conversation found, create a new one
-      if (!conversation) {
-        // Generate a unique conversation ID
-        const newConversationId = `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        
-        // Try to get tutor/student data from localStorage
-        let otherUserData = null;
-        try {
-          // Check if we have other user info stored
-          const storedTutorInfo = localStorage.getItem('lastViewedTutor');
-          if (storedTutorInfo) {
-            const parsedInfo = JSON.parse(storedTutorInfo);
-            
-            // Check if this is the user we're looking for (profileId, id, or userId could match)
-            if (parsedInfo.id == otherUserId || 
-                parsedInfo.profileId == otherUserId || 
-                parsedInfo.userId == otherUserId) {
-              
-              console.log('Found stored user info that matches requested ID:', parsedInfo);
-              
-              // Create user object with all available data
-              otherUserData = {
-                userId: numericOtherId,
-                username: parsedInfo.username || `User ${otherUserId}`,
-                firstName: parsedInfo.firstName || 'User',
-                lastName: parsedInfo.lastName || `${otherUserId}`,
-                profileImage: parsedInfo.profilePicture || `https://ui-avatars.com/api/?name=User+${otherUserId}&background=random`
-              };
-            }
+      console.log('No existing conversation found, creating new one');
+      
+      // Try to create a conversation using different endpoints based on user roles
+      let response;
+      let success = false;
+      
+      const endpoints = [
+        {
+          method: 'post',
+          url: '/api/conversations', 
+          data: { 
+            firstUserId: Number(user.userId),
+            secondUserId: Number(otherUserId)
           }
-        } catch (e) {
-          console.warn('Error accessing stored user data:', e);
+        },
+        {
+          method: 'post',
+          url: `/api/conversations/create/${user.userId}/${otherUserId}`,
+          data: {}
         }
-        
-        // Fallback to default data if no stored info is found
-        if (!otherUserData) {
-          console.log('No stored user data found, creating placeholder data');
-          otherUserData = {
-            userId: numericOtherId,
-            username: `User ${otherUserId}`,
-            firstName: `User`,
-            lastName: `${otherUserId}`,
-            profileImage: `https://ui-avatars.com/api/?name=User+${otherUserId}&background=random`
-          };
-        }
-        
-        console.log('Creating new conversation with data:', {
-          currentUser: user,
-          otherUser: otherUserData
+      ];
+      
+      // For student-tutor conversations
+      if (user.role === 'STUDENT') {
+        endpoints.push({
+          method: 'post',
+          url: `/api/conversations/student-tutor/${user.userId}/${otherUserId}`,
+          data: {}
         });
-        
-        // Create full conversation object
-        conversation = {
-          id: newConversationId,
-          conversationId: newConversationId,
-          user1Id: user.userId,
-          user2Id: numericOtherId,
-          user1: { 
-            userId: user.userId, 
-            username: user.username || user.firstName || 'You',
-            firstName: user.firstName || '',
-            lastName: user.lastName || '',
-            profileImage: user.profileImage || user.profilePicture || ''
-          },
-          user2: otherUserData,
+      } else if (user.role === 'TUTOR') {
+        endpoints.push({
+          method: 'post',
+          url: `/api/conversations/student-tutor/${otherUserId}/${user.userId}`,
+          data: {}
+        });
+      }
+      
+      // Try each endpoint until one works
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`Trying to create conversation with endpoint: ${endpoint.url}`);
+          if (endpoint.method === 'post') {
+            response = await axios.post(endpoint.url, endpoint.data);
+          } else {
+            response = await axios.get(endpoint.url, { params: endpoint.data });
+          }
+          
+          if (response?.data) {
+            success = true;
+            console.log('Successfully created conversation:', response.data);
+            break;
+          }
+        } catch (err) {
+          console.warn(`Endpoint ${endpoint.url} failed:`, err.message);
+          // Continue to next endpoint
+        }
+      }
+      
+      if (success && response?.data) {
+        // Create a client-friendly conversation object
+        const newConversation = {
+          id: response.data.conversationId,
+          conversationId: response.data.conversationId,
+          serverConversationId: response.data.conversationId,
+          user1Id: Number(user.userId),
+          user2Id: Number(otherUserId),
+          user1: user,
+          user2: { userId: Number(otherUserId) }, // Basic user info until we get more
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-          lastMessage: ''
+          lastMessage: null
+        };
+        
+        // Update conversations list
+        setConversations(prev => {
+          const updated = [...prev, newConversation];
+          saveConversationsToStorage(updated);
+          return updated;
+        });
+        
+        return { success: true, conversation: newConversation };
+      }
+      
+      // If server creation failed, create a local conversation
+      console.log('Server conversation creation failed, creating local conversation');
+      
+      // Generate a unique client-side ID for this conversation
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(2, 10);
+      const clientConversationId = `conv_${timestamp}_${randomId}`;
+      
+      // Create a new conversation object
+      const localConversation = {
+        id: clientConversationId,
+        conversationId: clientConversationId,
+        user1Id: Number(user.userId),
+        user2Id: Number(otherUserId),
+        user1: user,
+        user2: { userId: Number(otherUserId) },
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        lastMessage: null
         };
         
         // Add to conversations list
-        const updatedConversations = [...conversations, conversation];
-        setConversations(updatedConversations);
-        saveConversationsToStorage(updatedConversations);
-        
-        console.log('New conversation created with ID:', newConversationId);
-        
-        // Try to create the conversation on the server if connected
-        if (isConnected) {
-          try {
-            // Call backend API to create conversation if available
-            // This ensures both parties can see the conversation
-            console.log('Attempting to create conversation on server');
-            const serverConversation = {
-              participantIds: [user.userId, numericOtherId]
-            };
-            // Make the actual API call to create the conversation
-            axios.post('/api/conversations/createConversation', serverConversation)
-              .then(response => {
-                console.log('Server conversation created:', response.data);
-                // If we got an ID from the server, update our local conversation with it
-                if (response.data && response.data.conversationId) {
-                  // Update the conversation with the server ID
-                  conversation.serverConversationId = response.data.conversationId;
-                  // Update in our local list
-                  const updatedConversations = conversations.map(c => 
-                    c.id === conversation.id ? { ...c, serverConversationId: response.data.conversationId } : c
-                  );
-                  setConversations(updatedConversations);
-                  saveConversationsToStorage(updatedConversations);
-                }
-              })
-              .catch(err => {
-                console.warn('Failed to create conversation on server:', err);
-              });
-          } catch (err) {
-            console.warn('Failed to create conversation on server, using local only:', err);
-          }
-        }
-      } else {
-        // Ensure the conversation has both id and conversationId for consistency
-        if (!conversation.id && conversation.conversationId) {
-          conversation.id = conversation.conversationId;
-        } else if (!conversation.conversationId && conversation.id) {
-          conversation.conversationId = conversation.id;
-        }
-        console.log('Found existing conversation:', conversation.conversationId);
-      }
+      setConversations(prev => {
+        const updated = [...prev, localConversation];
+        saveConversationsToStorage(updated);
+        return updated;
+      });
       
-      // Set as active conversation and load messages
-      setActiveConversationWithCleanup(conversation);
-      loadMessages(conversation.conversationId || conversation.id);
+      return { success: true, conversation: localConversation };
       
-      return { success: true, conversation };
     } catch (error) {
       console.error('Error creating conversation:', error);
-      setError('Failed to create conversation');
-      return { success: false, message: 'Failed to create conversation' };
-    } finally {
-      setLoading(false);
+      return { success: false, message: 'Failed to create conversation: ' + error.message };
     }
-  }, [user, conversations, saveConversationsToStorage, loadMessages, isConnected, setActiveConversationWithCleanup]);
+  }, [user, conversations, saveConversationsToStorage]);
 
   // Send a message
   const sendMessage = useCallback(async (conversationId, receiverId, content) => {
@@ -683,25 +729,24 @@ export const WebSocketProvider = ({ children }) => {
     if (!content.trim()) return { success: false, message: 'Message cannot be empty' };
     
     try {
-      // Ensure receiverId is treated as a number
-      const numericReceiverId = Number(receiverId);
+      // Check if the conversation ID is client-generated (contains non-numeric characters)
+      const isClientGenerated = conversationId && /[^0-9]/.test(conversationId.toString());
       
-      console.log(`Sending message to ${numericReceiverId} in conversation ${conversationId}`);
+      // For client-generated IDs, keep as string; for server IDs, convert to number
+      const actualConversationId = isClientGenerated 
+        ? conversationId 
+        : (Number(conversationId) || conversationId);
+      
+      // Always ensure receiverId is a number
+      const numericReceiverId = Number(receiverId);
+      const numericSenderId = Number(user.userId);
+      
+      console.log(`Sending message to ${numericReceiverId} in conversation ${actualConversationId}`);
       
       // Find the conversation object to check for serverConversationId
       const conversation = conversations.find(conv => 
         conv.id === conversationId || conv.conversationId === conversationId
       );
-      
-      // Check if we have a valid server conversation ID (numeric database ID)
-      const hasServerConversationId = conversation?.serverConversationId && 
-                                     !isNaN(conversation.serverConversationId) && 
-                                     !isNaN(parseInt(conversation.serverConversationId));
-      
-      // Use server conversation ID if available
-      const actualConversationId = hasServerConversationId ? 
-                                  conversation.serverConversationId : 
-                                  conversationId;
       
       // Generate truly unique ID with high entropy
       const timestamp = Date.now();
@@ -713,7 +758,7 @@ export const WebSocketProvider = ({ children }) => {
       const newMessage = {
         messageId: `msg_${uniqueId}`,
         conversationId: actualConversationId,
-        senderId: user.userId,
+        senderId: numericSenderId,
         receiverId: numericReceiverId,
         content,
         timestamp: new Date().toISOString(),
@@ -743,7 +788,43 @@ export const WebSocketProvider = ({ children }) => {
       
       console.log('Sending message with data:', newMessage);
       
-      // Send the message using our service
+      // For server-based conversations (numeric IDs), try REST API
+      if (!isClientGenerated && !isNaN(Number(actualConversationId))) {
+        try {
+          const response = await axios.post('/api/messages', {
+            conversationId: Number(actualConversationId),
+            senderId: numericSenderId,
+            receiverId: numericReceiverId,
+            content: content
+          });
+          
+          console.log('Message sent via REST API:', response.data);
+          
+          // Use the server-generated message data if available
+          if (response.data && response.data.messageId) {
+            // Update the message with server data but keep our timestamp if server doesn't provide one
+            const serverMessage = {
+              ...response.data,
+              timestamp: response.data.createdAt || response.data.timestamp || newMessage.timestamp
+            };
+            
+            handleNewMessage(serverMessage);
+            
+            return { 
+              success: true, 
+              message: serverMessage,
+              delivery: 'server'
+            };
+          }
+        } catch (restError) {
+          console.warn('REST API message sending failed, falling back to WebSocket:', restError);
+          // Fall back to WebSocket
+        }
+      }
+      
+      // For client-generated conversation IDs or if REST API failed
+      // Attempt to use WebSocket - the WebSocketService will handle this with localStorage if needed
+      try {
       const success = await WebSocketService.sendMessage(newMessage);
       
       if (success) {
@@ -753,11 +834,42 @@ export const WebSocketProvider = ({ children }) => {
         return { 
           success: true, 
           message: newMessage,
-          delivery: isConnected ? 'server' : 'local'
+            delivery: isConnected ? 'websocket' : 'local'
         };
       } else {
-        // If sending via service failed, handle the message locally
+          // If sending failed entirely, still handle locally for UI consistency
       handleNewMessage(newMessage);
+          
+          // Store in localStorage directly as a last resort
+          const storageKey = `judify_messages_${actualConversationId}`;
+          try {
+            const existingMessagesStr = localStorage.getItem(storageKey);
+            const existingMessages = existingMessagesStr ? JSON.parse(existingMessagesStr) : [];
+            localStorage.setItem(storageKey, JSON.stringify([...existingMessages, newMessage]));
+          } catch (e) {
+            console.error('Failed to save message to localStorage:', e);
+          }
+          
+          return { 
+            success: true, 
+            message: newMessage,
+            delivery: 'local'
+          };
+        }
+      } catch (error) {
+        console.error('WebSocket message sending failed:', error);
+        
+        // Last resort: Store in localStorage directly
+        handleNewMessage(newMessage);
+        
+        const storageKey = `judify_messages_${actualConversationId}`;
+        try {
+          const existingMessagesStr = localStorage.getItem(storageKey);
+          const existingMessages = existingMessagesStr ? JSON.parse(existingMessagesStr) : [];
+          localStorage.setItem(storageKey, JSON.stringify([...existingMessages, newMessage]));
+        } catch (e) {
+          console.error('Failed to save message to localStorage:', e);
+        }
       
       return { 
         success: true, 

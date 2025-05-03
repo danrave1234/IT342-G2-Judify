@@ -199,7 +199,7 @@ class BookingActivity : AppCompatActivity() {
         val durationAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, durationOptions)
         durationAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         durationSpinner.adapter = durationAdapter
-        
+
         // Set default duration
         durationSpinner.setSelection(0)  // 1 hour default
 
@@ -287,17 +287,17 @@ class BookingActivity : AppCompatActivity() {
                 tutorNameText.text = profile.name
                 tutorExpertiseText.text = profile.subjects.joinToString(", ")
                 tutorRatingText.rating = profile.rating
-                
+
                 // Set hourly rate
                 tutorRateText.text = String.format("$%.2f/hr", profile.hourlyRate)
-                
+
                 // Update the session summary with new rate
                 updateSessionSummary()
             }
-            
+
             // Handle loading state - IMPORTANT FIX: Only show progressBar when actively loading
             progressBar.visibility = if (state.isLoading) View.VISIBLE else View.GONE
-            
+
             // Handle errors
             state.error?.let { 
                 errorText.text = it
@@ -305,14 +305,14 @@ class BookingActivity : AppCompatActivity() {
             } ?: run {
                 errorText.visibility = View.GONE
             }
-            
+
             // Handle successful booking completion
             if (state.bookingComplete) {
                 // Show confirmation dialog and finish activity
                 showBookingConfirmationDialog()
             }
         }
-        
+
         // Observe availability state for time slots
         viewModel.availabilityState.observe(this) { state ->
             // Format the time slots for display in 12-hour format
@@ -321,10 +321,10 @@ class BookingActivity : AppCompatActivity() {
             } else {
                 emptyList()
             }
-            
+
             // Update the adapter
             timeSlotAdapter.updateTimeSlots(formattedTimeSlots)
-            
+
             // Show/hide the loading indicator
             if (state.isLoading) {
                 noSlotsTextView.text = "Loading available time slots..."
@@ -344,9 +344,25 @@ class BookingActivity : AppCompatActivity() {
                     timeSlotRecyclerView.visibility = View.VISIBLE
                 }
             }
-            
+
             // Log for debugging
             Log.d("BookingActivity", "Updated time slots: ${formattedTimeSlots.size} slots available")
+        }
+
+        // Observe unavailable time slots
+        viewModel.unavailableTimeSlots.observe(this) { unavailableSlots ->
+            // Format the unavailable time slots for display in 12-hour format
+            val formattedUnavailableSlots = if (unavailableSlots.isNotEmpty()) {
+                viewModel.formatTimeSlotsForDisplay(unavailableSlots.toList()).toSet()
+            } else {
+                emptySet()
+            }
+
+            // Update the adapter with unavailable time slots
+            timeSlotAdapter.setUnavailableTimeSlots(formattedUnavailableSlots)
+
+            // Log for debugging
+            Log.d("BookingActivity", "Updated unavailable time slots: ${formattedUnavailableSlots.size} slots unavailable")
         }
     }
 
@@ -534,71 +550,71 @@ class BookingActivity : AppCompatActivity() {
 
     private fun bookSession() {
         showLoading(true, "Booking your session...")
-        
+
         if (selectedTimeSlot == null) {
             Toast.makeText(this, "Please select a time slot", Toast.LENGTH_SHORT).show()
             showLoading(false)
             return
         }
-        
+
         if (selectedSubject.isEmpty()) {
             Toast.makeText(this, "Please select a subject", Toast.LENGTH_SHORT).show()
             showLoading(false)
             return
         }
-        
+
         // Get the notes
         val notesEditText = findViewById<EditText>(R.id.notesEditText)
         val notes = notesEditText.text.toString()
-        
+
         // Split the selected time slot to get start time
         val timeParts = selectedTimeSlot!!.split(" - ")
         if (timeParts.isEmpty()) {
             showLoading(false)
             return
         }
-        
+
         val selectedDate = findViewById<TextView>(R.id.selectedDateTextView).text.toString()
         if (selectedDate == "Select a date") {
             Toast.makeText(this, "Please select a date", Toast.LENGTH_SHORT).show()
             showLoading(false)
             return
         }
-        
+
         try {
             // Parse the selected date
             val dateFormat = SimpleDateFormat("EEE, MMM d, yyyy", Locale.getDefault())
             val date = dateFormat.parse(selectedDate) ?: return
-            
+
             // Get calendar instance for start time
             val startCalendar = Calendar.getInstance()
             startCalendar.time = date
-            
+
             // Parse the start time (in 12-hour format from the UI)
             val startTimeParts = timeParts[0].trim()
             val timeFormat12 = SimpleDateFormat("h:mm a", Locale.getDefault())
             val timeParsed = timeFormat12.parse(startTimeParts) ?: return
-            
+
             val timeCalendar = Calendar.getInstance()
             timeCalendar.time = timeParsed
-            
+
             // Set the time components of the start calendar
             startCalendar.set(Calendar.HOUR_OF_DAY, timeCalendar.get(Calendar.HOUR_OF_DAY))
             startCalendar.set(Calendar.MINUTE, timeCalendar.get(Calendar.MINUTE))
             startCalendar.set(Calendar.SECOND, 0)
-            
+
             // Calculate end time based on duration
             val endCalendar = Calendar.getInstance()
             endCalendar.timeInMillis = startCalendar.timeInMillis
             endCalendar.add(Calendar.MINUTE, (selectedDuration * 60).toInt())
-            
+
             // Format dates for the API
             val apiDateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
             val startTimeString = apiDateFormat.format(startCalendar.time)
             val endTimeString = apiDateFormat.format(endCalendar.time)
-            
+
             Log.d("BookingActivity", "Booking session: Start=$startTimeString, End=$endTimeString, Subject=$selectedSubject, Type=$selectedSessionType")
-            
+
             // Call ViewModel to book the session
             viewModel.bookSession(
                 startTime = startTimeString,
@@ -632,26 +648,26 @@ class BookingActivity : AppCompatActivity() {
             val tutorRateTextView = findViewById<TextView>(R.id.tutorRateText)
             val summaryDurationTextView = findViewById<TextView>(R.id.summaryDurationText)
             val totalPriceTextView = findViewById<TextView>(R.id.totalPriceText)
-            
+
             // Get the tutor's hourly rate from the profile
             val tutorProfile = viewModel.bookingState.value?.tutorProfile
             val hourlyRate = tutorProfile?.hourlyRate ?: 0.0
-            
+
             // Format the duration text
             val durationText = if (selectedDuration == 1.0) {
                 "1 hour"
             } else {
                 "$selectedDuration hours"
             }
-            
+
             // Calculate the total price
             val totalPrice = hourlyRate * selectedDuration
-            
+
             // Update the UI elements
             tutorRateTextView?.text = String.format("$%.2f/hr", hourlyRate)
             summaryDurationTextView?.text = durationText
             totalPriceTextView?.text = String.format("$%.2f", totalPrice)
-            
+
             Log.d("BookingActivity", "Updated session summary: Rate=$hourlyRate, Duration=$selectedDuration, Total=$totalPrice")
         } catch (e: Exception) {
             Log.e("BookingActivity", "Error updating session summary: ${e.message}", e)
@@ -719,7 +735,7 @@ class BookingActivity : AppCompatActivity() {
     private fun showLoading(isLoading: Boolean, message: String = "") {
         val progressOverlay = findViewById<View>(R.id.progressOverlay)
         val loadingText = findViewById<TextView>(R.id.loadingText)
-        
+
         if (isLoading) {
             // Set the loading message if provided
             if (message.isNotEmpty()) {
@@ -727,7 +743,7 @@ class BookingActivity : AppCompatActivity() {
             } else {
                 loadingText.text = "Processing your booking..."
             }
-            
+
             // Show the full screen overlay
             progressOverlay.visibility = View.VISIBLE
         } else {
@@ -740,11 +756,11 @@ class BookingActivity : AppCompatActivity() {
     private fun showBookingConfirmationDialog() {
         try {
             Log.d("BookingActivity", "Showing booking confirmation dialog")
-            
+
             // Set result code immediately to indicate success
             setResult(RESULT_OK)
             Log.d("BookingActivity", "Set result code to RESULT_OK")
-            
+
             // Determine if we can use Material Design dialog
             val canUseMaterialDialog = try {
                 // Check if the MaterialComponents class is available
@@ -754,12 +770,12 @@ class BookingActivity : AppCompatActivity() {
                 Log.w("BookingActivity", "MaterialAlertDialogBuilder not available, using AppCompat dialog")
                 false
             }
-            
+
             // Get the tutor name from the viewModel
             val tutorName = viewModel.bookingState.value?.tutorProfile?.name ?: "the tutor"
             val message = "Your session has been booked successfully! " +
                           "You'll receive a notification when $tutorName confirms the session."
-            
+
             // Create the appropriate dialog builder
             if (canUseMaterialDialog) {
                 // Use Material Design dialog if available
@@ -771,7 +787,7 @@ class BookingActivity : AppCompatActivity() {
                     Log.d("BookingActivity", "User clicked 'View My Sessions', setting RESULT_VIEW_SESSIONS")
                     setResult(RESULT_VIEW_SESSIONS)
                     Log.d("BookingActivity", "Finishing activity after 'View My Sessions'")
-                    
+
                     // As a safety measure, directly navigate to LearnerDashboardActivity with a flag to show sessions
                     try {
                         val intent = Intent(this, Class.forName("com.mobile.ui.dashboard.LearnerDashboardActivity"))
@@ -781,7 +797,7 @@ class BookingActivity : AppCompatActivity() {
                     } catch (e: Exception) {
                         Log.e("BookingActivity", "Error navigating to dashboard: ${e.message}", e)
                     }
-                    
+
                     finish()
                 }
                 builder.setNegativeButton("Done") { _, _ -> 
@@ -789,7 +805,7 @@ class BookingActivity : AppCompatActivity() {
                     Log.d("BookingActivity", "Finishing activity after 'Done'")
                     finish()
                 }
-                
+
                 // Create and show the dialog
                 val dialog = builder.create()
                 dialog.setCancelable(false) // Prevent dismissal by tapping outside
@@ -805,7 +821,7 @@ class BookingActivity : AppCompatActivity() {
                     Log.d("BookingActivity", "User clicked 'View My Sessions', setting RESULT_VIEW_SESSIONS")
                     setResult(RESULT_VIEW_SESSIONS)
                     Log.d("BookingActivity", "Finishing activity after 'View My Sessions'")
-                    
+
                     // As a safety measure, directly navigate to LearnerDashboardActivity with a flag to show sessions
                     try {
                         val intent = Intent(this, Class.forName("com.mobile.ui.dashboard.LearnerDashboardActivity"))
@@ -815,7 +831,7 @@ class BookingActivity : AppCompatActivity() {
                     } catch (e: Exception) {
                         Log.e("BookingActivity", "Error navigating to dashboard: ${e.message}", e)
                     }
-                    
+
                     finish()
                 }
                 builder.setNegativeButton("Done") { _, _ -> 
@@ -823,7 +839,7 @@ class BookingActivity : AppCompatActivity() {
                     Log.d("BookingActivity", "Finishing activity after 'Done'")
                     finish()
                 }
-                
+
                 // Create and show the dialog
                 val dialog = builder.create()
                 dialog.setCancelable(false) // Prevent dismissal by tapping outside
@@ -963,4 +979,3 @@ class TutorSubjectAdapter(
         }
     }
 }
-

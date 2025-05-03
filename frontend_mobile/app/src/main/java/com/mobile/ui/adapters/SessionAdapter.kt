@@ -11,6 +11,7 @@ import com.mobile.R
 import com.mobile.utils.NetworkUtils.TutoringSession
 import java.text.SimpleDateFormat
 import java.util.Locale
+import java.util.TimeZone
 
 /**
  * Adapter for displaying session items in a RecyclerView
@@ -34,26 +35,47 @@ class SessionAdapter : ListAdapter<TutoringSession, SessionAdapter.SessionViewHo
         private val time: TextView = view.findViewById(R.id.sessionTime)
         private val status: TextView = view.findViewById(R.id.sessionStatus)
         private val tutorName: TextView = view.findViewById(R.id.tutorName)
-        
-        // Date formatters
-        private val inputDateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
-        private val outputDateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.US)
-        private val outputTimeFormat = SimpleDateFormat("h:mm a", Locale.US)
+
+        // Date formatters for different possible server formats
+        private val isoInputDateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).apply {
+            // Don't set timezone - treat server time as local time
+        }
+        private val sqlInputDateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).apply {
+            // Don't set timezone - treat server time as local time
+        }
+        private val outputDateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.US).apply {
+            // Don't change timezone for display
+        }
+        private val outputTimeFormat = SimpleDateFormat("h:mm a", Locale.US).apply {
+            // Don't change timezone for display
+        }
 
         fun bind(session: TutoringSession) {
             // Set the subject
             subject.text = session.subject
-            
+
             // Set the tutor name
             tutorName.text = session.tutorName
-            
+
             // Format and set the date
             try {
-                val startDate = inputDateFormat.parse(session.startTime)
-                if (startDate != null) {
+                // Try to parse with ISO format first, then SQL format if that fails
+                var startDate = try {
+                    isoInputDateFormat.parse(session.startTime)
+                } catch (e: Exception) {
+                    sqlInputDateFormat.parse(session.startTime)
+                }
+
+                var endDate = try {
+                    isoInputDateFormat.parse(session.endTime)
+                } catch (e: Exception) {
+                    sqlInputDateFormat.parse(session.endTime)
+                }
+
+                if (startDate != null && endDate != null) {
                     date.text = outputDateFormat.format(startDate)
                     time.text = "${outputTimeFormat.format(startDate)} - ${
-                        outputTimeFormat.format(inputDateFormat.parse(session.endTime)!!)
+                        outputTimeFormat.format(endDate)
                     }"
                 } else {
                     date.text = "Unknown date"
@@ -63,12 +85,12 @@ class SessionAdapter : ListAdapter<TutoringSession, SessionAdapter.SessionViewHo
                 date.text = "Unknown date"
                 time.text = "Unknown time"
             }
-            
+
             // Set the status with appropriate styling
             status.text = session.status.replaceFirstChar { 
                 if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() 
             }
-            
+
             // Set status background color based on status
             when (session.status.lowercase(Locale.getDefault())) {
                 "scheduled" -> {

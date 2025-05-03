@@ -252,4 +252,47 @@ public class TutoringSessionService {
     public UserEntity findUserByUsername(String username) {
         return userRepository.findByUsername(username).orElse(null);
     }
+
+    /**
+     * Find sessions that overlap with the given time range for a specific tutor and have the specified status.
+     * 
+     * @param tutorId The ID of the tutor
+     * @param startTime The start time of the range
+     * @param endTime The end time of the range
+     * @param status The status of the sessions to find
+     * @return A list of overlapping sessions
+     */
+    public List<TutoringSessionEntity> findOverlappingSessionsByTutorAndStatus(Long tutorId, Date startTime, Date endTime, String status) {
+        return sessionRepository.findOverlappingSessionsByTutorAndStatus(tutorId, startTime, endTime, status);
+    }
+
+    /**
+     * Check if there are any approved sessions that overlap with the given time range for a specific tutor.
+     * 
+     * @param tutorId The ID of the tutor
+     * @param startTime The start time of the range
+     * @param endTime The end time of the range
+     * @return true if there are overlapping approved sessions, false otherwise
+     */
+    public boolean hasOverlappingApprovedSessions(Long tutorId, Date startTime, Date endTime) {
+        List<TutoringSessionEntity> overlappingSessions = findOverlappingSessionsByTutorAndStatus(
+            tutorId, startTime, endTime, "APPROVED");
+        return !overlappingSessions.isEmpty();
+    }
+
+    /**
+     * Update a session with a conversation ID
+     * 
+     * @param sessionId The ID of the session to update
+     * @param conversationEntity The conversation entity to associate with the session
+     * @return The updated session entity
+     */
+    @Transactional
+    public TutoringSessionEntity updateSessionWithConversation(Long sessionId, edu.cit.Judify.Conversation.ConversationEntity conversationEntity) {
+        TutoringSessionEntity session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new RuntimeException("Session not found with ID: " + sessionId));
+
+        session.setConversation(conversationEntity);
+        return sessionRepository.save(session);
+    }
 } 

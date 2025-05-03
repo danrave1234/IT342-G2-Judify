@@ -34,7 +34,7 @@ object NetworkUtils {
 
     // Server configuration
     // The backend URL has been deployed to Google Cloud Run
-    private const val DEPLOYED_BACKEND_URL = "https://judify-795422705086.asia-east1.run.app"
+    private const val DEPLOYED_BACKEND_URL = "http://192.168.1.4:8080"
 
     // Base URL for API requests
     private val BASE_URL: String = "$DEPLOYED_BACKEND_URL/api"
@@ -1112,9 +1112,10 @@ object NetworkUtils {
      * Create a new conversation with a tutor
      * @param studentUserId The user ID of the student
      * @param tutorId The tutor profile ID (not user ID)
+     * @param sessionId Optional session ID to associate with the conversation
      * @return Result<Conversation> containing the created conversation
      */
-    suspend fun createConversationWithTutor(studentUserId: Long, tutorId: Long): Result<Conversation> {
+    suspend fun createConversationWithTutor(studentUserId: Long, tutorId: Long, sessionId: Long? = null): Result<Conversation> {
         return withContext(Dispatchers.IO) {
             try {
                 // Validation
@@ -1132,7 +1133,15 @@ object NetworkUtils {
                 Log.d(TAG, "Creating conversation with studentUserId=$studentUserId, tutorId=$tutorId")
 
                 // Use the new endpoint that handles tutorId to userId conversion
-                val url = URL(createApiUrl("conversations/createWithTutor/$studentUserId/$tutorId"))
+                // Add sessionId as a query parameter if provided
+                val baseUrl = "conversations/createWithTutor/$studentUserId/$tutorId"
+                val urlString = if (sessionId != null) {
+                    createApiUrl("$baseUrl?sessionId=$sessionId")
+                } else {
+                    createApiUrl(baseUrl)
+                }
+
+                val url = URL(urlString)
                 Log.d(TAG, "Making API request to URL: $url")
                 val connection = createPostConnection(url)
 
@@ -2664,7 +2673,7 @@ object NetworkUtils {
                         val sessionJson = jsonArray.getJSONObject(i)
                         sessions.add(
                             TutoringSession(
-                                id = sessionJson.optLong("id"),
+                                id = sessionJson.optLong("sessionId", sessionJson.optLong("id")),
                                 tutorId = sessionJson.optLong("tutorId"),
                                 learnerId = sessionJson.optString("studentId", ""), // Backend uses studentId instead of learnerId
                                 startTime = sessionJson.optString("startTime"),
@@ -2976,7 +2985,7 @@ object NetworkUtils {
                     val json = parseJsonResponse(response)
 
                     TutoringSession(
-                        id = json.optLong("id"),
+                        id = json.optLong("sessionId", json.optLong("id")),
                         tutorId = json.optLong("tutorId"),
                         learnerId = json.optString("studentId"), // Backend uses studentId instead of learnerId
                         startTime = json.optString("startTime"),
@@ -3156,7 +3165,7 @@ object NetworkUtils {
 
                         sessions.add(
                             TutoringSession(
-                                id = sessionJson.optLong("id"),
+                                id = sessionJson.optLong("sessionId", sessionJson.optLong("id")),
                                 tutorId = sessionJson.optLong("tutorId"),
                                 learnerId = sessionJson.optString("studentId", ""), // Backend uses studentId instead of learnerId
                                 startTime = sessionJson.optString("startTime"),
@@ -3525,13 +3534,13 @@ object NetworkUtils {
     ): Flow<Result<TutoringSession>> = flow {
         try {
             Log.d(TAG, "Creating session: learner=$learnerId, tutor=$tutorId, subject=$subject")
-            
+
             // Convert learnerId to Long
             val learnerIdLong = learnerId.toLongOrNull() ?: -1L
             if (learnerIdLong == -1L) {
                 throw IllegalArgumentException("Invalid learner ID: $learnerId")
             }
-            
+
             // Create the session using the existing method
             val result = createTutoringSession(
                 tutorId = tutorId,
@@ -3542,7 +3551,7 @@ object NetworkUtils {
                 sessionType = sessionType,
                 notes = notes
             )
-            
+
             // Emit the result
             emit(result)
         } catch (e: Exception) {
@@ -3550,4 +3559,33 @@ object NetworkUtils {
             emit(Result.failure(e))
         }
     }.flowOn(Dispatchers.IO)
+
+    /**
+     * Checks if there are any approved sessions that overlap with the given time range for a specific tutor
+     * @param tutorId The ID of the tutor
+     * @param startTime The start time of the session in ISO format (yyyy-MM-dd'T'HH:mm:ss)
+     * @param endTime The end time of the session in ISO format (yyyy-MM-dd'T'HH:mm:ss)
+     * @return Result containing a Boolean indicating whether there is an overlap (true) or not (false)
+     */
+    suspend fun checkSessionOverlap(tutorId: Long, startTime: String, endTime: String): Result<Boolean> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val baseUrl = createApiUrl("/api/tutoring-sessions/checkOverlap")
+                val params = mapOf(
+                    "tutorId" to tutorId.toString(),
+                    "startTime" to startTime,
+                    "endTime" to endTime
+                )
+                val url = createUrlWithParams(baseUrl, params)
+                val connection = createGetConnection(url)
+
+                return@withContext handleResponse(connection) { response ->
+                    response.toBoolean()
+                }
+            } catch (e: Exception) {
+                Log.e("NetworkUtils", "Error checking session overlap: ${e.message}", e)
+                return@withContext Result.failure(e)
+            }
+        }
+    }
 }

@@ -41,6 +41,9 @@ class BookingViewModel(
     private val _availabilityState = MutableLiveData(AvailabilityState())
     val availabilityState: LiveData<AvailabilityState> = _availabilityState
 
+    private val _unavailableTimeSlots = MutableLiveData<Set<String>>(emptySet())
+    val unavailableTimeSlots: LiveData<Set<String>> = _unavailableTimeSlots
+
     init {
         Log.d("BookingViewModel", "Initialized with tutorId=$tutorId, subjectId=$subjectId, subjectName=$subjectName")
         // If we have a subject name, we'll pre-fill the subject field
@@ -221,6 +224,58 @@ class BookingViewModel(
     }
 
     /**
+     * Filters out time slots that overlap with approved sessions
+     * @param timeSlots List of time slots in format "HH:MM - HH:MM"
+     * @param date The date for which to check overlaps in format "yyyy-MM-dd"
+     * @return Pair of (available time slots, unavailable time slots)
+     */
+    private suspend fun filterOverlappingTimeSlots(timeSlots: List<String>, date: String): Pair<List<String>, Set<String>> {
+        val availableTimeSlots = mutableListOf<String>()
+        val unavailableTimeSlots = mutableSetOf<String>()
+
+        for (timeSlot in timeSlots) {
+            try {
+                // Parse the time slot
+                val parts = timeSlot.split(" - ")
+                if (parts.size != 2) continue
+
+                // Create ISO formatted date-time strings for the API
+                val startDateTime = "${date}T${parts[0]}:00"
+                val endDateTime = "${date}T${parts[1]}:00"
+
+                // Check if this time slot overlaps with any approved sessions
+                val result = NetworkUtils.checkSessionOverlap(tutorId, startDateTime, endDateTime)
+
+                result.fold(
+                    onSuccess = { hasOverlap ->
+                        if (!hasOverlap) {
+                            // If there's no overlap, add the time slot to available slots
+                            availableTimeSlots.add(timeSlot)
+                            Log.d("BookingViewModel", "Time slot $timeSlot is available")
+                        } else {
+                            // If there's an overlap, add the time slot to unavailable slots
+                            unavailableTimeSlots.add(timeSlot)
+                            Log.d("BookingViewModel", "Time slot $timeSlot overlaps with an approved session")
+                        }
+                    },
+                    onFailure = { exception ->
+                        // If there's an error, assume the slot is available
+                        Log.e("BookingViewModel", "Error checking overlap for time slot $timeSlot: ${exception.message}")
+                        availableTimeSlots.add(timeSlot)
+                    }
+                )
+            } catch (e: Exception) {
+                Log.e("BookingViewModel", "Error filtering time slot $timeSlot: ${e.message}")
+                // If there's an error, assume the slot is available
+                availableTimeSlots.add(timeSlot)
+            }
+        }
+
+        Log.d("BookingViewModel", "After filtering: ${availableTimeSlots.size} available time slots, ${unavailableTimeSlots.size} unavailable time slots")
+        return Pair(availableTimeSlots, unavailableTimeSlots)
+    }
+
+    /**
      * Parse time string to hour and minute, handling various formats
      * @param timeString The time string to parse (e.g., "9:00", "9:00 AM", "09:00", "12:00", etc.)
      * @return Pair of hour (0-23) and minute (0-59)
@@ -295,17 +350,17 @@ class BookingViewModel(
             // Split the time slot "HH:MM - HH:MM"
             val parts = timeSlot.split(" - ")
             if (parts.size != 2) return@map timeSlot
-            
+
             // Parse start time
             val startParts = parts[0].split(":")
             val startHour = startParts[0].toInt()
             val startMinute = startParts[1].toInt()
-            
+
             // Parse end time
             val endParts = parts[1].split(":")
             val endHour = endParts[0].toInt()
             val endMinute = endParts[1].toInt()
-            
+
             // Format to 12-hour
             "${formatTimeTo12Hour(startHour, startMinute)} - ${formatTimeTo12Hour(endHour, endMinute)}"
         }
@@ -338,14 +393,37 @@ class BookingViewModel(
                         // Generate time slots from availability
                         val timeSlots = generateTimeSlotsFromAvailability(availability)
 
-                        _availabilityState.postValue(
-                            _availabilityState.value?.copy(
-                                availability = availability,
-                                timeSlots = timeSlots,
-                                isLoading = false,
-                                error = null
+                        // Filter out time slots that overlap with approved sessions
+                        if (!specificDate.isNullOrEmpty()) {
+                            // Only filter if we have a specific date
+                            val (availableTimeSlots, unavailableTimeSlots) = filterOverlappingTimeSlots(timeSlots, specificDate)
+
+                            // Update the state with available time slots
+                            _availabilityState.postValue(
+                                _availabilityState.value?.copy(
+                                    availability = availability,
+                                    timeSlots = availableTimeSlots,
+                                    isLoading = false,
+                                    error = null
+                                )
                             )
-                        )
+
+                            // Store unavailable time slots for UI to display as disabled
+                            _unavailableTimeSlots.postValue(unavailableTimeSlots)
+                        } else {
+                            // If no specific date, just use all time slots
+                            _availabilityState.postValue(
+                                _availabilityState.value?.copy(
+                                    availability = availability,
+                                    timeSlots = timeSlots,
+                                    isLoading = false,
+                                    error = null
+                                )
+                            )
+
+                            // Clear unavailable time slots
+                            _unavailableTimeSlots.postValue(emptySet())
+                        }
                     },
                     onFailure = { exception ->
                         Log.e("BookingViewModel", "Failed to load tutor availability: ${exception.message}", exception)
@@ -411,38 +489,38 @@ class BookingViewModel(
                     try {
                         if (result.isSuccess) {
                             Log.d(TAG, "Session created successfully")
-                            
+
                             _bookingState.value = _bookingState.value?.copy(
                                 isLoading = false,
                                 bookingComplete = true,  // Set booking completion to true
                                 error = null
                             )
-                            
+
                             // Call the callback with success
                             callback(true)
-                            
+
                         } else {
                             val error = result.exceptionOrNull()
                             Log.e(TAG, "Error creating session: ${error?.message}")
-                            
+
                             _bookingState.value = _bookingState.value?.copy(
                                 isLoading = false,
                                 bookingComplete = false,
                                 error = error?.message ?: "Unknown error creating session"
                             )
-                            
+
                             // Call the callback with failure
                             callback(false)
                         }
                     } catch (e: Exception) {
                         Log.e(TAG, "Exception in bookSession: ${e.message}", e)
-                        
+
                         _bookingState.value = _bookingState.value?.copy(
                             isLoading = false,
                             bookingComplete = false,
                             error = e.message ?: "Exception creating session"
                         )
-                        
+
                         // Call the callback with failure
                         callback(false)
                     }

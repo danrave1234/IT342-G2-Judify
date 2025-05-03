@@ -15,6 +15,7 @@ class TimeSlotAdapter(
 ) : RecyclerView.Adapter<TimeSlotAdapter.TimeSlotViewHolder>() {
 
     private var selectedPosition = -1
+    private var unavailableTimeSlots: Set<String> = emptySet()
 
     inner class TimeSlotViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val timeSlotCard: MaterialCardView = itemView as MaterialCardView
@@ -25,19 +26,23 @@ class TimeSlotAdapter(
             itemView.setOnClickListener {
                 val position = adapterPosition
                 if (position != RecyclerView.NO_POSITION) {
-                    val oldSelectedPosition = selectedPosition
-                    selectedPosition = position
-                    
-                    // Update the previously selected item
-                    if (oldSelectedPosition != -1) {
-                        notifyItemChanged(oldSelectedPosition)
+                    // Only allow selection if the time slot is available
+                    val timeSlot = timeSlots[position]
+                    if (!unavailableTimeSlots.contains(timeSlot)) {
+                        val oldSelectedPosition = selectedPosition
+                        selectedPosition = position
+
+                        // Update the previously selected item
+                        if (oldSelectedPosition != -1) {
+                            notifyItemChanged(oldSelectedPosition)
+                        }
+
+                        // Update the newly selected item
+                        notifyItemChanged(selectedPosition)
+
+                        // Notify the activity about the selection
+                        onTimeSlotSelected(timeSlots[position])
                     }
-                    
-                    // Update the newly selected item
-                    notifyItemChanged(selectedPosition)
-                    
-                    // Notify the activity about the selection
-                    onTimeSlotSelected(timeSlots[position])
                 }
             }
         }
@@ -52,9 +57,25 @@ class TimeSlotAdapter(
     override fun onBindViewHolder(holder: TimeSlotViewHolder, position: Int) {
         val timeSlot = timeSlots[position]
         holder.timeSlotText.text = timeSlot
-        
-        // Update the appearance based on selection state
-        if (position == selectedPosition) {
+
+        // Check if this time slot is unavailable
+        val isUnavailable = unavailableTimeSlots.contains(timeSlot)
+
+        // Update the appearance based on selection state and availability
+        if (isUnavailable) {
+            // Set unavailable state
+            holder.timeSlotCard.setCardBackgroundColor(
+                ContextCompat.getColor(holder.itemView.context, R.color.light_gray)
+            )
+            holder.timeSlotCard.strokeColor = 
+                ContextCompat.getColor(holder.itemView.context, R.color.light_gray)
+            holder.timeSlotText.setTextColor(
+                ContextCompat.getColor(holder.itemView.context, R.color.text_secondary)
+            )
+            holder.selectedIndicator.visibility = View.GONE
+            holder.timeSlotCard.isEnabled = false
+            holder.timeSlotCard.alpha = 0.5f
+        } else if (position == selectedPosition) {
             // Set selected state
             holder.timeSlotCard.setCardBackgroundColor(
                 ContextCompat.getColor(holder.itemView.context, R.color.primary_blue_light)
@@ -65,6 +86,8 @@ class TimeSlotAdapter(
                 ContextCompat.getColor(holder.itemView.context, R.color.primary_blue)
             )
             holder.selectedIndicator.visibility = View.VISIBLE
+            holder.timeSlotCard.isEnabled = true
+            holder.timeSlotCard.alpha = 1.0f
         } else {
             // Set unselected state
             holder.timeSlotCard.setCardBackgroundColor(
@@ -76,6 +99,8 @@ class TimeSlotAdapter(
                 ContextCompat.getColor(holder.itemView.context, R.color.text_primary)
             )
             holder.selectedIndicator.visibility = View.GONE
+            holder.timeSlotCard.isEnabled = true
+            holder.timeSlotCard.alpha = 1.0f
         }
     }
 
@@ -84,6 +109,15 @@ class TimeSlotAdapter(
     fun updateTimeSlots(newTimeSlots: List<String>) {
         timeSlots = newTimeSlots
         selectedPosition = -1
+        notifyDataSetChanged()
+    }
+
+    /**
+     * Set the list of unavailable time slots that should be disabled
+     * @param unavailableSlots Set of time slots that are unavailable
+     */
+    fun setUnavailableTimeSlots(unavailableSlots: Set<String>) {
+        unavailableTimeSlots = unavailableSlots
         notifyDataSetChanged()
     }
 }
