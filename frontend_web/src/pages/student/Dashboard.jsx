@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { FaCalendarAlt, FaClock, FaUser } from 'react-icons/fa';
-import { SESSION_STATUS } from '../../types';
+import { FaCalendarAlt, FaClock} from 'react-icons/fa';
 import axios from 'axios';
 
 const Dashboard = () => {
