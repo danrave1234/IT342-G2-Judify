@@ -11,12 +11,14 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: 'https://judify-795422705086.asia-east1.run.app',
+        // target: 'http://localhost:8080',
         changeOrigin: true,
         secure: true,
         rewrite: (path) => path
       },
       '/ws': {
         target: 'https://judify-795422705086.asia-east1.run.app',
+        // target: 'http://localhost:8080',
         ws: true,
         changeOrigin: true,
         secure: true,
