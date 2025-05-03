@@ -7,14 +7,10 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
-import com.mobile.data.model.Booking
-import com.mobile.data.model.Schedule
-import com.mobile.data.model.CourseDTO
-import com.mobile.data.repository.BookingRepository
+import com.mobile.model.Schedule
+import com.mobile.repository.BookingRepository
 import com.mobile.utils.NetworkUtils
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.util.*
 
 class BookingViewModel(
     application: Application,

@@ -1,4 +1,4 @@
-package com.mobile.data.model
+package com.mobile.model
 
 /**
  * Data class for tutor registration that combines user and tutor profile information

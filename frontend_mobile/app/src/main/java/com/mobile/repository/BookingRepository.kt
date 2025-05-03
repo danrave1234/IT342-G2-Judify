@@ -1,7 +1,7 @@
-package com.mobile.data.repository
+package com.mobile.repository
 
-import com.mobile.data.model.Booking
-import com.mobile.data.model.Schedule
+import com.mobile.model.Booking
+import com.mobile.model.Schedule
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 

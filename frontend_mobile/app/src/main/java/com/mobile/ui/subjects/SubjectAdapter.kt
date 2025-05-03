@@ -6,7 +6,7 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.mobile.R
-import com.mobile.data.model.Subject
+import com.mobile.model.Subject
 
 class SubjectAdapter(
     private val subjects: MutableList<Subject> = mutableListOf(),

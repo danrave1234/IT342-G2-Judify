@@ -9,10 +9,9 @@ import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.mobile.R
-import com.mobile.data.model.TutorRegistration
+import com.mobile.model.TutorRegistration
 import com.mobile.databinding.ActivityTutorRegisterBinding
 import com.mobile.ui.login.LoginActivity
-import com.mobile.ui.register.RegisterActivity
 import com.mobile.utils.NetworkUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

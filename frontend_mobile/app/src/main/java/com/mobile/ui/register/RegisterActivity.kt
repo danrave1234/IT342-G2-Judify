@@ -9,12 +9,10 @@ import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.mobile.R
-import com.mobile.data.model.User
+import com.mobile.model.User
 import com.mobile.databinding.ActivityRegisterBinding
 import com.mobile.ui.login.LoginActivity
-import com.mobile.ui.register.TutorRegisterActivity
-import com.mobile.data.repository.AuthRepository
-import com.mobile.utils.NetworkUtils
+import com.mobile.repository.AuthRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch

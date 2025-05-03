@@ -1,17 +1,18 @@
-package com.mobile.data.model
+package com.mobile.model
 
 import java.util.Date
 
 /**
- * Data Transfer Object for Subject that matches the backend API
+ * Data Transfer Object for Course that matches the backend API
  */
-data class SubjectDTO(
+data class CourseDTO(
     val id: Long? = null,
-    val name: String,
+    val title: String,
+    val subtitle: String,
     val description: String,
     val tutorId: Long? = null,
     val tutorName: String? = null,
     val category: String,
-    val hourlyRate: Double,
+    val price: Double,
     val createdAt: Date? = null
-) 
+)

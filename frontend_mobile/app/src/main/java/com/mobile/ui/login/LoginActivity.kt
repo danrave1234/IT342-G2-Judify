@@ -12,19 +12,15 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
 import com.mobile.R
-import com.mobile.data.model.AuthResponse
 import com.mobile.ui.dashboard.LearnerDashboardActivity
 import com.mobile.ui.dashboard.TutorDashboardActivity
 import com.mobile.ui.register.RegisterActivity
 import com.mobile.ui.register.TutorRegisterActivity
-import com.mobile.data.repository.AuthRepository
-import com.mobile.utils.NetworkUtils
+import com.mobile.repository.AuthRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import com.mobile.ui.login.LoginViewModel
-import com.mobile.ui.login.LoginViewModelFactory
 
 class LoginActivity : AppCompatActivity() {
 

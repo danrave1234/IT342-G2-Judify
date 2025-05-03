@@ -1,9 +1,9 @@
 package com.mobile.utils
 
 import android.util.Log
-import com.mobile.data.model.CourseDTO
-import com.mobile.data.model.TutorRegistration
-import com.mobile.data.model.User
+import com.mobile.model.CourseDTO
+import com.mobile.model.TutorRegistration
+import com.mobile.model.User
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow

@@ -1,4 +1,4 @@
-package com.mobile.data.model
+package com.mobile.model
 
 /**
  * Data class that captures user information for logged in users retrieved from LoginRepository

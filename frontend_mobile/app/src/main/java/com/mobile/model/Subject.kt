@@ -1,4 +1,4 @@
-package com.mobile.data.model
+package com.mobile.model
 
 /**
  * Simple subject model for UI display and selection

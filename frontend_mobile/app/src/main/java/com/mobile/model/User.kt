@@ -1,4 +1,4 @@
-package com.mobile.data.model
+package com.mobile.model
 
 import java.util.Date
 

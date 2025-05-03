@@ -1,4 +1,4 @@
-package com.mobile.data.model
+package com.mobile.model
 
 /**
  * Data class that captures the response from the authentication API

@@ -10,7 +10,7 @@ import com.mobile.utils.PreferenceUtils // Import PreferenceUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import com.mobile.data.model.User as ApiUser // Alias the User model from data layer
+import com.mobile.model.User as ApiUser // Alias the User model from data layer
 
 // Data class for user information (UI Model) - Added username
 data class User(

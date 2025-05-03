@@ -1,6 +1,7 @@
-package com.mobile.data.repository
+package com.mobile.repository
 
-import com.mobile.data.model.AuthResponse
+import com.mobile.model.AuthResponse
+import com.mobile.model.User
 import com.mobile.utils.NetworkUtils
 
 /**
@@ -53,7 +54,7 @@ class AuthRepository {
      */
     suspend fun register(email: String, username: String, password: String, firstName: String, lastName: String, contactDetails: String? = null): AuthResponse {
         // Create a User object with the provided parameters
-        val user = com.mobile.data.model.User(
+        val user = User(
             email = email,
             username = username,
             passwordHash = password, // Despite the name, this sends the plain password to the server
