@@ -374,8 +374,8 @@ public class UserController {
     private String getFrontendUrl(HttpServletRequest request) {
         // Default frontend URLs
         String localFrontendUrl = "http://localhost:5173";
-        String productionFrontendUrl = "https://judify-web.vercel.app";
-        
+        String productionFrontendUrl = "https://judify.vercel.app";
+
         // Check if we're running in a production environment
         boolean isProduction = false;
         String serverName = request.getServerName();
