@@ -86,8 +86,13 @@ const Login = () => {
 
   // Function to handle Google OAuth login
   const handleGoogleLogin = () => {
-    // Use direct URL to the OAuth2 endpoint
-    const googleAuthUrl = 'http://localhost:8080/oauth2/authorization/google';
+    // Determine if we're in production or development
+    const baseUrl = window.location.hostname === 'localhost' 
+      ? 'http://localhost:8080'
+      : 'https://judify-795422705086.asia-east1.run.app';
+    
+    // Use direct URL to the OAuth2 endpoint with the correct base URL
+    const googleAuthUrl = `${baseUrl}/oauth2/authorization/google`;
     
     console.log('Redirecting to Google OAuth:', googleAuthUrl);
     window.location.href = googleAuthUrl;

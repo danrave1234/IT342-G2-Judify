@@ -90,6 +90,7 @@ function App() {
                           </Route>
 
                           {/* OAuth2 Routes */}
+                          <Route path="/auth/oauth2-callback" element={<OAuth2Callback />} />
                           <Route path="/oauth2-callback" element={<OAuth2Callback />} />
 
                           {/* Protected Layout for all authenticated routes */}

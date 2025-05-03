@@ -79,8 +79,13 @@ const Register = () => {
 
   // Function to handle Google OAuth signup
   const handleGoogleSignup = () => {
-    // Use direct URL to the OAuth2 endpoint
-    const googleAuthUrl = 'http://localhost:8080/oauth2/authorization/google';
+    // Determine if we're in production or development
+    const baseUrl = window.location.hostname === 'localhost' 
+      ? 'http://localhost:8080'
+      : 'https://judify-795422705086.asia-east1.run.app';
+    
+    // Use direct URL to the OAuth2 endpoint with the correct base URL
+    const googleAuthUrl = `${baseUrl}/oauth2/authorization/google`;
     
     console.log('Redirecting to Google OAuth for signup:', googleAuthUrl);
     window.location.href = googleAuthUrl;
@@ -124,8 +129,13 @@ const Register = () => {
       
       // Try direct API call first (for debugging)
       try {
+        // Determine base URL for API
+        const baseUrl = window.location.hostname === 'localhost' 
+          ? 'http://localhost:8080'
+          : 'https://judify-795422705086.asia-east1.run.app';
+          
         console.log('Trying direct API call to /api/users/register');
-        const directResponse = await fetch('http://localhost:8080/api/users/register', {
+        const directResponse = await fetch(`${baseUrl}/api/users/register`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
