@@ -17,6 +17,7 @@ public class TutoringSessionDTO {
     private Date createdAt;
     private Date updatedAt;
     private String tutorName;       // Added tutorName field
+    private String studentName;     // Added studentName field
     private Boolean tutorAccepted;  // Whether the tutor has accepted the session
     private Boolean studentAccepted; // Whether the student has accepted the session
     private Long conversationId;    // ID of the conversation for negotiation
@@ -136,6 +137,14 @@ public class TutoringSessionDTO {
 
     public void setTutorName(String tutorName) {
         this.tutorName = tutorName;
+    }
+
+    public String getStudentName() {
+        return studentName;
+    }
+
+    public void setStudentName(String studentName) {
+        this.studentName = studentName;
     }
 
     public Boolean getTutorAccepted() {

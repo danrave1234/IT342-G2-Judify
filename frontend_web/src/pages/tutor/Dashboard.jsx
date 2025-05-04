@@ -18,11 +18,54 @@ const Dashboard = () => {
       }
 
       try {
-        const response = await tutoringSessionApi.getTutorSessions(currentUser.userId);
-        setSessions(response.data);
+        // First, we need to get the tutor's profile to get the profile ID
+        const { tutorProfileApi } = await import('../../api/api');
+        console.log('Fetching tutor profile for user ID:', currentUser.userId);
+
+        // Get the tutor profile to get the correct tutorId (profileId)
+        const profileResponse = await tutorProfileApi.getProfileByUserId(currentUser.userId);
+
+        if (!profileResponse.data || !profileResponse.data.profileId) {
+          console.error('No tutor profile found or missing profileId');
+          setLoading(false);
+          return;
+        }
+
+        // Use the profile ID as tutorId for fetching sessions
+        const tutorProfileId = profileResponse.data.profileId;
+        console.log('Fetching sessions using tutor profile ID:', tutorProfileId);
+
+        // Fetch sessions using the profile ID (not user ID)
+        const response = await tutoringSessionApi.getTutorSessions(tutorProfileId);
+
+        // Extract data, ensuring we always have an array
+        const sessionData = response.data || [];
+        console.log(`Successfully loaded ${sessionData.length} sessions`);
+
+        // Normalize sessions to have both id and sessionId
+        const normalizedSessions = sessionData.map(session => ({
+          ...session,
+          id: session.id || session.sessionId,
+          sessionId: session.sessionId || session.id
+        }));
+
+        // Filter for upcoming sessions if desired
+        const upcomingSessions = normalizedSessions.filter(session => 
+          ['PENDING', 'CONFIRMED', 'SCHEDULED'].includes(session.status?.toUpperCase())
+        );
+
+        setSessions(upcomingSessions.length > 0 ? upcomingSessions : normalizedSessions);
       } catch (err) {
         console.error('Error fetching tutor sessions:', err);
-        setError('Failed to load your sessions. Please try again later.');
+
+        // For 404 errors, just set empty sessions array (no error message)
+        if (err.response && err.response.status === 404) {
+          console.log('No sessions found (404 response)');
+          setSessions([]);
+        } else {
+          // For other errors, show error message
+          setError('Failed to load your sessions. Please try again later.');
+        }
       } finally {
         setLoading(false);
       }
@@ -33,8 +76,25 @@ const Dashboard = () => {
 
   // Format date for display
   const formatDate = (dateString) => {
-    const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
-    return new Date(dateString).toLocaleDateString(undefined, options);
+    // Handle null, undefined, or invalid date values
+    if (!dateString) {
+      return 'No date available';
+    }
+
+    try {
+      const date = new Date(dateString);
+
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return 'Invalid date';
+      }
+
+      const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+      return date.toLocaleDateString('en-US', options);
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Error displaying date';
+    }
   };
 
   // Get status icon based on session status
@@ -57,7 +117,7 @@ const Dashboard = () => {
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Welcome Back, {currentUser?.firstName || 'Tutor'}</h1>
         <p className="mt-2 text-lg text-gray-600 dark:text-gray-400">Manage your tutoring sessions and monitor your progress</p>
       </div>
-      
+
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <Link 
@@ -74,7 +134,7 @@ const Dashboard = () => {
             </div>
           </div>
         </Link>
-        
+
         <Link 
           to="/tutor/sessions" 
           className="bg-white dark:bg-dark-800 rounded-xl shadow-sm hover:shadow-md transition-shadow p-6 border border-gray-200 dark:border-dark-700 group"
@@ -89,7 +149,7 @@ const Dashboard = () => {
             </div>
           </div>
         </Link>
-        
+
         <Link 
           to="/tutor/payments" 
           className="bg-white dark:bg-dark-800 rounded-xl shadow-sm hover:shadow-md transition-shadow p-6 border border-gray-200 dark:border-dark-700 group"
@@ -104,7 +164,7 @@ const Dashboard = () => {
             </div>
           </div>
         </Link>
-        
+
         <Link 
           to="/tutor/profile" 
           className="bg-white dark:bg-dark-800 rounded-xl shadow-sm hover:shadow-md transition-shadow p-6 border border-gray-200 dark:border-dark-700 group"

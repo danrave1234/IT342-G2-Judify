@@ -1,8 +1,10 @@
 /**
  * User role constants
+ * LEARNER is mapped to STUDENT for backend compatibility (matching mobile app)
  */
 export const USER_ROLES = {
   STUDENT: 'STUDENT',
+  LEARNER: 'STUDENT', // Map LEARNER to STUDENT for backend compatibility
   TUTOR: 'TUTOR',
   ADMIN: 'ADMIN'
 };
@@ -12,8 +14,10 @@ export const USER_ROLES = {
  */
 export const SESSION_STATUS = {
   PENDING: 'PENDING',
+  SCHEDULED: 'SCHEDULED',
   CONFIRMED: 'CONFIRMED',
   COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED',
   CANCELED: 'CANCELED'
 };
 

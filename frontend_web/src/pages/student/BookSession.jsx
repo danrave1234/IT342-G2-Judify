@@ -6,7 +6,7 @@ import { SESSION_STATUS } from '../../types';
 import { tutorProfileApi } from '../../api/api'; // Assuming API object is default export
 import API from '../../api/api'; // Import the default export
 import { toast } from 'react-toastify';
-import { format, startOfDay, addMonths, parseISO } from 'date-fns'; // Keep parseISO if needed elsewhere
+import { format, startOfDay, addMonths } from 'date-fns';
 
 // Import the DatePicker component
 import DatePicker from '../../components/common/DatePicker';
@@ -30,7 +30,8 @@ const BookSession = () => {
     subject: '',
     notes: '',
     duration: 1,
-    isOnline: true,
+    sessionType: 'Online',
+    locationName: '',
   });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -66,30 +67,32 @@ const BookSession = () => {
         }
       }
 
-      if (!tutorData || !tutorData.userId) {
-        throw new Error('Incomplete tutor data retrieved. Missing user ID.');
+      if (!tutorData) {
+        throw new Error('Incomplete tutor data retrieved.');
       }
       console.log('Retrieved tutor data:', tutorData);
 
+      // Store the tutor's profile ID which is needed for API calls
+      const tutorProfileId = tutorData.profileId || currentTutorId;
+      
       setTutor({
-        id: tutorData.userId,
-        profileId: tutorData.profileId || currentTutorId,
+        id: tutorData.userId, // Keep userId for reference
+        profileId: tutorProfileId, // Important: This is the actual tutorId used by the backend
         name: `${tutorData.firstName} ${tutorData.lastName}`,
-        profilePicture: tutorData.profilePicture || 'https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png?20150327203541',
+        profilePicture: tutorData.profilePicture,
         rate: tutorData.hourlyRate || 35,
         subjects: tutorData.subjects || ['General Tutoring'],
       });
 
-      // Fetch availability using the tutor's userId
-      const tutorUserId = tutorData.userId;
+      // Fetch availability using the tutor's profile ID
       let availabilityData = [];
       try {
-        console.log('Fetching tutor availability with userId:', tutorUserId);
+        console.log('Fetching tutor availability with profileId:', tutorProfileId);
         // Use the default exported API instance for availability
-        const availabilityResponse = await API.get(`/tutor-availability/findByTutor/${tutorUserId}`);
+        const availabilityResponse = await API.get(`/tutor-availability/findByTutor/${tutorProfileId}`);
         if (availabilityResponse.data && Array.isArray(availabilityResponse.data)) {
           availabilityData = availabilityResponse.data;
-          console.log('Successfully fetched tutor availability with userId:', availabilityData);
+          console.log('Successfully fetched tutor availability:', availabilityData);
           setRawTutorAvailability(availabilityData); // Store raw data
         } else {
           console.warn('No availability data returned or invalid format');
@@ -281,15 +284,20 @@ const BookSession = () => {
       toast.error('Please select a subject.');
       return;
     }
+    if (sessionInfo.sessionType === 'In-Person' && !sessionInfo.locationName.trim()) {
+      setError('Please enter a meeting location for in-person session.');
+      toast.error('Please enter a meeting location for in-person session.');
+      return;
+    }
     if (!user || !user.userId) {
       setError('User not found. Please log in again.');
       toast.error('User not found. Please log in again.');
       return;
     }
-    // Ensure tutor ID is available
-    if (!tutor || !tutor.id) {
-      setError('Tutor information is missing.');
-      toast.error('Tutor information is missing.');
+    // Ensure tutor profile ID is available
+    if (!tutor || !tutor.profileId) {
+      setError('Tutor profile information is missing.');
+      toast.error('Tutor profile information is missing.');
       return;
     }
 
@@ -302,7 +310,7 @@ const BookSession = () => {
       endTime.setMinutes(endTime.getMinutes() + sessionInfo.duration * 60);
 
       const sessionData = {
-        tutorId: tutor.id, // Use the correct tutor ID from state
+        tutorId: tutor.profileId, // Use tutor's profile ID, not user ID
         studentId: user.userId,
         subject: sessionInfo.subject,
         notes: sessionInfo.notes,
@@ -310,14 +318,14 @@ const BookSession = () => {
         endTime: endTime.toISOString(),
         price: calculateTotalPrice(),
         status: SESSION_STATUS.SCHEDULED, // Or maybe PENDING if negotiation is needed
-        locationData: sessionInfo.isOnline ? null : 'In person - TBD',
-        meetingLink: sessionInfo.isOnline ? null : null,
+        locationData: sessionInfo.sessionType === 'Online' ? null : sessionInfo.locationName || 'In person - TBD',
+        meetingLink: sessionInfo.sessionType === 'Online' ? null : null,
         // Include acceptance status
         studentAccepted: true,
         tutorAccepted: false,
       };
 
-      console.log("Submitting session data:", sessionData);
+      console.log("Submitting session data with tutor profile ID:", sessionData);
 
       const result = await createSession(sessionData);
 
@@ -326,13 +334,14 @@ const BookSession = () => {
         // Store necessary info for payment page
         localStorage.setItem('pendingSessionPayment', JSON.stringify({
           sessionId: result.session.sessionId,
-          tutorId: tutor.id,
+          tutorId: tutor.profileId, // Use profile ID here too
           tutorName: tutor.name,
           subject: sessionInfo.subject,
           startTime: startTime.toISOString(),
           duration: sessionInfo.duration,
           price: calculateTotalPrice(),
-          isOnline: sessionInfo.isOnline
+          sessionType: sessionInfo.sessionType,
+          locationName: sessionInfo.sessionType === 'In-Person' ? sessionInfo.locationName : null
         }));
         navigate('/student/payments?tab=payment'); // Redirect to payment page
       } else {
@@ -387,12 +396,17 @@ const BookSession = () => {
               Book a Session with {tutor.name}
             </h1>
             <div className="flex items-center">
-              <img
+              {tutor.profilePicture ? (
+                <img
                   src={tutor.profilePicture}
                   alt={`${tutor.name}'s profile`}
                   className="w-12 h-12 rounded-full object-cover mr-3"
-                  onError={(e) => { e.target.src = 'https://via.placeholder.com/150'; }} // Fallback image
-              />
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-full bg-gray-300 dark:bg-dark-600 flex items-center justify-center text-gray-600 dark:text-gray-400 mr-3">
+                  {tutor.name?.[0] || 'T'}
+                </div>
+              )}
               <div>
                 <p className="text-gray-900 dark:text-white font-medium">{tutor.name}</p>
                 <p className="text-gray-600 dark:text-gray-400">${tutor.rate}/hour</p>
@@ -428,25 +442,54 @@ const BookSession = () => {
               </div>
 
               {/* Session Type */}
-              {/* ... (keep as is) ... */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Session Type</label>
                 <div className="flex items-center space-x-4">
                   <label className="inline-flex items-center">
                     <input
-                        type="checkbox"
-                        name="isOnline"
-                        checked={sessionInfo.isOnline}
+                        type="radio"
+                        name="sessionType"
+                        value="Online"
+                        checked={sessionInfo.sessionType === 'Online'}
                         onChange={handleInputChange}
-                        className="form-checkbox h-5 w-5 text-primary-600"
+                        className="form-radio h-5 w-5 text-primary-600"
                     />
-                    <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Online Session</span>
+                    <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Online</span>
+                  </label>
+                  <label className="inline-flex items-center">
+                    <input
+                        type="radio"
+                        name="sessionType"
+                        value="In-Person"
+                        checked={sessionInfo.sessionType === 'In-Person'}
+                        onChange={handleInputChange}
+                        className="form-radio h-5 w-5 text-primary-600"
+                    />
+                    <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">In-Person</span>
                   </label>
                 </div>
               </div>
 
+              {/* Location Selection (for In-Person sessions) */}
+              {sessionInfo.sessionType === 'In-Person' && (
+                <div>
+                  <label htmlFor="locationName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Meeting Location
+                    <span className="text-gray-500 text-xs ml-1">- Where would you like to meet?</span>
+                  </label>
+                  <input
+                    id="locationName"
+                    name="locationName"
+                    value={sessionInfo.locationName}
+                    onChange={handleInputChange}
+                    placeholder="Enter a meeting location"
+                    className="input"
+                    required={sessionInfo.sessionType === 'In-Person'}
+                  />
+                </div>
+              )}
+
               {/* Duration */}
-              {/* ... (keep as is) ... */}
               <div>
                 <label htmlFor="duration" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Duration (hours)</label>
                 <select
@@ -460,6 +503,8 @@ const BookSession = () => {
                   <option value="1">1 hour</option>
                   <option value="1.5">1.5 hours</option>
                   <option value="2">2 hours</option>
+                  <option value="2.5">2.5 hours</option>
+                  <option value="3">3 hours</option>
                 </select>
               </div>
 
@@ -542,11 +587,10 @@ const BookSession = () => {
               </div>
 
               {/* Summary and Price */}
-              {/* ... (keep as is) ... */}
               <div className="bg-gray-50 dark:bg-dark-700 rounded-lg p-4">
                 <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Session Summary</h3>
                 <div className="space-y-2 mb-4 text-sm">
-                  {selectedTimeSlot && selectedDate && ( // Add selectedDate check
+                  {selectedTimeSlot && selectedDate && (
                       <div className="flex justify-between">
                         <span className="text-gray-600 dark:text-gray-400">Time:</span>
                         <span className="text-gray-900 dark:text-white font-medium">
@@ -555,24 +599,39 @@ const BookSession = () => {
                       </div>
                   )}
                   <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Tutor Rate:</span>
+                    <span className="text-gray-900 dark:text-white font-medium">${tutor?.rate?.toFixed(2)}/hr</span>
+                  </div>
+                  <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">Duration:</span>
                     <span className="text-gray-900 dark:text-white font-medium">{sessionInfo.duration} hours</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">Type:</span>
-                    <span className="text-gray-900 dark:text-white font-medium">{sessionInfo.isOnline ? 'Online' : 'In-person'}</span>
+                    <span className="text-gray-900 dark:text-white font-medium">{sessionInfo.sessionType}</span>
                   </div>
+                  {sessionInfo.sessionType === 'In-Person' && sessionInfo.locationName && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Location:</span>
+                      <span className="text-gray-900 dark:text-white font-medium">{sessionInfo.locationName}</span>
+                    </div>
+                  )}
                   <div className="border-t border-gray-200 dark:border-dark-600 pt-2 mt-2"></div>
                   <div className="flex justify-between font-semibold">
                     <span className="text-gray-700 dark:text-gray-300">Total Price:</span>
-                    <span className="text-gray-900 dark:text-white">${calculateTotalPrice().toFixed(2)}</span> {/* Ensure 2 decimal places */}
+                    <span className="text-gray-900 dark:text-white">${calculateTotalPrice().toFixed(2)}</span>
                   </div>
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-3">
                   <button
                       type="submit"
-                      disabled={submitting || !selectedTimeSlot || loadingTimeSlots}
+                      disabled={
+                        submitting || 
+                        !selectedTimeSlot || 
+                        loadingTimeSlots || 
+                        (sessionInfo.sessionType === 'In-Person' && !sessionInfo.locationName.trim())
+                      }
                       className="btn-primary flex-1 disabled:opacity-50"
                   >
                     {submitting ? 'Booking...' : 'Proceed to Payment'}

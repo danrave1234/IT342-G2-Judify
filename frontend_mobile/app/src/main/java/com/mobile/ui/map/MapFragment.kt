@@ -71,8 +71,6 @@ class MapFragment : BaseFragment() {
     private lateinit var tutorMarkersOverlay: FolderOverlay
     private lateinit var bottomSheetBehavior: BottomSheetBehavior<View>
 
-    // Flag to track auto-follow mode
-    private var isAutoFollowEnabled = false
 
     // Flag to track if user is a tutor
     private var isTutor = false
@@ -354,18 +352,7 @@ class MapFragment : BaseFragment() {
         // Add map listener for smoother interactions
         mapView.addMapListener(object : MapListener {
             override fun onScroll(event: ScrollEvent?): Boolean {
-                // Disable auto-follow when user manually scrolls the map
-                if (isAutoFollowEnabled && locationOverlay::class.java.isAssignableFrom(MyLocationNewOverlay::class.java)) {
-                    val scrollDistance = abs((event?.x ?: 0).toFloat()) + abs((event?.y ?: 0).toFloat())
-                    if (scrollDistance > 10) {
-                        // Disable auto-follow only for significant scrolls
-                        locationOverlay.disableFollowLocation()
-                        isAutoFollowEnabled = false
-
-                        // Update the button icon to show follow is disabled
-                        view?.findViewById<FloatingActionButton>(R.id.autoFollowButton)?.setImageResource(R.drawable.ic_my_location_off)
-                    }
-                }
+                // Simple scroll handler
                 return false
             }
 
@@ -394,8 +381,8 @@ class MapFragment : BaseFragment() {
     }
 
     private fun setupLocationTracking() {
-        // Add location overlay
-        locationOverlay = MyLocationNewOverlay(GpsMyLocationProvider(requireContext()), mapView)
+        // Add location overlay using our custom CenteredLocationOverlay
+        locationOverlay = CenteredLocationOverlay(GpsMyLocationProvider(requireContext()), mapView)
         locationOverlay.enableMyLocation()
 
         // Set up a runnable to execute when location is first available
@@ -416,15 +403,13 @@ class MapFragment : BaseFragment() {
             }
         }
 
-        // Enable following mode by default
-        locationOverlay.enableFollowLocation()
-        isAutoFollowEnabled = true
+        // Don't enable following mode by default to allow user to browse the map freely
 
         // Use the arrow icon for both person and direction to prevent flickering
         val arrowIcon = ContextCompat.getDrawable(requireContext(), 
             if (isNightModeActive()) R.drawable.ic_direction_arrow_dark 
             else R.drawable.ic_direction_arrow)?.toBitmap()
-            
+
         // Set both personIcon and directionIcon to be the arrow
         arrowIcon?.let {
             locationOverlay.setPersonIcon(it)
@@ -606,7 +591,6 @@ class MapFragment : BaseFragment() {
 
     private fun initMapControls(view: View) {
         // Find the buttons
-        val autoFollowButton = view.findViewById<FloatingActionButton>(R.id.autoFollowButton)
         val resetOrientationButton = view.findViewById<FloatingActionButton>(R.id.resetOrientationButton)
         val myLocationFab = view.findViewById<FloatingActionButton>(R.id.myLocationFab)
 
@@ -619,27 +603,6 @@ class MapFragment : BaseFragment() {
                 // Don't enable follow mode to allow the user to continue browsing
             } else {
                 Toast.makeText(requireContext(), "Location not available yet", Toast.LENGTH_SHORT).show()
-            }
-        }
-
-        // Auto-Follow toggle button - enables/disables auto-follow mode
-        autoFollowButton.setOnClickListener {
-            if (isAutoFollowEnabled) {
-                // Disable auto-follow
-                locationOverlay.disableFollowLocation()
-                isAutoFollowEnabled = false
-                autoFollowButton.setImageResource(R.drawable.ic_my_location_off)
-                Toast.makeText(requireContext(), "Auto-follow disabled", Toast.LENGTH_SHORT).show()
-            } else {
-                // Enable auto-follow
-                val myLocation = locationOverlay.myLocation
-                if (myLocation != null) {
-                    mapView.controller.animateTo(myLocation)
-                }
-                locationOverlay.enableFollowLocation()
-                isAutoFollowEnabled = true
-                autoFollowButton.setImageResource(R.drawable.ic_my_location)
-                Toast.makeText(requireContext(), "Auto-follow enabled", Toast.LENGTH_SHORT).show()
             }
         }
 

@@ -63,10 +63,21 @@ export const SessionProvider = ({ children }) => {
     setError(null);
     
     try {
+      console.log(`Fetching session details for session ID: ${sessionId}`);
       const response = await tutoringSessionApi.getSessionById(sessionId);
-      return { success: true, session: response.data };
+      
+      // Normalize the session to ensure it has both id and sessionId fields
+      const normalizedSession = {
+        ...response.data,
+        id: response.data.id || response.data.sessionId,
+        sessionId: response.data.sessionId || response.data.id
+      };
+      
+      console.log('Normalized session details:', normalizedSession);
+      return { success: true, session: normalizedSession };
     } catch (err) {
       const message = err.response?.data?.message || 'Failed to fetch session details';
+      console.error(`Error fetching session details: ${message}`, err);
       setError(message);
       return { success: false, message };
     } finally {
@@ -81,8 +92,30 @@ export const SessionProvider = ({ children }) => {
     setError(null);
     
     try {
-      const response = await tutoringSessionApi.getTutorSessions(user.userId, params);
-      return { success: true, sessions: response.data };
+      // First, get the tutor's profile to get the tutorId (profileId)
+      const { tutorProfileApi } = await import('../api/api');
+      const profileResponse = await tutorProfileApi.getProfileByUserId(user.userId);
+      
+      if (!profileResponse.data || !profileResponse.data.profileId) {
+        setError('Tutor profile not found. Please complete your profile first.');
+        return { success: false, message: 'Tutor profile not found', sessions: [] };
+      }
+      
+      // Use the profile ID as tutorId for fetching sessions
+      const tutorId = profileResponse.data.profileId;
+      console.log(`Using tutor profile ID ${tutorId} to fetch sessions`);
+      
+      const response = await tutoringSessionApi.getTutorSessions(tutorId, params);
+      
+      // Make sure sessions always have an id field for consistency
+      // Some backends return sessionId instead of id
+      const normalizedSessions = response.data.map(session => ({
+        ...session,
+        id: session.id || session.sessionId
+      }));
+      
+      console.log('Normalized sessions:', normalizedSessions);
+      return { success: true, sessions: normalizedSessions };
     } catch (err) {
       const message = err.response?.data?.message || 'Failed to fetch tutor sessions';
       setError(message);
@@ -99,10 +132,21 @@ export const SessionProvider = ({ children }) => {
     setError(null);
     
     try {
+      console.log(`Fetching student sessions for student ID: ${user.userId}`);
       const response = await tutoringSessionApi.getStudentSessions(user.userId, params);
-      return { success: true, sessions: response.data };
+      
+      // Make sure sessions always have both id and sessionId fields for consistency
+      const normalizedSessions = response.data.map(session => ({
+        ...session,
+        id: session.id || session.sessionId,
+        sessionId: session.sessionId || session.id
+      }));
+      
+      console.log('Normalized student sessions:', normalizedSessions);
+      return { success: true, sessions: normalizedSessions };
     } catch (err) {
       const message = err.response?.data?.message || 'Failed to fetch student sessions';
+      console.error(`Error fetching student sessions: ${message}`, err);
       setError(message);
       return { success: false, message, sessions: [] };
     } finally {

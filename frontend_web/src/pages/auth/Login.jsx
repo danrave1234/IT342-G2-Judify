@@ -6,24 +6,12 @@ import { FaGoogle, FaArrowLeft } from 'react-icons/fa';
 import { useUser } from '../../context/UserContext';
 
 const Login = () => {
-  const { login, isTutor, isStudent } = useUser();
+  const { login } = useUser();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loginError, setLoginError] = useState('');
   const navigate = useNavigate();
-  const { register, handleSubmit, setValue, formState: { errors } } = useForm();
+  const { register, handleSubmit, formState: { errors } } = useForm();
 
-  // Function to use test account for quick login
-  const useTestAccount = (role) => {
-    const email = role === 'tutor' ? 'tutor@example.com' : 'student@example.com';
-    const password = 'password123';
-    
-    // Set form values
-    setValue('email', email);
-    setValue('password', password);
-    
-    // Submit the form
-    handleLogin({ email, password });
-  };
 
   const onSubmit = (data) => {
     handleLogin(data);
@@ -32,14 +20,14 @@ const Login = () => {
   const handleLogin = async (data) => {
     setIsSubmitting(true);
     setLoginError('');
-    
+
     try {
       console.log('Submitting login form...', data.email);
       const result = await login(data.email, data.password);
-      
+
       if (result.success) {
         toast.success('Login successful');
-        
+
         // Extra safety check - guarantee we have user data in localStorage
         let userData = null;
         try {
@@ -51,7 +39,7 @@ const Login = () => {
         } catch (e) {
           console.error("Error parsing stored user:", e);
         }
-        
+
         // Handle missing user data - should not happen with proper backend integration
         if (!userData) {
           console.error("No user data in localStorage after login - this should not happen");
@@ -59,11 +47,11 @@ const Login = () => {
           setIsSubmitting(false);
           return;
         }
-        
+
         // Immediately navigate to appropriate dashboard
         const role = (userData.role || '').toUpperCase();
         console.log(`Login successful - navigating to ${role} dashboard`);
-        
+
         if (role.includes('TUTOR')) {
           navigate('/tutor', { replace: true });
         } else {
@@ -90,10 +78,10 @@ const Login = () => {
     const baseUrl = window.location.hostname === 'localhost' 
       ? 'http://localhost:8080'
       : 'https://judify-795422705086.asia-east1.run.app';
-    
+
     // Use direct URL to the OAuth2 endpoint with the correct base URL
     const googleAuthUrl = `${baseUrl}/oauth2/authorization/google`;
-    
+
     console.log('Redirecting to Google OAuth:', googleAuthUrl);
     window.location.href = googleAuthUrl;
   };
@@ -104,7 +92,7 @@ const Login = () => {
       <Link to="/" className="absolute top-0 left-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">
         <FaArrowLeft className="text-xl" />
       </Link>
-      
+
       <div className="text-center mb-8">
         <h1 className="text-primary-600 dark:text-primary-500 text-3xl font-bold mb-2">Judify</h1>
         <h2 className="text-xl font-bold text-gray-800 dark:text-white">Sign in to your account</h2>
@@ -219,18 +207,13 @@ const Login = () => {
           >
             <FaGoogle className="h-5 w-5 text-red-500 mr-2" />
             <span>Sign in with Google</span>
-          <button
-              type="button"
-              className="auth-social-button flex items-center justify-center"
-              onClick={handleGoogleLogin}>
-            <FaGoogle className="text-red-500 text-xl" />
           </button>
         </div>
       </div>
 
       <div className="text-center mt-6">
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          Don't have an account?{' '}
+          Don&apos;t have an account?{' '}
           <Link to="/register" className="auth-form-link">
             Sign up
           </Link>
@@ -240,4 +223,4 @@ const Login = () => {
   );
 };
 
-export default Login; 
+export default Login;

@@ -23,11 +23,24 @@ const FindTutors = () => {
   const [userLocation, setUserLocation] = useState(null);
   const [subjects, setSubjects] = useState([]);
 
-  // Static list of subject options for the filter dropdown
-  const subjectOptions = [
-    'All Subjects', 'Mathematics', 'Physics', 'Chemistry', 
-    'Biology', 'Computer Science', 'English', 'History'
-  ];
+  // Get unique subjects from tutors data for the filter dropdown
+  const getSubjectOptions = () => {
+    const uniqueSubjects = new Set(['All Subjects']);
+
+    // Extract subjects from tutors data
+    tutors.forEach(tutor => {
+      if (tutor.subjects && Array.isArray(tutor.subjects)) {
+        tutor.subjects.forEach(subject => {
+          const subjectName = typeof subject === 'string' ? subject : (subject.subject || subject.name || '');
+          if (subjectName) uniqueSubjects.add(subjectName);
+        });
+      }
+    });
+
+    return Array.from(uniqueSubjects);
+  };
+
+  const subjectOptions = getSubjectOptions();
 
   useEffect(() => {
     // Automatically attempt to get user's location without explicit permission checks
@@ -39,7 +52,7 @@ const FindTutors = () => {
             longitude: position.coords.longitude,
           });
           console.log('User location obtained automatically');
-          
+
           // Once we have location, update distance for all tutors
           if (tutors.length > 0) {
             updateTutorDistances(tutors, position.coords.latitude, position.coords.longitude);
@@ -83,7 +96,7 @@ const FindTutors = () => {
 
       if (result && result.success) {
         console.log('Fetched tutors:', result.results);
-        
+
         // Calculate distances if user location is available
         let tutorsList = result.results;
         if (userLocation) {
@@ -93,7 +106,7 @@ const FindTutors = () => {
             userLocation.longitude
           );
         }
-        
+
         setTutors(tutorsList);
         setFilteredTutors(tutorsList);
       } else {
@@ -210,10 +223,10 @@ const FindTutors = () => {
 
   const handleViewProfileClick = (tutor) => {
     const tutorId = tutor.profileId || tutor.id;
-    
+
     if (tutorId) {
       console.log(`Navigating to tutor profile: ${tutorId}`);
-      
+
       // Store tutor info in localStorage before navigation
       try {
         localStorage.setItem('lastViewedTutor', JSON.stringify(tutor));
@@ -221,7 +234,7 @@ const FindTutors = () => {
       } catch (e) {
         console.warn('Failed to store tutor info in localStorage:', e);
       }
-      
+
       navigate(`/tutor-profile/${tutorId}`);
     } else {
       toast.error('Unable to view profile: Tutor ID not found');
@@ -273,10 +286,10 @@ const FindTutors = () => {
 
   const handleContactTutor = (tutor) => {
     const tutorId = tutor.profileId || tutor.id || tutor.userId;
-    
+
     if (tutorId) {
       console.log(`Starting chat with tutor ID: ${tutorId}`);
-      
+
       // Store complete tutor data in localStorage for conversation creation
       try {
         // Create a complete tutor object with all potentially needed fields
@@ -290,13 +303,13 @@ const FindTutors = () => {
           profilePicture: tutor.profilePicture || tutor.user?.profilePicture || `https://ui-avatars.com/api/?name=Tutor+${tutorId}&background=random`,
           subjects: tutor.subjects || []
         };
-        
+
         localStorage.setItem('lastViewedTutor', JSON.stringify(tutorData));
         console.log('Stored detailed tutor data for messaging:', tutorData);
       } catch (e) {
         console.warn('Failed to store tutor info in localStorage:', e);
       }
-      
+
       // Navigate directly to Messages page with tutorId in state
       navigate('/messages', { 
         state: { 
@@ -313,7 +326,7 @@ const FindTutors = () => {
   const updateTutorDistances = (tutorsList, userLat, userLon) => {
     // Don't modify tutors if we don't have user location
     if (!userLat || !userLon) return tutorsList;
-    
+
     // Calculate distance for each tutor
     const tutorsWithDistance = tutorsList.map(tutor => {
       if (tutor.location?.latitude && tutor.location?.longitude) {
@@ -325,12 +338,12 @@ const FindTutors = () => {
       }
       return tutor;
     });
-    
+
     // Sort by distance if needed
     if (selectedDistance === 'nearest') {
       tutorsWithDistance.sort((a, b) => (a.distance || Infinity) - (b.distance || Infinity));
     }
-    
+
     return tutorsWithDistance;
   };
 

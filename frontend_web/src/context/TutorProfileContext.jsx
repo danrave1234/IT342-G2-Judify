@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { tutorProfileApi, userApi } from '../api/api';
 import { useUser } from './UserContext';
 import { toast } from 'react-toastify';
@@ -13,35 +13,56 @@ export const TutorProfileProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [profileExists, setProfileExists] = useState(true);
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState(0);
 
-  // Load tutor profile if user is a tutor
-  useEffect(() => {
-    const loadTutorProfile = async () => {
-      if (user && user.role === 'TUTOR') {
-        setLoading(true);
-        try {
-          const response = await tutorProfileApi.getProfileByUserId(user.userId);
-          setTutorProfile(response.data);
-          setProfileExists(true);
-        } catch (err) {
-          console.error('Error loading tutor profile:', err);
+  const loadTutorProfile = useCallback(async (forceRefresh = false) => {
+    if (!user || !user.userId || user.role !== 'TUTOR') {
+      return { success: false, message: 'Not a tutor user' };
+    }
 
-          // Create a default profile if one doesn't exist (404 error)
-          if (err.response?.status === 404) {
-            setProfileExists(false);
+    const now = Date.now();
+    if (!forceRefresh && now - lastRefresh < 30000 && tutorProfile) {
+      console.log('Using cached tutor profile data');
+      return { success: true, profile: tutorProfile };
+    }
 
-            setError('No tutor profile found. Please create one.');
-          } else {
-            setError(err.response?.data?.message || 'Failed to load tutor profile');
-          }
-        } finally {
-          setLoading(false);
-        }
+    setLoading(true);
+    try {
+      console.log(`Loading tutor profile for user ID: ${user.userId}`);
+      const response = await tutorProfileApi.getProfileByUserId(user.userId);
+      setTutorProfile(response.data);
+      setProfileExists(true);
+      setLastRefresh(now);
+      setProfileLoaded(true);
+      return { success: true, profile: response.data };
+    } catch (err) {
+      console.error('Error loading tutor profile:', err);
+
+      if (err.response?.status === 404) {
+        setProfileExists(false);
+        setError('No tutor profile found. Please create one.');
+      } else {
+        setError(err.response?.data?.message || 'Failed to load tutor profile');
       }
-    };
+      
+      setProfileLoaded(true);
+      return { success: false, message: 'Failed to load tutor profile' };
+    } finally {
+      setLoading(false);
+    }
+  }, [user, lastRefresh]);
 
-    loadTutorProfile();
-  }, [user]);
+  useEffect(() => {
+    if (user && user.role === 'TUTOR' && !profileLoaded) {
+      loadTutorProfile();
+    } else if (!user) {
+      setTutorProfile(null);
+      setProfileExists(true);
+      setError(null);
+      setProfileLoaded(false);
+    }
+  }, [user, loadTutorProfile, profileLoaded]);
 
   const createProfile = async (profileData) => {
     if (!user) return { success: false, message: 'No user logged in' };
@@ -50,14 +71,14 @@ export const TutorProfileProvider = ({ children }) => {
     setError(null);
 
     try {
-      // Add userId to profile data
       const data = { ...profileData, userId: user.userId };
-
 
       const response = await tutorProfileApi.createProfile(data);
 
       setTutorProfile(response.data);
       setProfileExists(true);
+      setProfileLoaded(true);
+      setLastRefresh(Date.now());
       toast.success('Tutor profile created successfully');
       return { success: true, profile: response.data };
     } catch (err) {
@@ -83,12 +104,11 @@ export const TutorProfileProvider = ({ children }) => {
     setError(null);
 
     try {
-
       const response = await tutorProfileApi.updateProfile(tutorProfile.profileId, profileData);
 
       setTutorProfile(response.data);
+      setLastRefresh(Date.now());
 
-      // Also update the user's profile picture in localStorage if it's included in the profile data
       if (profileData.profilePicture) {
         const storedUser = localStorage.getItem('user');
         if (storedUser) {
@@ -117,33 +137,25 @@ export const TutorProfileProvider = ({ children }) => {
     try {
       console.log('Searching tutors with params:', params);
 
-      // Extract search query if present
       const { subject, query, minRating, minRate, maxRate, ...otherParams } = params;
 
-      // Search for users with TUTOR role by name or username
       const searchQuery = query || '';
       const response = await userApi.searchUsers(searchQuery, 'TUTOR');
 
-      // If we get users back, we can try to fetch their tutor profiles
       if (response?.data) {
         console.log('Found users with TUTOR role:', response.data.length);
 
-        // Get users that have TUTOR role
         const tutorUsers = response.data;
 
-        // For each user, try to fetch their tutor profile for additional details
         const tutorProfiles = [];
 
         for (const user of tutorUsers) {
           try {
-            // Try to get tutor profile
             const profileResponse = await tutorProfileApi.getProfileByUserId(user.userId);
             if (profileResponse?.data) {
-              // Combine user and profile data
               const combinedTutor = {
                 ...profileResponse.data,
                 user,
-                // Copy some user fields to the top level for backwards compatibility
                 firstName: user.firstName,
                 lastName: user.lastName,
                 username: user.username,
@@ -152,7 +164,6 @@ export const TutorProfileProvider = ({ children }) => {
               };
               tutorProfiles.push(combinedTutor);
             } else {
-              // If no profile exists, just use the user data
               tutorProfiles.push({
                 profileId: null,
                 userId: user.userId,
@@ -170,7 +181,6 @@ export const TutorProfileProvider = ({ children }) => {
             }
           } catch (err) {
             console.warn(`Could not fetch profile for user ${user.userId}:`, err);
-            // Still include the user even without profile data
             tutorProfiles.push({
               profileId: null,
               userId: user.userId,
@@ -188,10 +198,8 @@ export const TutorProfileProvider = ({ children }) => {
           }
         }
 
-        // Apply filters if needed
         let filteredProfiles = [...tutorProfiles];
 
-        // Filter by subject if specified
         if (subject) {
           filteredProfiles = filteredProfiles.filter(tutor => 
             tutor.subjects?.some(s => 
@@ -202,14 +210,12 @@ export const TutorProfileProvider = ({ children }) => {
           );
         }
 
-        // Filter by minimum rating
         if (minRating && minRating > 0) {
           filteredProfiles = filteredProfiles.filter(tutor => 
             (tutor.rating || 0) >= minRating
           );
         }
 
-        // Filter by price range
         if (minRate) {
           filteredProfiles = filteredProfiles.filter(tutor => 
             (tutor.hourlyRate || 0) >= minRate
@@ -232,14 +238,11 @@ export const TutorProfileProvider = ({ children }) => {
       const message = err.response?.data?.message || 'Failed to search tutors';
       console.error('Error searching tutors:', message, err);
       setError(message);
-
-
       return { success: false, message, results: [] };
     } finally {
       setLoading(false);
     }
   };
-
 
   const getTutorProfile = async (profileId) => {
     setLoading(true);
@@ -249,12 +252,17 @@ export const TutorProfileProvider = ({ children }) => {
       const response = await tutorProfileApi.getProfileById(profileId);
       return { success: true, profile: response.data };
     } catch (err) {
-      const message = err.response?.data?.message || 'Failed to load tutor profile';
+      const message = err.response?.data?.message || 'Failed to get tutor profile';
+      console.error(`Error getting tutor profile ${profileId}:`, message, err);
       setError(message);
       return { success: false, message };
     } finally {
       setLoading(false);
     }
+  };
+
+  const refreshProfile = async () => {
+    return await loadTutorProfile(true);
   };
 
   return (
@@ -267,7 +275,9 @@ export const TutorProfileProvider = ({ children }) => {
         createProfile,
         updateProfile,
         searchTutors,
-        getTutorProfile
+        getTutorProfile,
+        refreshProfile,
+        loadTutorProfile
       }}
     >
       {children}

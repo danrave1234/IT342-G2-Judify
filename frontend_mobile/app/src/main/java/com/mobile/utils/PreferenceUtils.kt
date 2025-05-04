@@ -281,4 +281,36 @@ object PreferenceUtils {
     fun getBoolean(context: Context, key: String, defaultValue: Boolean): Boolean {
         return getPreferences(context).getBoolean(key, defaultValue)
     }
-} 
+
+    /**
+     * Get a long value with a custom key
+     */
+    fun getLong(context: Context, key: String, defaultValue: Long): Long {
+        return getPreferences(context).getLong(key, defaultValue)
+    }
+
+    /**
+     * Save a string value with a custom key
+     */
+    fun saveString(context: Context, key: String, value: String) {
+        val editor = getPreferences(context).edit()
+        editor.putString(key, value)
+        editor.apply()
+    }
+
+    /**
+     * Get a string value with a custom key
+     */
+    fun getString(context: Context, key: String, defaultValue: String): String {
+        return getPreferences(context).getString(key, defaultValue) ?: defaultValue
+    }
+
+    /**
+     * Save a long value with a custom key
+     */
+    fun saveLong(context: Context, key: String, value: Long) {
+        val editor = getPreferences(context).edit()
+        editor.putLong(key, value)
+        editor.apply()
+    }
+}

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="200dp"
+    android:layout_width="250dp"
     android:layout_height="wrap_content"
     app:cardCornerRadius="12dp"
     app:cardElevation="2dp"
@@ -39,16 +39,28 @@
             android:text="2:00 PM - 3:30 PM"
             android:textSize="14sp"
             android:textColor="?android:textColorSecondary" />
-            
+
         <TextView
-            android:id="@+id/sessionRate"
+            android:id="@+id/sessionStudentName"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="$25/hour"
+            android:text="Student Name"
             android:textSize="14sp"
             android:textStyle="bold"
             android:textColor="@color/primary_blue"
-            android:layout_marginTop="4dp" />
+            android:layout_marginTop="4dp"
+            android:maxLines="1"
+            android:ellipsize="end" />
+
+        <TextView
+            android:id="@+id/sessionType"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Session Type"
+            android:textSize="12sp"
+            android:textColor="@color/primary_blue"
+            android:maxLines="1"
+            android:ellipsize="end" />
 
         <LinearLayout
             android:layout_width="match_parent"

@@ -173,13 +173,13 @@ const SessionDetails = () => {
           <div>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Tutor Information</h2>
             <div className="flex items-center mb-4">
-              <img 
-                src="https://via.placeholder.com/60" 
-                alt="Tutor profile"
-                className="h-16 w-16 rounded-full object-cover mr-4"
-              />
+              <div className="h-16 w-16 rounded-full bg-gray-300 dark:bg-dark-600 flex items-center justify-center text-gray-600 dark:text-gray-400 mr-4">
+                {session.tutorName?.[0] || 'T'}
+              </div>
               <div>
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white">Tutor Name</h3>
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                  {session.tutorName || 'Tutor'}
+                </h3>
                 {session.tutorId ? (
                   <Link 
                     to={`/tutors/${session.tutorId}`}

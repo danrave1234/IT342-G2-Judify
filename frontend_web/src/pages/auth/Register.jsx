@@ -30,7 +30,7 @@ const Register = () => {
       // Create a basic student profile
       const studentProfileData = {
         userId: userId,
-        bio: "I'm a new student on the platform",
+        bio: watch('bio') || "I'm a new student on the platform",
         gradeLevel: "College",
         school: "To be updated",
         interests: ["General Learning"]
@@ -52,13 +52,19 @@ const Register = () => {
 
   const createTutorProfile = async (userId) => {
     try {
+      // Get tutor-specific fields
+      const bio = watch('bio') || "I'm a new tutor on the platform";
+      const expertise = watch('expertise') || "New to tutoring";
+      const hourlyRate = parseFloat(watch('hourlyRate')) || 20.00;
+      const subjects = watch('subjects') ? watch('subjects').split(',').map(s => s.trim()) : ["General"];
+      
       // Create a basic tutor profile
       const tutorProfileData = {
         userId: userId,
-        bio: "I'm a new tutor on the platform",
-        expertise: "New to tutoring",
-        hourlyRate: 20.00,
-        subjects: ["General"],
+        bio,
+        expertise,
+        hourlyRate,
+        subjects,
         rating: 0.0,
         totalReviews: 0
       };
@@ -122,7 +128,7 @@ const Register = () => {
         password: data.password, // Make sure this is set and not empty
         role: data.userType === 'student' ? 'STUDENT' : 'TUTOR',
         profilePicture: '',
-        contactDetails: ''
+        contactDetails: data.contactDetails || ''
       };
       
       console.log('Sending registration data:', JSON.stringify(userData));
@@ -346,6 +352,22 @@ const Register = () => {
                 )}
               </div>
 
+              <div>
+                <label htmlFor="contactDetails" className="auth-form-label">Contact Number (Optional)</label>
+                <input
+                  id="contactDetails"
+                  type="tel"
+                  placeholder="+1 234 567 8900"
+                  className={`auth-form-input ${
+                    errors.contactDetails ? 'border-red-500 dark:border-red-400' : ''
+                  }`}
+                  {...register('contactDetails')}
+                />
+                {errors.contactDetails && (
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.contactDetails.message}</p>
+                )}
+              </div>
+
               <div className="flex justify-end">
                 <button type="submit" className="auth-form-button">
                   Continue
@@ -397,6 +419,118 @@ const Register = () => {
                   <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.confirmPassword.message}</p>
                 )}
               </div>
+
+              {/* Additional profile fields */}
+              {userType === 'tutor' && (
+                <>
+                  <div className="mt-6 mb-2">
+                    <h3 className="text-lg font-medium text-gray-800 dark:text-white">Tutor Profile Information</h3>
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="bio" className="auth-form-label">Biography</label>
+                    <textarea
+                      id="bio"
+                      placeholder="Tell us about yourself, your teaching experience, and your qualifications..."
+                      rows="3"
+                      className={`auth-form-input ${
+                        errors.bio ? 'border-red-500 dark:border-red-400' : ''
+                      }`}
+                      {...register('bio', {
+                        required: userType === 'tutor' ? 'Bio is required for tutors' : false,
+                      })}
+                    ></textarea>
+                    {errors.bio && (
+                      <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.bio.message}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label htmlFor="expertise" className="auth-form-label">Expertise</label>
+                    <input
+                      id="expertise"
+                      type="text"
+                      placeholder="Your main area of expertise"
+                      className={`auth-form-input ${
+                        errors.expertise ? 'border-red-500 dark:border-red-400' : ''
+                      }`}
+                      {...register('expertise', {
+                        required: userType === 'tutor' ? 'Expertise is required for tutors' : false,
+                      })}
+                    />
+                    {errors.expertise && (
+                      <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.expertise.message}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label htmlFor="hourlyRate" className="auth-form-label">Hourly Rate ($)</label>
+                    <input
+                      id="hourlyRate"
+                      type="number"
+                      min="1"
+                      step="0.01"
+                      placeholder="25.00"
+                      className={`auth-form-input ${
+                        errors.hourlyRate ? 'border-red-500 dark:border-red-400' : ''
+                      }`}
+                      {...register('hourlyRate', {
+                        required: userType === 'tutor' ? 'Hourly rate is required for tutors' : false,
+                        min: {
+                          value: 1,
+                          message: 'Hourly rate must be at least $1',
+                        },
+                      })}
+                    />
+                    {errors.hourlyRate && (
+                      <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.hourlyRate.message}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label htmlFor="subjects" className="auth-form-label">Subjects (comma separated)</label>
+                    <input
+                      id="subjects"
+                      type="text"
+                      placeholder="Math, Science, Programming"
+                      className={`auth-form-input ${
+                        errors.subjects ? 'border-red-500 dark:border-red-400' : ''
+                      }`}
+                      {...register('subjects', {
+                        required: userType === 'tutor' ? 'Subjects are required for tutors' : false,
+                      })}
+                    />
+                    {errors.subjects && (
+                      <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.subjects.message}</p>
+                    )}
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Enter subjects separated by commas</p>
+                  </div>
+                </>
+              )}
+
+              {userType === 'student' && (
+                <>
+                  <div className="mt-6 mb-2">
+                    <h3 className="text-lg font-medium text-gray-800 dark:text-white">Student Profile Information</h3>
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="bio" className="auth-form-label">About Me (Optional)</label>
+                    <textarea
+                      id="bio"
+                      placeholder="Tell us about yourself, your interests, and what you're looking to learn..."
+                      rows="3"
+                      className={`auth-form-input ${
+                        errors.bio ? 'border-red-500 dark:border-red-400' : ''
+                      }`}
+                      {...register('bio')}
+                    ></textarea>
+                    {errors.bio && (
+                      <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.bio.message}</p>
+                    )}
+                  </div>
+                </>
+              )}
 
               <div className="flex items-center">
                 <input

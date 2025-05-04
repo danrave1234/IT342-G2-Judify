@@ -1,5 +1,22 @@
 package edu.cit.Judify.Calendar;
 
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import edu.cit.Judify.TutorAvailability.TutorAvailabilityEntity;
 import edu.cit.Judify.TutorAvailability.TutorAvailabilityService;
 import edu.cit.Judify.TutoringSession.TutoringSessionEntity;
@@ -8,20 +25,9 @@ import edu.cit.Judify.User.UserEntity;
 import edu.cit.Judify.User.UserRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/calendar")
@@ -43,6 +49,26 @@ public class GoogleCalendarController {
         this.availabilityService = availabilityService;
         this.sessionService = sessionService;
         this.userRepository = userRepository;
+    }
+
+    @Operation(summary = "Check calendar connection", description = "Checks if a user has connected their Google Calendar")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Successfully checked connection status"),
+        @ApiResponse(responseCode = "404", description = "User not found")
+    })
+    @GetMapping("/check-connection")
+    public ResponseEntity<Map<String, Boolean>> checkCalendarConnection(
+            @Parameter(description = "User ID") @RequestParam Long userId) {
+        
+        Optional<UserEntity> userOpt = userRepository.findById(userId);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        
+        UserEntity user = userOpt.get();
+        boolean isConnected = calendarService.isCalendarConnected(user);
+        
+        return ResponseEntity.ok(Map.of("connected", isConnected));
     }
 
     @Operation(summary = "Get available time slots", description = "Returns available time slots for a tutor on a specific date")

@@ -5,17 +5,18 @@ import 'react-toastify/dist/ReactToastify.css';
 // Context providers
 import { UserProvider } from './context/UserContext';
 import { AuthProvider } from './context/AuthContext';
-import { WebSocketProvider } from './context/WebSocketContext';
+import { ThemeProvider } from './context/ThemeContext';
+import { NotificationProvider } from './context/NotificationContext';
+import { MessageProvider } from './context/MessageContext';
 import { TutorProfileProvider } from './context/TutorProfileContext';
 import { SessionProvider } from './context/SessionContext';
-import { MessageProvider } from './context/MessageContext';
-import { NotificationProvider } from './context/NotificationContext';
 import { StudentProfileProvider } from './context/StudentProfileContext';
 import { PaymentProvider } from './context/PaymentContext';
 
 // Layouts
 import AuthLayout from './components/layout/AuthLayout';
 import MainLayout from './components/layout/MainLayout';
+import GlobalLayout from './components/layout/GlobalLayout';
 
 // Auth pages
 import Login from './pages/auth/Login';
@@ -61,22 +62,32 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <UserProvider>
-          <WebSocketProvider>
-            <TutorProfileProvider>
-              <SessionProvider>
-                <MessageProvider>
-                  <NotificationProvider>
+        <ThemeProvider>
+          <UserProvider>
+            <NotificationProvider>
+              <MessageProvider>
+                <TutorProfileProvider>
+                  <SessionProvider>
                     <StudentProfileProvider>
                       <PaymentProvider>
                         <ToastContainer position="top-right" autoClose={3000} />
                         <Routes>
-                          {/* Public Routes */}
-                          <Route path="/" element={<LandingPage />} />
-                          <Route path="/how-it-works" element={<HowItWorks />} />
-                          <Route path="/find-tutors" element={<FindTutors />} />
-                          <Route path="/tutors/:tutorId" element={<TutorDetails />} />
-                          <Route path="/pricing" element={<Pricing />} />
+                          {/* Global Layout for all routes except auth */}
+                          <Route element={<GlobalLayout />}>
+                            {/* Public Routes */}
+                            <Route path="/" element={<LandingPage />} />
+                            <Route path="/how-it-works" element={<HowItWorks />} />
+                            <Route path="/find-tutors" element={<FindTutors />} />
+                            <Route path="/tutors/:tutorId" element={<TutorDetails />} />
+                            <Route path="/pricing" element={<Pricing />} />
+
+                            {/* OAuth2 Routes */}
+                            <Route path="/auth/oauth2-callback" element={<OAuth2Callback />} />
+                            <Route path="/oauth2-callback" element={<OAuth2Callback />} />
+
+                            {/* 404 Route */}
+                            <Route path="*" element={<NotFound />} />
+                          </Route>
 
                           {/* Auth Routes */}
                           <Route element={<AuthLayout />}>
@@ -88,10 +99,6 @@ function App() {
                             <Route path="/forgot-password" element={<ForgotPassword />} />
                             <Route path="/oauth2-register" element={<OAuth2Register />} />
                           </Route>
-
-                          {/* OAuth2 Routes */}
-                          <Route path="/auth/oauth2-callback" element={<OAuth2Callback />} />
-                          <Route path="/oauth2-callback" element={<OAuth2Callback />} />
 
                           {/* Protected Layout for all authenticated routes */}
                           <Route element={<PrivateRoute><MainLayout /></PrivateRoute>}>
@@ -119,18 +126,15 @@ function App() {
                             <Route path="/tutor/messages" element={<TutorRoute><TutorMessages /></TutorRoute>} />
                             <Route path="/tutor/payments" element={<TutorRoute><TutorPayments /></TutorRoute>} />
                           </Route>
-
-                          {/* 404 Route */}
-                          <Route path="*" element={<NotFound />} />
                         </Routes>
                       </PaymentProvider>
                     </StudentProfileProvider>
-                  </NotificationProvider>
-                </MessageProvider>
-              </SessionProvider>
-            </TutorProfileProvider>
-          </WebSocketProvider>
-        </UserProvider>
+                  </SessionProvider>
+                </TutorProfileProvider>
+              </MessageProvider>
+            </NotificationProvider>
+          </UserProvider>
+        </ThemeProvider>
       </AuthProvider>
     </BrowserRouter>
   );

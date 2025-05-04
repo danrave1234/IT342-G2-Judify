@@ -19,6 +19,7 @@ import {
 import { useUser } from '../context/UserContext';
 import { useStudentProfile } from '../context/StudentProfileContext';
 import { useTutorProfile } from '../context/TutorProfileContext';
+import UserAvatar from '../components/common/UserAvatar';
 
 const ProfilePage = () => {
   const { user, uploadProfilePicture, loading: userLoading } = useUser();
@@ -605,16 +606,12 @@ const ProfilePage = () => {
                   <div className="w-full h-full flex items-center justify-center bg-gray-200">
                     <div className="w-8 h-8 border-t-4 border-blue-500 border-solid rounded-full animate-spin"></div>
                   </div>
-                ) : user?.profileImage ? (
-                  <img
-                    src={user.profileImage}
-                    alt="Profile"
-                    className="w-full h-full object-cover"
-                  />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                    <FaUser className="text-gray-500 text-4xl" />
-                  </div>
+                  <UserAvatar 
+                    user={user} 
+                    size="xl" 
+                    className="w-full h-full"
+                  />
                 )}
 
                 {/* Profile Picture Upload Button - Only visible in edit mode */}

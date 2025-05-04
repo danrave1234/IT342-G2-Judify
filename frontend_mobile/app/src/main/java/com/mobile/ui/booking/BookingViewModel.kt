@@ -459,10 +459,11 @@ class BookingViewModel(
                     error = null  // Clear any previous errors
                 )
 
-                // Get learner ID from SharedPreferences
-                val learnerId = sharedPreferences.getLong("user_id", -1).toString()
+                // Get student ID from PreferenceUtils
+                val userId = com.mobile.utils.PreferenceUtils.getUserId(getApplication())
+                val studentId = userId?.toString() ?: "-1"
 
-                if (learnerId == "-1") {
+                if (studentId == "-1") {
                     _bookingState.value = _bookingState.value?.copy(
                         isLoading = false,
                         error = "User not found. Please login again."
@@ -473,7 +474,7 @@ class BookingViewModel(
 
                 // Create a tutoring session through the NetworkUtils API
                 NetworkUtils.createSession(
-                    learnerId,
+                    studentId,
                     tutorId,
                     startTime,
                     endTime,
@@ -536,10 +537,11 @@ class BookingViewModel(
     fun bookSchedule(schedule: Schedule) {
         _loading.value = true
 
-        // Get user ID from SharedPreferences
-        val learnerId = sharedPreferences.getLong("user_id", -1).toString()
+        // Get user ID from PreferenceUtils
+        val userId = com.mobile.utils.PreferenceUtils.getUserId(getApplication())
+        val studentId = userId?.toString() ?: "-1"
 
-        if (learnerId == "-1") {
+        if (studentId == "-1") {
             _error.value = "User not found. Please login again."
             _loading.value = false
             return

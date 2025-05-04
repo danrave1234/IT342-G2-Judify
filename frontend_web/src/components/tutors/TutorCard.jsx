@@ -1,19 +1,29 @@
 import React, { useMemo } from 'react';
 import { FaStar, FaMapMarkerAlt, FaVideo, FaUserFriends, FaDollarSign } from 'react-icons/fa';
 import { motion } from 'framer-motion';
-import defaultAvatar from '../../assets/images/default-avatar.png';
+import UserAvatar from '../common/UserAvatar';
 
 const TutorCard = ({ tutor, viewMode, onViewProfile }) => {
   // Extract data with fallbacks for different API response formats
   const tutorId = tutor.profileId || tutor.id;
-  const profileImage = tutor.user?.profileImage || tutor.profilePicture || defaultAvatar;
+  const profileImage = tutor.user?.profileImage || tutor.profilePicture;
   const fullName = tutor.user?.fullName || tutor.fullName || tutor.username || 'Unnamed Tutor';
+  const firstName = tutor.user?.firstName || tutor.firstName;
+  const lastName = tutor.user?.lastName || tutor.lastName;
   const location = tutor.city || tutor.location || 'Location not specified';
   const state = tutor.state || '';
   const hourlyRate = tutor.hourlyRate || 0;
   const rating = tutor.rating || 0;
   const offersOnline = tutor.offersOnline || tutor.onlineAvailability || false;
   const offersInPerson = tutor.offersInPerson || tutor.inPersonAvailability || false;
+  
+  // Create user object for UserAvatar
+  const userObj = {
+    profileImage,
+    firstName,
+    lastName,
+    username: tutor.user?.username || tutor.username
+  };
   
   // Format subjects (handle both array of strings and array of objects)
   const subjects = useMemo(() => {
@@ -38,11 +48,10 @@ const TutorCard = ({ tutor, viewMode, onViewProfile }) => {
         {/* Profile header */}
         <div className="bg-gradient-to-r from-primary-600 to-primary-500 h-24 relative">
           <div className="absolute -bottom-10 left-4 h-20 w-20 rounded-full border-4 border-white dark:border-dark-800 overflow-hidden">
-            <img 
-              src={profileImage} 
-              alt={fullName}
-              className="h-full w-full object-cover"
-              onError={(e) => { e.target.src = defaultAvatar; }}
+            <UserAvatar
+              user={userObj}
+              size="xl"
+              className="h-full w-full"
             />
           </div>
         </div>
@@ -140,11 +149,10 @@ const TutorCard = ({ tutor, viewMode, onViewProfile }) => {
         {/* Avatar */}
         <div className="md:w-1/6 p-4 flex items-center justify-center">
           <div className="h-20 w-20 rounded-full overflow-hidden border-2 border-gray-100 dark:border-gray-800">
-            <img 
-              src={profileImage} 
-              alt={fullName}
-              className="h-full w-full object-cover"
-              onError={(e) => { e.target.src = defaultAvatar; }}
+            <UserAvatar
+              user={userObj}
+              size="xl"
+              className="h-full w-full"
             />
           </div>
         </div>

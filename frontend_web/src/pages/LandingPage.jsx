@@ -16,50 +16,9 @@ const LandingPage = () => {
       document.documentElement.classList.remove('dark');
     }
   }, [darkMode]);
-  
+
   return (
     <div className="page-container">
-      {/* Header/Navbar */}
-      <header className="bg-white dark:bg-dark-800 shadow-sm border-b border-gray-200 dark:border-dark-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <Link to="/" className="text-primary-600 dark:text-primary-500 text-2xl font-bold">
-                Judify
-              </Link>
-            </div>
-            <nav className="hidden md:flex space-x-10">
-              <Link to="/how-it-works" className="nav-link">
-                How it Works
-              </Link>
-              <Link to="/find-tutors" className="nav-link">
-                Find Tutors
-              </Link>
-              <Link to="/become-a-tutor" className="nav-link">
-                Become a Tutor
-              </Link>
-              <Link to="/pricing" className="nav-link">
-                Pricing
-              </Link>
-            </nav>
-            <div className="flex items-center space-x-4">
-              <DarkModeToggle />
-              <Link
-                to="/login"
-                className="nav-link px-3 py-2"
-              >
-                Login
-              </Link>
-              <Link
-                to="/register"
-                className="btn-primary"
-              >
-                Sign Up
-              </Link>
-            </div>
-          </div>
-        </div>
-      </header>
 
       {/* Hero Section */}
       <section className="py-12 bg-primary-50 dark:bg-dark-800">

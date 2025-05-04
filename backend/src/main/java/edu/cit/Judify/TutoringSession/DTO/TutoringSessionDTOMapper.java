@@ -80,6 +80,28 @@ public class TutoringSessionDTOMapper {
             }
         }
 
+        // Set student name if student exists
+        if (entity.getStudent() != null) {
+            String firstName = entity.getStudent().getFirstName() != null ? entity.getStudent().getFirstName().trim() : "";
+            String lastName = entity.getStudent().getLastName() != null ? entity.getStudent().getLastName().trim() : "";
+            String fullName = (firstName + " " + lastName).trim();
+
+            // If the name is empty, try to use username or email as fallback
+            if (fullName.isEmpty()) {
+                if (entity.getStudent().getUsername() != null && !entity.getStudent().getUsername().isEmpty()) {
+                    fullName = entity.getStudent().getUsername();
+                } else if (entity.getStudent().getEmail() != null && !entity.getStudent().getEmail().isEmpty()) {
+                    // Use email but remove domain part for privacy
+                    String email = entity.getStudent().getEmail();
+                    fullName = email.contains("@") ? email.substring(0, email.indexOf('@')) : email;
+                } else {
+                    fullName = "Student #" + entity.getStudent().getUserId();
+                }
+            }
+
+            dto.setStudentName(fullName);
+        }
+
         return dto;
     }
 

@@ -18,13 +18,22 @@ const SessionDetails = () => {
   }, [sessionId]);
 
   const fetchSessionDetails = async () => {
+    console.log('Fetching session details for ID:', sessionId);
     const result = await getSessionById(sessionId);
     if (result.success) {
-      setSession(result.session);
-      if (result.session.meetingLink) {
-        setMeetingLink(result.session.meetingLink);
+      // Normalize the session data to ensure it has both id and sessionId
+      const normalizedSession = {
+        ...result.session,
+        id: result.session.id || result.session.sessionId,
+        sessionId: result.session.sessionId || result.session.id
+      };
+      console.log('Session details:', normalizedSession);
+      setSession(normalizedSession);
+      if (normalizedSession.meetingLink) {
+        setMeetingLink(normalizedSession.meetingLink);
       }
     } else {
+      console.error('Failed to fetch session details:', result.message);
       // Handle error or redirect
       navigate('/tutor/sessions');
     }
@@ -40,7 +49,7 @@ const SessionDetails = () => {
         } else {
           setError(result.message || 'Failed to update session status');
         }
-      } catch (err) {
+      } catch {
         setError('An error occurred while updating the session');
       } finally {
         setUpdating(false);
@@ -65,7 +74,7 @@ const SessionDetails = () => {
       } else {
         setError(result.message || 'Failed to update meeting link');
       }
-    } catch (err) {
+    } catch {
       setError('An error occurred while updating the meeting link');
     } finally {
       setUpdating(false);
@@ -81,13 +90,51 @@ const SessionDetails = () => {
   }
 
   const isUpcoming = session.status === SESSION_STATUS.SCHEDULED;
-  const isPending = session.status === SESSION_STATUS.PENDING;
   const isCompleted = session.status === SESSION_STATUS.COMPLETED;
-  const isCancelled = session.status === SESSION_STATUS.CANCELLED;
 
-  const sessionDate = new Date(session.startTime);
-  const endTime = new Date(session.endTime);
-  const durationHours = (endTime - sessionDate) / (1000 * 60 * 60);
+  // Safely create date objects with validation
+  let sessionDate, endTime, durationHours;
+
+  try {
+    // Check if startTime and endTime are valid
+    if (!session.startTime) {
+      console.warn('Session startTime is missing or invalid');
+      sessionDate = new Date(); // Fallback to current date
+    } else {
+      sessionDate = new Date(session.startTime);
+      if (isNaN(sessionDate.getTime())) {
+        console.warn('Invalid startTime format:', session.startTime);
+        sessionDate = new Date(); // Fallback to current date
+      }
+    }
+
+    if (!session.endTime) {
+      console.warn('Session endTime is missing or invalid');
+      // Default to startTime + 1 hour if available, otherwise current time + 1 hour
+      endTime = new Date(sessionDate.getTime() + 60 * 60 * 1000);
+    } else {
+      endTime = new Date(session.endTime);
+      if (isNaN(endTime.getTime())) {
+        console.warn('Invalid endTime format:', session.endTime);
+        endTime = new Date(sessionDate.getTime() + 60 * 60 * 1000);
+      }
+    }
+
+    // Calculate duration in hours
+    durationHours = (endTime - sessionDate) / (1000 * 60 * 60);
+    // Ensure duration is positive and reasonable
+    if (durationHours <= 0 || durationHours > 24) {
+      console.warn('Unusual session duration:', durationHours);
+      durationHours = 1; // Default to 1 hour
+    }
+  } catch (error) {
+    console.error('Error processing session dates:', error);
+    // Fallback values
+    sessionDate = new Date();
+    endTime = new Date(sessionDate.getTime() + 60 * 60 * 1000);
+    durationHours = 1;
+  }
+
   const isOnline = Boolean(session.meetingLink) || !session.locationData;
 
   return (
@@ -128,13 +175,15 @@ const SessionDetails = () => {
             <div className="space-y-3">
               <div>
                 <span className="text-gray-500 dark:text-gray-400">Date:</span>
-                <p className="text-gray-900 dark:text-white">{sessionDate.toLocaleDateString()}</p>
+                <p className="text-gray-900 dark:text-white">
+                  {sessionDate.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'long', day: 'numeric' })}
+                </p>
               </div>
               <div>
                 <span className="text-gray-500 dark:text-gray-400">Time:</span>
                 <p className="text-gray-900 dark:text-white">
-                  {sessionDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - 
-                  {endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  {sessionDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} - 
+                  {endTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                 </p>
               </div>
               <div>
@@ -176,14 +225,16 @@ const SessionDetails = () => {
           <div>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Student Information</h2>
             <div className="flex items-center mb-4">
-              <img 
-                src="https://via.placeholder.com/60" 
-                alt="Student profile"
-                className="h-16 w-16 rounded-full object-cover mr-4"
-              />
+              <div className="h-16 w-16 rounded-full bg-gray-300 dark:bg-dark-600 flex items-center justify-center text-gray-600 dark:text-gray-400 mr-4">
+                {session.studentName?.[0] || 'S'}
+              </div>
               <div>
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white">Student Name</h3>
-                <p className="text-gray-600 dark:text-gray-400">student@example.com</p>
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                  {session.studentName || 'Student'}
+                </h3>
+                <p className="text-gray-600 dark:text-gray-400">
+                  {session.studentEmail || 'No email provided'}
+                </p>
               </div>
             </div>
 
@@ -202,7 +253,7 @@ const SessionDetails = () => {
         {isOnline && isUpcoming && (
           <div className="mt-8 border-t border-light-700 dark:border-dark-700 pt-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Meeting Link</h3>
-            
+
             {showMeetingLinkForm ? (
               <form onSubmit={handleMeetingLinkSubmit} className="mb-4">
                 <div className="flex flex-col sm:flex-row gap-2">
@@ -261,7 +312,7 @@ const SessionDetails = () => {
                 )}
               </div>
             )}
-            
+
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Add a Zoom, Google Meet, or other video conferencing link for your online session.
             </p>
@@ -278,7 +329,7 @@ const SessionDetails = () => {
               >
                 Mark as Completed
               </button>
-              
+
               <button
                 onClick={() => handleStatusUpdate(SESSION_STATUS.CANCELLED)}
                 disabled={updating}
@@ -286,7 +337,7 @@ const SessionDetails = () => {
               >
                 Cancel Session
               </button>
-              
+
               {session.meetingLink && (
                 <a
                   href={session.meetingLink}
@@ -299,7 +350,7 @@ const SessionDetails = () => {
               )}
             </>
           )}
-          
+
           <Link
             to={`/tutor/messages`}
             state={{ studentId: session.studentId }}
@@ -314,7 +365,7 @@ const SessionDetails = () => {
       {(isCompleted || isUpcoming) && (
         <div className="bg-white dark:bg-dark-800 rounded-xl shadow-card p-6 border border-light-700 dark:border-dark-700">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Earnings</h2>
-          
+
           <div className="space-y-3">
             <div className="flex justify-between items-center">
               <span className="text-gray-700 dark:text-gray-300">Session Price:</span>
@@ -331,7 +382,7 @@ const SessionDetails = () => {
               </div>
             </div>
           </div>
-          
+
           <div className="mt-4">
             <p className="text-sm text-gray-600 dark:text-gray-400">
               {isCompleted

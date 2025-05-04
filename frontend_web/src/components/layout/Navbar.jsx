@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useUser } from '../../context/UserContext';
 import { FaUser, FaBell, FaSignOutAlt, FaMoneyBill } from 'react-icons/fa';
 import DarkModeToggle from './DarkModeToggle';
+import UserAvatar from '../common/UserAvatar';
 
 const Navbar = ({ userType }) => {
   const { user, logout } = useUser();
@@ -116,16 +117,12 @@ const Navbar = ({ userType }) => {
                 onClick={toggleProfileMenu}
                 className="flex items-center space-x-2 focus:outline-none"
               >
-                <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-dark-600 flex items-center justify-center text-gray-700 dark:text-gray-300 overflow-hidden">
-                  {user?.profileImage ? (
-                    <img
-                      src={user.profileImage}
-                      alt="Profile"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <FaUser />
-                  )}
+                <div className="w-10 h-10 rounded-full overflow-hidden">
+                  <UserAvatar 
+                    user={user} 
+                    size="md"
+                    className="w-full h-full"
+                  />
                 </div>
               </button>
               {showProfileMenu && (

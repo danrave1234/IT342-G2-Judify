@@ -4,7 +4,7 @@ import java.util.Date
 
 data class Booking(
     val id: String,
-    val learnerId: String,
+    val studentId: String,
     val tutorId: String,
     val scheduleId: String,
     val status: String,

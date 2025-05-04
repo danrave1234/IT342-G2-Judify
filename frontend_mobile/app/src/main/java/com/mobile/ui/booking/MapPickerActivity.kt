@@ -28,6 +28,7 @@ import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.views.overlay.MapEventsOverlay
+import com.mobile.ui.map.CenteredLocationOverlay
 
 /**
  * Activity for selecting a meeting location on a map.
@@ -87,8 +88,8 @@ class MapPickerActivity : AppCompatActivity() {
             )
         )
 
-        // Add location overlay
-        locationOverlay = MyLocationNewOverlay(GpsMyLocationProvider(this), mapView)
+        // Add location overlay using our custom CenteredLocationOverlay
+        locationOverlay = CenteredLocationOverlay(GpsMyLocationProvider(this), mapView)
         locationOverlay.enableMyLocation()
         locationOverlay.enableFollowLocation()
 

@@ -56,7 +56,7 @@
                         android:layout_centerHorizontal="true"
                         android:layout_marginTop="18dp"
                         android:text="John Doe"
-                        android:textColor="@color/white"
+                        android:textColor="?attr/colorOnPrimary"
                         android:textSize="26sp"
                         android:fontFamily="sans-serif-medium"
                         android:letterSpacing="0.02"
@@ -70,7 +70,7 @@
                         android:layout_centerHorizontal="true"
                         android:layout_marginTop="4dp"
                         android:text="john.doe@example.com"
-                        android:textColor="@color/white"
+                        android:textColor="?attr/colorOnPrimary"
                         android:alpha="0.95"
                         android:fontFamily="sans-serif"
                         android:textSize="16sp"/>
@@ -91,8 +91,8 @@
                         android:textAllCaps="false"
                         android:textSize="16sp"
                         android:fontFamily="sans-serif-medium"
-                        android:textColor="@color/white"
-                        app:strokeColor="@color/white"
+                        android:textColor="?attr/colorOnPrimary"
+                        app:strokeColor="?attr/colorOnPrimary"
                         app:strokeWidth="1.5dp"
                         app:cornerRadius="24dp"/>
 
@@ -123,7 +123,7 @@
                         android:textSize="18sp"
                         android:fontFamily="sans-serif-medium"
                         android:letterSpacing="0.01"
-                        android:textColor="@color/primary_blue"/>
+                        android:textColor="?attr/colorPrimary"/>
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -146,7 +146,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="0"
-                                android:textColor="@color/primary_blue"
+                                android:textColor="?attr/colorPrimary"
                                 android:textSize="32sp"
                                 android:fontFamily="sans-serif-medium"
                                 android:textStyle="bold"/>
@@ -156,7 +156,7 @@
                                 android:layout_height="wrap_content"
                                 android:text="Sessions"
                                 android:layout_marginTop="4dp"
-                                android:textColor="@color/text_secondary"
+                                android:textColor="?android:textColorSecondary"
                                 android:fontFamily="sans-serif"
                                 android:textSize="14sp"/>
                         </LinearLayout>
@@ -176,7 +176,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="0"
-                                android:textColor="@color/primary_blue"
+                                android:textColor="?attr/colorPrimary"
                                 android:textSize="32sp"
                                 android:fontFamily="sans-serif-medium"
                                 android:textStyle="bold"/>
@@ -186,7 +186,7 @@
                                 android:layout_height="wrap_content"
                                 android:text="Reviews"
                                 android:layout_marginTop="4dp"
-                                android:textColor="@color/text_secondary"
+                                android:textColor="?android:textColorSecondary"
                                 android:fontFamily="sans-serif"
                                 android:textSize="14sp"/>
                         </LinearLayout>
@@ -206,7 +206,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="0"
-                                android:textColor="@color/primary_blue"
+                                android:textColor="?attr/colorPrimary"
                                 android:textSize="32sp"
                                 android:fontFamily="sans-serif-medium"
                                 android:textStyle="bold"/>
@@ -216,7 +216,7 @@
                                 android:layout_height="wrap_content"
                                 android:text="Messages"
                                 android:layout_marginTop="4dp"
-                                android:textColor="@color/text_secondary"
+                                android:textColor="?android:textColorSecondary"
                                 android:fontFamily="sans-serif"
                                 android:textSize="14sp"/>
                         </LinearLayout>
@@ -241,7 +241,7 @@
                         android:layout_height="wrap_content"
                         android:layout_margin="20dp"
                         android:text="Account Settings"
-                        android:textColor="@color/primary_blue"
+                        android:textColor="?attr/colorPrimary"
                         android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
                         android:textStyle="bold"
                         android:textSize="18sp"
@@ -268,7 +268,7 @@
                             android:layout_height="32dp"
                             android:layout_gravity="center_vertical"
                             android:src="@drawable/ic_payment"
-                            android:tint="@color/primary_blue"
+                            android:tint="?attr/colorPrimary"
                             android:padding="4dp"/>
 
                         <TextView
@@ -280,7 +280,7 @@
                             android:text="Payment Methods"
                             android:textSize="16sp"
                             android:fontFamily="sans-serif"
-                            android:textColor="@color/text_primary"/>
+                            android:textColor="?android:textColorPrimary"/>
 
                         <ImageView
                             android:layout_width="24dp"
@@ -309,7 +309,7 @@
                             android:layout_height="32dp"
                             android:layout_gravity="center_vertical"
                             android:src="@drawable/ic_notifications"
-                            android:tint="@color/primary_blue"
+                            android:tint="?attr/colorPrimary"
                             android:padding="4dp"/>
 
                         <TextView
@@ -321,7 +321,7 @@
                             android:text="Notifications"
                             android:textSize="16sp"
                             android:fontFamily="sans-serif"
-                            android:textColor="@color/text_primary"/>
+                            android:textColor="?android:textColorPrimary"/>
 
                         <ImageView
                             android:layout_width="24dp"
@@ -350,7 +350,7 @@
                             android:layout_height="32dp"
                             android:layout_gravity="center_vertical"
                             android:src="@drawable/ic_theme"
-                            android:tint="@color/primary_blue"
+                            android:tint="?attr/colorPrimary"
                             android:padding="4dp"/>
 
                         <TextView
@@ -362,7 +362,7 @@
                             android:text="Theme Mode"
                             android:textSize="16sp"
                             android:fontFamily="sans-serif"
-                            android:textColor="@color/text_primary"/>
+                            android:textColor="?android:textColorPrimary"/>
 
                         <TextView
                             android:id="@+id/themeModeText"
@@ -401,7 +401,7 @@
                             android:layout_height="32dp"
                             android:layout_gravity="center_vertical"
                             android:src="@drawable/ic_security"
-                            android:tint="@color/primary_blue"
+                            android:tint="?attr/colorPrimary"
                             android:padding="4dp"/>
 
                         <TextView
@@ -413,7 +413,7 @@
                             android:text="Privacy Settings"
                             android:textSize="16sp"
                             android:fontFamily="sans-serif"
-                            android:textColor="@color/text_primary"/>
+                            android:textColor="?android:textColorPrimary"/>
 
                         <ImageView
                             android:layout_width="24dp"

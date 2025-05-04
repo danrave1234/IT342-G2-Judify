@@ -1,29 +1,5 @@
 package edu.cit.Judify.Calendar;
 
-import com.google.api.client.auth.oauth2.Credential;
-import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp;
-import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver;
-import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
-import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
-import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
-import com.google.api.client.http.javanet.NetHttpTransport;
-import com.google.api.client.json.JsonFactory;
-import com.google.api.client.json.gson.GsonFactory;
-import com.google.api.client.util.DateTime; // Ensure the dependency 'com.google.api-client' is properly configured in your build file.
-import com.google.api.client.util.store.FileDataStoreFactory;
-import com.google.api.services.calendar.Calendar;
-import com.google.api.services.calendar.CalendarScopes;
-import com.google.api.services.calendar.model.Event;
-import com.google.api.services.calendar.model.EventAttendee;
-import com.google.api.services.calendar.model.EventDateTime;
-import com.google.api.services.calendar.model.EventReminder;
-import com.google.api.services.calendar.model.Events;
-import edu.cit.Judify.TutorAvailability.TutorAvailabilityEntity;
-import edu.cit.Judify.TutoringSession.TutoringSessionEntity;
-import edu.cit.Judify.User.UserEntity;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -33,11 +9,37 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatter; // Ensure the dependency 'com.google.api-client' is properly configured in your build file.
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import com.google.api.client.auth.oauth2.Credential;
+import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp;
+import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver;
+import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
+import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
+import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.JsonFactory;
+import com.google.api.client.json.gson.GsonFactory;
+import com.google.api.client.util.DateTime;
+import com.google.api.client.util.store.FileDataStoreFactory;
+import com.google.api.services.calendar.Calendar;
+import com.google.api.services.calendar.CalendarScopes;
+import com.google.api.services.calendar.model.Event;
+import com.google.api.services.calendar.model.EventAttendee;
+import com.google.api.services.calendar.model.EventDateTime;
+import com.google.api.services.calendar.model.EventReminder;
+import com.google.api.services.calendar.model.Events;
+
+import edu.cit.Judify.TutorAvailability.TutorAvailabilityEntity;
+import edu.cit.Judify.TutoringSession.TutoringSessionEntity;
+import edu.cit.Judify.User.UserEntity;
 
 @Service
 public class GoogleCalendarService {
@@ -335,17 +337,44 @@ public class GoogleCalendarService {
      * @return true if successful, false otherwise
      */
     public boolean deleteCalendarEvent(String userId, String eventId) {
-        if (!calendarEnabled || eventId == null) {
-            return false;
+        if (!calendarEnabled) {
+            return true;
         }
 
         try {
+            // Delete the event
             Calendar service = getCalendarService(userId);
             service.events().delete("primary", eventId).execute();
             return true;
         } catch (Exception e) {
+            // Log the error
             System.err.println("Error deleting calendar event: " + e.getMessage());
             e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * Checks if a user has connected their Google Calendar account.
+     * 
+     * @param user The user entity to check
+     * @return true if the user has connected their Google Calendar, false otherwise
+     */
+    public boolean isCalendarConnected(UserEntity user) {
+        if (!calendarEnabled) {
+            return false;
+        }
+
+        try {
+            // Try to get the calendar service - if successful, the user is connected
+            Calendar service = getCalendarService(user.getUserId().toString());
+            
+            // Try a simple operation to verify the connection
+            service.calendarList().list().setMaxResults(1).execute();
+            return true;
+        } catch (Exception e) {
+            // Log the error
+            System.err.println("Calendar is not connected for user " + user.getUserId() + ": " + e.getMessage());
             return false;
         }
     }

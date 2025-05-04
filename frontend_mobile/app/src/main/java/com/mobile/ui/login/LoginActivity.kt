@@ -12,7 +12,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
 import com.mobile.R
-import com.mobile.ui.dashboard.LearnerDashboardActivity
+import com.mobile.ui.dashboard.StudentDashboardActivity
 import com.mobile.ui.dashboard.TutorDashboardActivity
 import com.mobile.ui.register.RegisterActivity
 import com.mobile.ui.register.TutorRegisterActivity
@@ -127,7 +127,7 @@ class LoginActivity : AppCompatActivity() {
         val intent = if (userRole == "TUTOR") {
             Intent(this, TutorDashboardActivity::class.java)
         } else {
-            Intent(this, LearnerDashboardActivity::class.java)
+            Intent(this, StudentDashboardActivity::class.java)
         }
         startActivity(intent)
         finish()

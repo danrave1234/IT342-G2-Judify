@@ -25,6 +25,7 @@ import com.mobile.R
 import com.mobile.databinding.ActivityTutorDashboardBinding
 import com.mobile.ui.chat.ChatFragment
 import com.mobile.ui.map.MapFragment
+import com.mobile.ui.notifications.NotificationsFragment
 import com.mobile.ui.profile.ProfileFragment
 import com.mobile.ui.sessions.SessionsFragment
 import com.mobile.utils.NetworkUtils
@@ -75,6 +76,9 @@ class TutorDashboardActivity : AppCompatActivity() {
 
         // Set up bottom navigation
         setupBottomNavigation()
+
+        // Handle navigation extras (for deep linking)
+        handleNavigationExtras()
 
         // Set up availability RecyclerView
         setupAvailabilityRecyclerView()
@@ -415,12 +419,19 @@ class TutorDashboardActivity : AppCompatActivity() {
 
         // Set up notification icon click
         binding.notificationIcon.setOnClickListener {
-            // TODO: Navigate to notifications screen
+            // Show the notifications fragment
+            showMainContent(false)
+            loadFragment(NotificationsFragment())
+            // Don't update the bottom navigation selection since notifications isn't in the bottom nav
         }
 
         // Set up message icon click
         binding.messageIcon.setOnClickListener {
-            // TODO: Navigate to messages screen
+            // Show the chat fragment
+            showMainContent(false)
+            loadFragment(ChatFragment())
+            val bottomNavigation = findViewById<BottomNavigationView>(R.id.bottomNavigation)
+            bottomNavigation.selectedItemId = R.id.navigation_chat
         }
 
         // Set up profile image click
@@ -506,6 +517,35 @@ class TutorDashboardActivity : AppCompatActivity() {
             R.color.secondary_color,
             R.color.accent_color
         )
+    }
+
+    /**
+     * Handle navigation extras from intent
+     * This allows deep linking to specific fragments
+     */
+    private fun handleNavigationExtras() {
+        // Check if we have any navigation extras
+        val fragmentToShow = intent.getStringExtra("FRAGMENT")
+        if (fragmentToShow != null) {
+            when (fragmentToShow) {
+                "MAP" -> {
+                    showMainContent(false)
+                    loadFragment(MapFragment())
+                }
+                "CHAT" -> {
+                    showMainContent(false)
+                    loadFragment(ChatFragment())
+                }
+                "PROFILE" -> {
+                    showMainContent(false)
+                    loadFragment(ProfileFragment())
+                }
+                "NOTIFICATIONS" -> {
+                    showMainContent(false)
+                    loadFragment(NotificationsFragment())
+                }
+            }
+        }
     }
 
     /**
@@ -954,7 +994,8 @@ class TutorDashboardActivity : AppCompatActivity() {
         val dateText = cardView.findViewById<TextView>(R.id.sessionDate)
         val timeText = cardView.findViewById<TextView>(R.id.sessionTime)
         val statusText = cardView.findViewById<TextView>(R.id.sessionStatus)
-        val rateText = cardView.findViewById<TextView>(R.id.sessionRate)
+        val studentNameText = cardView.findViewById<TextView>(R.id.sessionStudentName)
+        val sessionTypeText = cardView.findViewById<TextView>(R.id.sessionType)
 
         // Log raw session data for debugging
         Log.d(TAG, "Raw session data - Start: '${session.startTime}', End: '${session.endTime}'")
@@ -1029,9 +1070,13 @@ class TutorDashboardActivity : AppCompatActivity() {
             timeText.text = "$formattedStartTime - $formattedEndTime"
             statusText.text = session.status
 
-            // Display the hourly rate from the stored tutor profile
-            val formattedRate = "%.2f".format(currentTutorHourlyRate)
-            rateText.text = "$$formattedRate/hour"
+            // Display the student name and session type separately
+            if (session.studentName.isNotEmpty()) {
+                studentNameText.text = session.studentName
+            } else {
+                studentNameText.visibility = View.GONE
+            }
+            sessionTypeText.text = session.sessionType
         } catch (e: Exception) {
             // Log the error for debugging
             Log.e(TAG, "Error parsing session time: ${e.message}", e)
@@ -1043,7 +1088,14 @@ class TutorDashboardActivity : AppCompatActivity() {
             dateText.text = "Date not available"
             timeText.text = "Time not available"
             statusText.text = session.status
-            rateText.text = "Rate unavailable"
+
+            // Display the student name and session type separately even in fallback case
+            if (session.studentName.isNotEmpty()) {
+                studentNameText.text = session.studentName
+            } else {
+                studentNameText.visibility = View.GONE
+            }
+            sessionTypeText.text = session.sessionType
         }
 
         // Add margin to the card
@@ -1071,8 +1123,8 @@ class TutorDashboardActivity : AppCompatActivity() {
             // Launch coroutine to handle conversation
             lifecycleScope.launch {
                 try {
-                    // Get learner/student ID and tutor ID from the session
-                    val studentId = session.learnerId.toLong()
+                    // Get student ID and tutor ID from the session
+                    val studentId = session.studentId.toLong()
                     val tutorId = currentTutorId
 
                     // Log the IDs for debugging

@@ -3,13 +3,10 @@ package com.mobile.ui.dashboard
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
-import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
-import android.widget.HorizontalScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.widget.NestedScrollView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -19,6 +16,7 @@ import com.mobile.R
 import com.mobile.databinding.ActivityLearnerDashboardBinding
 import com.mobile.ui.chat.ChatFragment
 import com.mobile.ui.map.MapFragment
+import com.mobile.ui.notifications.NotificationsFragment
 import com.mobile.ui.profile.ProfileFragment
 import com.mobile.utils.NetworkUtils
 import com.mobile.utils.PreferenceUtils
@@ -28,20 +26,17 @@ import java.util.*
 import android.widget.Toast
 import com.mobile.ui.booking.BookingActivity
 import android.view.LayoutInflater
-import android.widget.LinearLayout
-import android.widget.RatingBar
 import com.mobile.ui.search.TutorSearchActivity
 import com.mobile.utils.NetworkUtils.TutorProfile
 import de.hdodenhof.circleimageview.CircleImageView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.delay
 import android.widget.EditText
 
-class LearnerDashboardActivity : AppCompatActivity() {
+class StudentDashboardActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityLearnerDashboardBinding
-    private val TAG = "LearnerDashboard"
+    private val TAG = "StudentDashboard"
 
     // Session adapter for the RecyclerView
     private val sessionAdapter = SessionAdapter(emptyList())
@@ -70,8 +65,8 @@ class LearnerDashboardActivity : AppCompatActivity() {
         // Load top tutors
         loadTopTutors()
 
-        // Load learner sessions
-        loadLearnerSessions()
+        // Load student sessions
+        loadStudentSessions()
 
         // Set up bottom navigation
         setupBottomNavigation()
@@ -146,7 +141,7 @@ class LearnerDashboardActivity : AppCompatActivity() {
                 PreferenceUtils.saveBoolean(this, "needs_session_refresh", true)
 
                 // Refresh sessions list when returning from booking
-                loadLearnerSessions()
+                loadStudentSessions()
 
                 // If the result is to view sessions, update UI to focus on sessions
                 if (resultCode == BookingActivity.RESULT_VIEW_SESSIONS) {
@@ -442,6 +437,23 @@ class LearnerDashboardActivity : AppCompatActivity() {
             val bottomNavigation = findViewById<BottomNavigationView>(R.id.bottomNavigation)
             bottomNavigation.selectedItemId = R.id.navigation_profile
         }
+
+        // Set up notification icon click listener
+        binding.notificationIcon.setOnClickListener {
+            // Show the notifications fragment
+            showMainContent(false)
+            loadFragment(NotificationsFragment())
+            // Don't update the bottom navigation selection since notifications isn't in the bottom nav
+        }
+
+        // Set up message icon click listener
+        binding.messageIcon.setOnClickListener {
+            // Show the chat fragment
+            showMainContent(false)
+            loadFragment(ChatFragment())
+            val bottomNavigation = findViewById<BottomNavigationView>(R.id.bottomNavigation)
+            bottomNavigation.selectedItemId = R.id.navigation_chat
+        }
     }
 
     private fun setupAppBarBehavior() {
@@ -482,21 +494,25 @@ class LearnerDashboardActivity : AppCompatActivity() {
                     showMainContent(false)
                     loadFragment(ProfileFragment())
                 }
+                "NOTIFICATIONS" -> {
+                    showMainContent(false)
+                    loadFragment(NotificationsFragment())
+                }
             }
         }
     }
 
     /**
-     * Load learner sessions from the API
+     * Load student sessions from the API and display them
      */
-    private fun loadLearnerSessions() {
-        // Show loading indicator
+    private fun loadStudentSessions() {
+        Log.d(TAG, "Loading student sessions")
         binding.loadingProgressBar.visibility = View.VISIBLE
-        binding.noSessionsText.visibility = View.GONE
 
+        // Get user ID from preferences
         val userId = PreferenceUtils.getUserId(this)
         if (userId == null) {
-            Toast.makeText(this, "User ID not found", Toast.LENGTH_SHORT).show()
+            Log.e(TAG, "Unable to load sessions: No user ID found in preferences")
             binding.loadingProgressBar.visibility = View.GONE
             binding.noSessionsText.visibility = View.VISIBLE
             return
@@ -504,19 +520,19 @@ class LearnerDashboardActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             try {
-                val result = NetworkUtils.getLearnerSessions(userId.toString())
+                val result = NetworkUtils.getStudentSessions(userId.toString())
                 if (result.isSuccess) {
                     val sessions = result.getOrNull() ?: emptyList()
                     if (sessions.isNotEmpty()) {
                         binding.noSessionsText.visibility = View.GONE
                         binding.allSessionsRecyclerView.visibility = View.VISIBLE
                         sessionAdapter.submitList(sessions)
-                        Log.d(TAG, "Loaded ${sessions.size} sessions for learner")
+                        Log.d(TAG, "Loaded ${sessions.size} sessions for student")
                     } else {
                         binding.noSessionsText.text = "You don't have any sessions yet. Book a session with a tutor to get started!"
                         binding.noSessionsText.visibility = View.VISIBLE
                         binding.allSessionsRecyclerView.visibility = View.GONE
-                        Log.d(TAG, "No sessions found for learner")
+                        Log.d(TAG, "No sessions found for student")
                     }
                 } else {
                     val error = result.exceptionOrNull()
@@ -524,23 +540,23 @@ class LearnerDashboardActivity : AppCompatActivity() {
 
                     // Check if it's a 404 error which likely means the user just doesn't have any sessions yet
                     if (errorMsg.contains("404")) {
-                        Log.d(TAG, "No sessions found for learner (404): likely a new user")
+                        Log.d(TAG, "No sessions found for student (404): likely a new user")
                         binding.noSessionsText.text = "You don't have any sessions yet. Book a session with a tutor to get started!"
                     } else {
-                        Log.e(TAG, "Failed to load learner sessions: $errorMsg", error)
+                        Log.e(TAG, "Failed to load student sessions: $errorMsg", error)
                         binding.noSessionsText.text = "Unable to load sessions. Pull down to refresh."
-                        Toast.makeText(this@LearnerDashboardActivity, "Failed to load sessions", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@StudentDashboardActivity, "Failed to load sessions", Toast.LENGTH_SHORT).show()
                     }
 
                     binding.noSessionsText.visibility = View.VISIBLE
                     binding.allSessionsRecyclerView.visibility = View.GONE
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Exception loading learner sessions: ${e.message}", e)
+                Log.e(TAG, "Exception loading student sessions: ${e.message}", e)
                 binding.noSessionsText.text = "Unable to load sessions. Pull down to refresh."
                 binding.noSessionsText.visibility = View.VISIBLE
                 binding.allSessionsRecyclerView.visibility = View.GONE
-                Toast.makeText(this@LearnerDashboardActivity, "Error loading sessions", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@StudentDashboardActivity, "Error loading sessions", Toast.LENGTH_SHORT).show()
             } finally {
                 binding.loadingProgressBar.visibility = View.GONE
             }
@@ -707,23 +723,23 @@ class LearnerDashboardActivity : AppCompatActivity() {
             // Set click listener to open conversation with tutor
             holder.itemView.setOnClickListener {
                 // Get the current user ID
-                val currentUserId = PreferenceUtils.getUserId(this@LearnerDashboardActivity) ?: -1L
+                    val currentUserId = PreferenceUtils.getUserId(this@StudentDashboardActivity) ?: -1L
 
                 if (currentUserId == -1L) {
-                    Toast.makeText(this@LearnerDashboardActivity, 
+                    Toast.makeText(this@StudentDashboardActivity,
                         "Unable to identify current user. Please log in again.", Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }
 
                 // Show loading toast
-                Toast.makeText(this@LearnerDashboardActivity, 
-                    "Opening conversation...", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@StudentDashboardActivity,
+                        "Opening conversation...", Toast.LENGTH_SHORT).show()
 
                 // Launch coroutine to handle conversation
                 lifecycleScope.launch {
                     try {
                         // Get studentId and tutorId from the session
-                        val studentId = session.learnerId.toLongOrNull() ?: currentUserId
+                        val studentId = session.studentId.toLongOrNull() ?: currentUserId
                         val tutorId = session.tutorId
 
                         // Log the IDs for debugging
@@ -782,7 +798,7 @@ class LearnerDashboardActivity : AppCompatActivity() {
                                         openConversation(newConversation.id, tutorId, session.tutorName)
                                     } else {
                                         Log.e(TAG, "Conversation creation succeeded but returned null")
-                                        Toast.makeText(this@LearnerDashboardActivity, 
+                                        Toast.makeText(this@StudentDashboardActivity, 
                                             "Failed to create conversation", Toast.LENGTH_SHORT).show()
                                     }
                                 } else {
@@ -790,7 +806,7 @@ class LearnerDashboardActivity : AppCompatActivity() {
                                     val error = createResult.exceptionOrNull()
                                     Log.e(TAG, "Failed to create conversation: ${error?.message}", error)
 
-                                    Toast.makeText(this@LearnerDashboardActivity, 
+                                    Toast.makeText(this@StudentDashboardActivity, 
                                         "Failed to create conversation", Toast.LENGTH_SHORT).show()
                                 }
                             }
@@ -799,12 +815,12 @@ class LearnerDashboardActivity : AppCompatActivity() {
                             val error = conversationsResult.exceptionOrNull()
                             Log.e(TAG, "Failed to load conversations: ${error?.message}", error)
 
-                            Toast.makeText(this@LearnerDashboardActivity, 
+                            Toast.makeText(this@StudentDashboardActivity, 
                                 "Failed to load conversations", Toast.LENGTH_SHORT).show()
                         }
                     } catch (e: Exception) {
                         Log.e(TAG, "Error opening conversation: ${e.message}", e)
-                        Toast.makeText(this@LearnerDashboardActivity, 
+                        Toast.makeText(this@StudentDashboardActivity, 
                             "Error opening conversation: ${e.message}", Toast.LENGTH_SHORT).show()
                     }
                 }
@@ -828,7 +844,7 @@ class LearnerDashboardActivity : AppCompatActivity() {
     private fun setupSessionsRecyclerView() {
         binding.allSessionsRecyclerView.apply {
             adapter = sessionAdapter
-            layoutManager = LinearLayoutManager(this@LearnerDashboardActivity)
+            layoutManager = LinearLayoutManager(this@StudentDashboardActivity)
         }
     }
 
@@ -918,7 +934,7 @@ class LearnerDashboardActivity : AppCompatActivity() {
                         } else {
                             Log.e(TAG, "User is null for email: $userEmail")
                             Toast.makeText(
-                                this@LearnerDashboardActivity,
+                                this@StudentDashboardActivity,
                                 "Failed to load user data. Please try again later.",
                                 Toast.LENGTH_SHORT
                             ).show()
@@ -927,7 +943,7 @@ class LearnerDashboardActivity : AppCompatActivity() {
                         // Handle error
                         Log.e(TAG, "Failed to find user by email: $userEmail")
                         Toast.makeText(
-                            this@LearnerDashboardActivity,
+                            this@StudentDashboardActivity,
                             "Failed to load user data. Please try again later.",
                             Toast.LENGTH_SHORT
                         ).show()
@@ -935,7 +951,7 @@ class LearnerDashboardActivity : AppCompatActivity() {
                 } catch (e: Exception) {
                     Log.e(TAG, "Error loading user data: ${e.message}", e)
                     Toast.makeText(
-                        this@LearnerDashboardActivity,
+                        this@StudentDashboardActivity,
                         "Error loading data: ${e.message}",
                         Toast.LENGTH_SHORT
                     ).show()
@@ -945,7 +961,7 @@ class LearnerDashboardActivity : AppCompatActivity() {
             // Handle case where user email is not available
             Log.e(TAG, "User email is not available")
             Toast.makeText(
-                this@LearnerDashboardActivity,
+                this@StudentDashboardActivity,
                 "User email not found. Please log in again.",
                 Toast.LENGTH_SHORT
             ).show()
