@@ -472,55 +472,55 @@ class BookingViewModel(
                     return@launch
                 }
 
-                // Create a tutoring session through the NetworkUtils API
-                NetworkUtils.createSession(
-                    studentId,
-                    tutorId,
-                    startTime,
-                    endTime,
-                    subject,
-                    sessionType,
-                    "",  // Empty string for location since it's not being passed to this method
-                    notes
-                ).collect { result ->
-                    try {
-                        if (result.isSuccess) {
-                            Log.d(TAG, "Session created successfully")
+                // Create a tutoring session through the SessionUtils API instead of NetworkUtils
+                try {
+                    val result = com.mobile.utils.SessionUtils.createSession(
+                        studentId,
+                        tutorId,
+                        startTime,
+                        endTime,
+                        subject,
+                        sessionType,
+                        "",  // Empty string for location since it's not being passed to this method
+                        notes
+                    )
 
-                            _bookingState.value = _bookingState.value?.copy(
-                                isLoading = false,
-                                bookingComplete = true,  // Set booking completion to true
-                                error = null
-                            )
+                    if (result.isSuccess) {
+                        Log.d(TAG, "Session created successfully")
 
-                            // Call the callback with success
-                            callback(true)
+                        _bookingState.value = _bookingState.value?.copy(
+                            isLoading = false,
+                            bookingComplete = true,  // Set booking completion to true
+                            error = null
+                        )
 
-                        } else {
-                            val error = result.exceptionOrNull()
-                            Log.e(TAG, "Error creating session: ${error?.message}")
+                        // Call the callback with success
+                        callback(true)
 
-                            _bookingState.value = _bookingState.value?.copy(
-                                isLoading = false,
-                                bookingComplete = false,
-                                error = error?.message ?: "Unknown error creating session"
-                            )
-
-                            // Call the callback with failure
-                            callback(false)
-                        }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Exception in bookSession: ${e.message}", e)
+                    } else {
+                        val error = result.exceptionOrNull()
+                        Log.e(TAG, "Error creating session: ${error?.message}")
 
                         _bookingState.value = _bookingState.value?.copy(
                             isLoading = false,
                             bookingComplete = false,
-                            error = e.message ?: "Exception creating session"
+                            error = error?.message ?: "Unknown error creating session"
                         )
 
                         // Call the callback with failure
                         callback(false)
                     }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Exception in bookSession: ${e.message}", e)
+
+                    _bookingState.value = _bookingState.value?.copy(
+                        isLoading = false,
+                        bookingComplete = false,
+                        error = e.message ?: "Exception creating session"
+                    )
+
+                    // Call the callback with failure
+                    callback(false)
                 }
             } catch (e: Exception) {
                 Log.e("BookingViewModel", "Exception during booking: ${e.message}", e)

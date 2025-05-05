@@ -35,7 +35,7 @@ class BookingActivity : AppCompatActivity() {
     private lateinit var viewModel: BookingViewModel
 
     // UI components
-    private lateinit var toolbar: Toolbar
+    private lateinit var backButton: ImageView
     private lateinit var tutorImage: CircleImageView
     private lateinit var tutorNameText: TextView
     private lateinit var tutorExpertiseText: TextView
@@ -112,11 +112,7 @@ class BookingActivity : AppCompatActivity() {
         initViews()
         setupListeners()
 
-        // Set up toolbar - using a modern approach without title in toolbar
-        setSupportActionBar(toolbar)
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        supportActionBar?.setDisplayShowHomeEnabled(true)
-        supportActionBar?.setDisplayShowTitleEnabled(false) // Hide the title in the toolbar
+        // No need to set up toolbar as we're using a standalone back button
 
         // Set up observers
         observeBookingState()
@@ -155,7 +151,7 @@ class BookingActivity : AppCompatActivity() {
     }
 
     private fun initViews() {
-        toolbar = findViewById(R.id.toolbar)
+        backButton = findViewById(R.id.backButton)
         tutorImage = findViewById(R.id.mentorImageView)
         tutorNameText = findViewById(R.id.mentorNameTextView)
         tutorExpertiseText = findViewById(R.id.mentorSpecialtyTextView)
@@ -221,6 +217,11 @@ class BookingActivity : AppCompatActivity() {
     }
 
     private fun setupListeners() {
+        // Set up back button
+        backButton.setOnClickListener {
+            onBackPressed()
+        }
+
         // Find the date selection button
         val selectDateButton = findViewById<Button>(R.id.selectDateButton)
         selectDateButton?.setOnClickListener {
@@ -901,7 +902,6 @@ class TutorSubjectAdapter(
     private var selectedPosition = -1
 
     inner class SubjectViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        val subjectCard: CardView = itemView as CardView
         val subjectText: TextView = itemView.findViewById(R.id.subjectNameTextView)
     }
 
@@ -917,7 +917,7 @@ class TutorSubjectAdapter(
 
         // Set selected state
         val isSelected = position == selectedPosition
-        holder.subjectCard.setCardBackgroundColor(
+        holder.itemView.setBackgroundColor(
             ContextCompat.getColor(
                 holder.itemView.context,
                 if (isSelected) R.color.primary_blue else R.color.white

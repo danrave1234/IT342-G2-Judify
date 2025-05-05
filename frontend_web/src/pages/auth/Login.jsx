@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { toast } from 'react-toastify';
@@ -9,13 +9,20 @@ const Login = () => {
   const { login } = useUser();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loginError, setLoginError] = useState('');
+  const [email, setEmail] = useState('');
   const navigate = useNavigate();
-  const { register, handleSubmit, formState: { errors } } = useForm();
-
+  const { register, handleSubmit, formState: { errors }, setValue } = useForm();
 
   const onSubmit = (data) => {
+    setEmail(data.email);
     handleLogin(data);
   };
+
+  useEffect(() => {
+    if (email) {
+      setValue('email', email);
+    }
+  }, [email, setValue]);
 
   const handleLogin = async (data) => {
     setIsSubmitting(true);
@@ -86,8 +93,45 @@ const Login = () => {
     window.location.href = googleAuthUrl;
   };
 
+  // Add CSS to handle autocomplete styling
+  const autocompleteStyles = `
+    /* Add these styles to fix autocomplete styling */
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover, 
+    input:-webkit-autofill:focus,
+    input:-webkit-autofill:active {
+      -webkit-box-shadow: 0 0 0 30px white inset !important;
+      transition: background-color 5000s ease-in-out 0s;
+    }
+    
+    .dark input:-webkit-autofill,
+    .dark input:-webkit-autofill:hover, 
+    .dark input:-webkit-autofill:focus,
+    .dark input:-webkit-autofill:active {
+      -webkit-box-shadow: 0 0 0 30px #1f2937 inset !important;
+      -webkit-text-fill-color: #e5e7eb !important;
+    }
+    
+    /* Fix input size consistency */
+    input.auth-form-input {
+      height: 2.5rem !important; /* Fixed height */
+      padding: 0.5rem 0.75rem !important; /* Fixed padding */
+      min-height: 2.5rem !important;
+      box-sizing: border-box !important;
+      font-size: 1rem !important;
+      line-height: 1.5 !important;
+    }
+    
+    /* Ensure suggestions don't affect layout */
+    input:-webkit-autofill {
+      height: 2.5rem !important;
+      padding: 0.5rem 0.75rem !important;
+    }
+  `;
+
   return (
     <div className="relative">
+      <style>{autocompleteStyles}</style>
       {/* Back button */}
       <Link to="/" className="absolute top-0 left-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">
         <FaArrowLeft className="text-xl" />
@@ -112,6 +156,7 @@ const Login = () => {
             id="email"
             type="email"
             placeholder="your@email.com"
+            autoComplete="username email"
             className={`auth-form-input ${
               errors.email ? 'border-red-500 dark:border-red-400' : ''
             }`}
@@ -134,6 +179,7 @@ const Login = () => {
             id="password"
             type="password"
             placeholder="••••••••"
+            autoComplete="current-password"
             className={`auth-form-input ${
               errors.password ? 'border-red-500 dark:border-red-400' : ''
             }`}

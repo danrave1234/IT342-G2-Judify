@@ -43,6 +43,7 @@ public class TutoringSessionDTOMapper {
         dto.setNotes(entity.getNotes());
         dto.setLocationData(entity.getLocationData());
         dto.setMeetingLink(entity.getMeetingLink());
+        dto.setSessionType(entity.getSessionType());
         dto.setCreatedAt(entity.getCreatedAt());
         dto.setUpdatedAt(entity.getUpdatedAt());
         dto.setTutorAccepted(entity.getTutorAccepted());
@@ -160,6 +161,7 @@ public class TutoringSessionDTOMapper {
         entity.setNotes(dto.getNotes());
         entity.setLocationData(dto.getLocationData());
         entity.setMeetingLink(dto.getMeetingLink());
+        entity.setSessionType(dto.getSessionType());
         entity.setCreatedAt(dto.getCreatedAt());
         entity.setUpdatedAt(dto.getUpdatedAt());
         entity.setTutorAccepted(dto.getTutorAccepted());

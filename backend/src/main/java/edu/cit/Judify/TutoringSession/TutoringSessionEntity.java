@@ -52,6 +52,9 @@ public class TutoringSessionEntity {
     @Column(nullable = true)    // Explicitly marking as nullable
     private String meetingLink;     // For online sessions
 
+    @Column(nullable = true)
+    private String sessionType;    // "online" or "in-person"
+
     @Temporal(TemporalType.TIMESTAMP)
     @Column(nullable = false, updatable = false)
     private Date createdAt;
@@ -150,6 +153,13 @@ public class TutoringSessionEntity {
     }
     public void setMeetingLink(String meetingLink) {
         this.meetingLink = meetingLink;
+    }
+
+    public String getSessionType() {
+        return sessionType;
+    }
+    public void setSessionType(String sessionType) {
+        this.sessionType = sessionType;
     }
 
     public Date getCreatedAt() {

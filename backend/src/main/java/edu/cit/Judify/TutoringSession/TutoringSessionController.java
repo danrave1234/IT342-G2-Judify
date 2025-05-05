@@ -391,6 +391,21 @@ public class TutoringSessionController {
         return ResponseEntity.ok(hasOverlap);
     }
 
+    @Operation(summary = "Get session by conversation ID", description = "Returns a tutoring session associated with a specific conversation")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Successfully retrieved the session"),
+        @ApiResponse(responseCode = "404", description = "Session not found for the given conversation ID")
+    })
+    @GetMapping("/findByConversation/{conversationId}")
+    public ResponseEntity<TutoringSessionDTO> getSessionByConversationId(
+            @Parameter(description = "Conversation ID") @PathVariable Long conversationId) {
+        TutoringSessionEntity session = sessionService.getSessionByConversationId(conversationId);
+        if (session == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(sessionDTOMapper.toDTO(session));
+    }
+
     @Operation(summary = "Accept a tutoring session", description = "Tutor accepts a pending tutoring session")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Session successfully accepted",

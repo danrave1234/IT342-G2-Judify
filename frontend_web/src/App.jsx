@@ -104,6 +104,7 @@ function App() {
                           <Route element={<PrivateRoute><MainLayout /></PrivateRoute>}>
                             {/* Common Routes */}
                             <Route path="/profile" element={<ProfilePage />} />
+                            <Route path="/messages/:conversationId" element={<Messages />} />
 
                             {/* Student Routes */}
                             <Route path="/student" element={<StudentRoute><StudentDashboard /></StudentRoute>} />
@@ -111,7 +112,8 @@ function App() {
                             <Route path="/student/find-tutors" element={<StudentRoute><FindTutors /></StudentRoute>} />
                             <Route path="/student/tutors/:tutorId" element={<StudentRoute><TutorDetails /></StudentRoute>} />
                             <Route path="/student/sessions" element={<StudentRoute><StudentSessions /></StudentRoute>} />
-                            <Route path="/student/sessions/:sessionId" element={<StudentRoute><SessionDetail /></StudentRoute>} />
+                            {/* Redirect session detail route to messages by catching it in Sessions component */}
+                            <Route path="/student/sessions/:sessionId" element={<StudentRoute><StudentSessions /></StudentRoute>} />
                             <Route path="/student/review/session/:sessionId" element={<StudentRoute><SessionReview /></StudentRoute>} />
                             <Route path="/student/book/:tutorId" element={<StudentRoute><BookSession /></StudentRoute>} />
                             <Route path="/student/messages" element={<StudentRoute><Messages /></StudentRoute>} />

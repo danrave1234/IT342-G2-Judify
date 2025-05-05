@@ -21,6 +21,9 @@ public interface TutoringSessionRepository extends JpaRepository<TutoringSession
     List<TutoringSessionEntity> findByTutorAndStatus(UserEntity tutor, String status);
     List<TutoringSessionEntity> findByStudentAndStatus(UserEntity student, String status);
 
+    // Find session by conversation ID
+    TutoringSessionEntity findByConversationConversationId(Long conversationId);
+
     Page<TutoringSessionEntity> findByTutor(UserEntity tutor, Pageable pageable);
     Page<TutoringSessionEntity> findByStudent(UserEntity student, Pageable pageable);
     Page<TutoringSessionEntity> findByStatus(String status, Pageable pageable);

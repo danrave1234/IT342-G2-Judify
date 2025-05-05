@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { FaVideo, FaMapMarkerAlt, FaClock, FaCalendarAlt, FaSearch } from 'react-icons/fa';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { FaVideo, FaMapMarkerAlt, FaClock, FaCalendarAlt, FaSearch, FaComment } from 'react-icons/fa';
 import { SESSION_STATUS } from '../../types';
 import axios from 'axios';
+import { conversationApi } from '../../api/api';
+import { toast } from 'react-toastify';
 
 const Sessions = () => {
   const [sessions, setSessions] = useState([]);
@@ -10,10 +12,18 @@ const Sessions = () => {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('upcoming');
   const [searchTerm, setSearchTerm] = useState('');
+  const [processingConversation, setProcessingConversation] = useState(false);
+  const navigate = useNavigate();
+  const { sessionId } = useParams(); // Get sessionId from URL if present
 
   useEffect(() => {
     fetchSessions();
-  }, []);
+    
+    // If sessionId is present in the URL, automatically redirect to conversation
+    if (sessionId) {
+      redirectToSessionConversation(sessionId);
+    }
+  }, [sessionId]);
 
   const fetchSessions = async () => {
     setLoadingSessions(true);
@@ -159,6 +169,156 @@ const Sessions = () => {
     }
   };
 
+  // Function to handle session click
+  const handleSessionClick = async (session) => {
+    if (processingConversation) return;
+    
+    setProcessingConversation(true);
+    
+    // Display loading toast
+    const loadingToastId = toast.loading("Opening conversation...");
+    
+    try {
+      // Get user from localStorage
+      const userString = localStorage.getItem('user');
+      if (!userString) {
+        toast.update(loadingToastId, { render: "User information not found, please login again", type: "error", isLoading: false, autoClose: 3000 });
+        setProcessingConversation(false);
+        return;
+      }
+      
+      const user = JSON.parse(userString);
+      
+      // Create conversation data - matches mobile app format
+      const conversationData = {
+        studentId: user.userId,
+        tutorId: session.tutorId,
+        sessionId: session.sessionId || session.id,
+        lastMessageTime: new Date().toISOString()
+      };
+      
+      console.log('Creating conversation with data:', conversationData);
+      
+      let conversationId;
+      
+      // Try to find an existing conversation first
+      try {
+        const conversationsResponse = await conversationApi.getConversations(user.userId);
+        const conversations = conversationsResponse?.data || [];
+        
+        // Find if there's an existing conversation for this session
+        const existingConversation = conversations.find(conv => 
+          (conv.sessionId === session.sessionId || conv.sessionId === session.id) ||
+          (conv.studentId === user.userId && conv.tutorId === session.tutorId)
+        );
+        
+        if (existingConversation) {
+          conversationId = existingConversation.conversationId || existingConversation.id;
+          console.log(`Found existing conversation: ${conversationId}`);
+        }
+      } catch (err) {
+        console.log('Error finding existing conversations, will create new one:', err);
+      }
+      
+      // If no existing conversation found, create a new one
+      if (!conversationId) {
+        try {
+          const response = await conversationApi.createConversation(conversationData);
+          if (response?.data) {
+            conversationId = response.data.conversationId || response.data.id;
+            console.log(`Created new conversation: ${conversationId}`);
+          } else {
+            throw new Error('No conversation ID returned from API');
+          }
+        } catch (err) {
+          console.error('Error creating conversation:', err);
+          
+          // Try using findBetweenUsers as a fallback
+          try {
+            console.log('Trying findBetweenUsers as fallback');
+            const api = await import('../../api/api').then(module => module.api);
+            const fallbackResponse = await api.get(`/conversations/findBetweenUsers/${user.userId}/${session.tutorId}`);
+            
+            if (fallbackResponse?.data) {
+              conversationId = fallbackResponse.data.conversationId || fallbackResponse.data.id;
+              console.log(`Found conversation via fallback: ${conversationId}`);
+            } else {
+              throw new Error('Failed to get conversation from fallback method');
+            }
+          } catch (fallbackErr) {
+            console.error('Fallback method also failed:', fallbackErr);
+            toast.update(loadingToastId, { render: "Failed to create conversation", type: "error", isLoading: false, autoClose: 3000 });
+            setProcessingConversation(false);
+            return;
+          }
+        }
+      }
+      
+      // Close loading toast
+      toast.update(loadingToastId, { render: "Opening conversation...", type: "success", isLoading: false, autoClose: 1500 });
+      
+      // Navigate to the conversation
+      if (conversationId) {
+        navigate(`/messages/${conversationId}`);
+      } else {
+        toast.error('Could not establish a conversation with the tutor');
+      }
+    } catch (error) {
+      console.error('Error handling session click:', error);
+      toast.error('There was a problem accessing the conversation');
+    } finally {
+      setProcessingConversation(false);
+    }
+  };
+
+  // Function to redirect from session detail to conversation
+  const redirectToSessionConversation = async (sessionId) => {
+    if (!sessionId || processingConversation) return;
+    
+    setProcessingConversation(true);
+    
+    // Display loading toast
+    const loadingToastId = toast.loading("Opening conversation...");
+    
+    try {
+      // Get user from localStorage
+      const userString = localStorage.getItem('user');
+      if (!userString) {
+        toast.update(loadingToastId, { render: "User information not found, please login again", type: "error", isLoading: false, autoClose: 3000 });
+        setProcessingConversation(false);
+        return;
+      }
+      
+      const user = JSON.parse(userString);
+      
+      // Fetch sessions first to get the session
+      await fetchSessions();
+      
+      // Find the session with matching ID
+      const targetSession = sessions.find(s => 
+        s.sessionId === sessionId || s.id === sessionId || 
+        s.sessionId === parseInt(sessionId) || s.id === parseInt(sessionId)
+      );
+      
+      if (!targetSession) {
+        toast.update(loadingToastId, { render: "Session not found", type: "error", isLoading: false, autoClose: 3000 });
+        setProcessingConversation(false);
+        navigate('/student/sessions');
+        return;
+      }
+      
+      // Continue with conversation logic using the existing function
+      // This prevents code duplication - we reuse handleSessionClick implementation
+      await handleSessionClick(targetSession);
+    } catch (error) {
+      console.error('Error redirecting to session conversation:', error);
+      toast.error('There was a problem accessing the conversation');
+      navigate('/student/sessions');
+    } finally {
+      setProcessingConversation(false);
+    }
+  };
+
   return (
     <div className="container mx-auto py-8 px-4">
       <h1 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">My Tutoring Sessions</h1>
@@ -205,7 +365,12 @@ const Sessions = () => {
         </div>
       </div>
 
-      {loadingSessions ? (
+      {processingConversation ? (
+        <div className="flex flex-col justify-center items-center h-64">
+          <div className="w-12 h-12 border-t-4 border-primary-600 border-solid rounded-full animate-spin mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">Opening conversation...</p>
+        </div>
+      ) : loadingSessions ? (
         <div className="flex justify-center items-center h-64">
           <div className="w-12 h-12 border-t-4 border-primary-600 border-solid rounded-full animate-spin"></div>
         </div>
@@ -231,7 +396,11 @@ const Sessions = () => {
               {filteredSessions.map(session => {
                 const { date, time } = formatSessionTime(session.startTime, session.endTime);
                 return (
-                  <div key={session.sessionId} className="p-6 hover:bg-gray-50 dark:hover:bg-dark-700 transition duration-150">
+                  <div 
+                    key={session.sessionId} 
+                    className="p-6 hover:bg-gray-50 dark:hover:bg-dark-700 transition duration-150 cursor-pointer"
+                    onClick={() => handleSessionClick(session)}
+                  >
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
                       {/* Left column - Tutor info */}
                       <div className="md:col-span-1">
@@ -292,7 +461,17 @@ const Sessions = () => {
                           </div>
                         )}
                         
-                        <div>
+                        <div className="flex justify-end">
+                          <button 
+                            className="flex items-center text-primary-600 hover:text-primary-700 text-sm font-medium"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSessionClick(session);
+                            }}
+                          >
+                            <FaComment className="mr-1" />
+                            Message Tutor
+                          </button>
                         </div>
                       </div>
                     </div>

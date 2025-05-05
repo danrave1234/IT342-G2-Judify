@@ -14,6 +14,7 @@ public class TutoringSessionDTO {
     private String notes;
     private String locationData;    // For in-person sessions
     private String meetingLink;     // For online sessions
+    private String sessionType;     // "online" or "in-person"
     private Date createdAt;
     private Date updatedAt;
     private String tutorName;       // Added tutorName field
@@ -113,6 +114,14 @@ public class TutoringSessionDTO {
 
     public void setMeetingLink(String meetingLink) {
         this.meetingLink = meetingLink;
+    }
+
+    public String getSessionType() {
+        return sessionType;
+    }
+
+    public void setSessionType(String sessionType) {
+        this.sessionType = sessionType;
     }
 
     public Date getCreatedAt() {

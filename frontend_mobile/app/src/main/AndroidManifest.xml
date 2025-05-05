@@ -59,7 +59,19 @@
                 android:windowSoftInputMode="adjustResize" />
 
         <activity
+                android:name=".ui.register.RegisterPage2Activity"
+                android:exported="false"
+                android:theme="@style/Theme.Judify"
+                android:windowSoftInputMode="adjustResize" />
+
+        <activity
                 android:name=".ui.register.TutorRegisterActivity"
+                android:exported="false"
+                android:theme="@style/Theme.Judify"
+                android:windowSoftInputMode="adjustResize" />
+
+        <activity
+                android:name=".ui.register.TutorRegisterPage2Activity"
                 android:exported="false"
                 android:theme="@style/Theme.Judify"
                 android:windowSoftInputMode="adjustResize" />

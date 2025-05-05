@@ -36,12 +36,7 @@ class RegisterActivity : AppCompatActivity() {
         val emailEditText = binding.emailEditText
         val usernameEditText = binding.usernameEditText
         val contactDetailsEditText = binding.contactDetailsEditText
-        val firstNameEditText = binding.firstNameEditText
-        val lastNameEditText = binding.lastNameEditText
-        val passwordEditText = binding.passwordEditText
-        val signUpButton = binding.signUpButton
         val backButton = binding.backButton
-        val rememberMeCheckbox = binding.rememberMeCheckbox
         val facebookButton = binding.facebookButton
         val googleButton = binding.googleButton
         val signInTextView = binding.signInTextView
@@ -51,52 +46,35 @@ class RegisterActivity : AppCompatActivity() {
         setupTextWatcher(emailEditText)
         setupTextWatcher(usernameEditText)
         setupTextWatcher(contactDetailsEditText)
-        setupTextWatcher(passwordEditText)
-        setupTextWatcher(firstNameEditText)
-        setupTextWatcher(lastNameEditText)
 
         // Set up back button
         backButton.setOnClickListener {
             finish()
         }
 
-        // Set up sign up button
-        signUpButton.setOnClickListener {
-            // Show loading indicator
-            binding.loading?.visibility = View.VISIBLE
-
+        // Set up next button
+        binding.nextButton.setOnClickListener {
             // Get user input
             val email = emailEditText.text.toString()
             val username = usernameEditText.text.toString()
             val contactDetails = contactDetailsEditText.text.toString()
-            val firstName = firstNameEditText.text.toString()
-            val lastName = lastNameEditText.text.toString()
-            val password = passwordEditText.text.toString()
 
             // Validate input
-            if (email.isEmpty() || username.isEmpty() || firstName.isEmpty() || lastName.isEmpty() || password.isEmpty()) {
+            if (email.isEmpty() || username.isEmpty()) {
                 Toast.makeText(
                     applicationContext,
                     getString(R.string.please_fill_all_fields),
                     Toast.LENGTH_SHORT
                 ).show()
-                binding.loading?.visibility = View.GONE
                 return@setOnClickListener
             }
 
-            // Create user object - send plain password to the server
-            val user = User(
-                email = email,
-                username = username,
-                passwordHash = password, // Despite the name, this sends the plain password to the server
-                firstName = firstName,
-                lastName = lastName,
-                contactDetails = contactDetails,
-                roles = "LEARNER" // Default role
-            )
-
-            // Register user
-            registerUser(user)
+            // Navigate to the second page of registration
+            val intent = Intent(this, RegisterPage2Activity::class.java)
+            intent.putExtra("email", email)
+            intent.putExtra("username", username)
+            intent.putExtra("contactDetails", contactDetails)
+            startActivity(intent)
         }
 
         // Set up social login buttons
@@ -203,15 +181,10 @@ class RegisterActivity : AppCompatActivity() {
     private fun validateForm() {
         val email = binding.emailEditText.text.toString()
         val username = binding.usernameEditText.text.toString()
-        val firstName = binding.firstNameEditText.text.toString()
-        val lastName = binding.lastNameEditText.text.toString()
-        val password = binding.passwordEditText.text.toString()
+        val contactDetails = binding.contactDetailsEditText.text.toString()
 
         // Simple validation
-        binding.signUpButton.isEnabled = email.contains("@") && 
-                                         username.isNotEmpty() &&
-                                         password.length >= 5 &&
-                                         firstName.isNotEmpty() &&
-                                         lastName.isNotEmpty()
+        binding.nextButton.isEnabled = email.contains("@") && 
+                                      username.isNotEmpty()
     }
 } 

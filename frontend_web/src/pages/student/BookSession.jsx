@@ -74,7 +74,7 @@ const BookSession = () => {
 
       // Store the tutor's profile ID which is needed for API calls
       const tutorProfileId = tutorData.profileId || currentTutorId;
-      
+
       setTutor({
         id: tutorData.userId, // Keep userId for reference
         profileId: tutorProfileId, // Important: This is the actual tutorId used by the backend
@@ -317,12 +317,14 @@ const BookSession = () => {
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
         price: calculateTotalPrice(),
-        status: SESSION_STATUS.SCHEDULED, // Or maybe PENDING if negotiation is needed
+        status: 'PENDING', // Create as PENDING instead of SCHEDULED
         locationData: sessionInfo.sessionType === 'Online' ? null : sessionInfo.locationName || 'In person - TBD',
         meetingLink: sessionInfo.sessionType === 'Online' ? null : null,
+        sessionType: sessionInfo.sessionType, // Include the session type
         // Include acceptance status
         studentAccepted: true,
         tutorAccepted: false,
+        paymentStatus: 'UNPAID' // Mark as UNPAID initially
       };
 
       console.log("Submitting session data with tutor profile ID:", sessionData);
@@ -330,20 +332,25 @@ const BookSession = () => {
       const result = await createSession(sessionData);
 
       if (result.success && result.session) {
-        toast.success('Session booked successfully! Proceeding to payment.');
-        // Store necessary info for payment page
-        localStorage.setItem('pendingSessionPayment', JSON.stringify({
-          sessionId: result.session.sessionId,
-          tutorId: tutor.profileId, // Use profile ID here too
-          tutorName: tutor.name,
-          subject: sessionInfo.subject,
-          startTime: startTime.toISOString(),
-          duration: sessionInfo.duration,
-          price: calculateTotalPrice(),
-          sessionType: sessionInfo.sessionType,
-          locationName: sessionInfo.sessionType === 'In-Person' ? sessionInfo.locationName : null
-        }));
-        navigate('/student/payments?tab=payment'); // Redirect to payment page
+        toast.success('Session request sent to tutor successfully!');
+
+        // Create conversation for the session
+        try {
+          const { conversationApi } = await import('../../api/api');
+          await conversationApi.createConversation({
+            tutorId: tutor.profileId,
+            studentId: user.userId,
+            sessionId: result.session.sessionId || result.session.id,
+            lastMessageTime: new Date().toISOString()
+          });
+          console.log('Conversation created for session');
+        } catch (convError) {
+          console.error('Error creating conversation:', convError);
+          // Don't block the flow if conversation creation fails
+        }
+
+        // Redirect to sessions page instead of payment
+        navigate('/student/sessions');
       } else {
         setError(result.message || 'Failed to book session. Please try again.');
         toast.error(result.message || 'Failed to book session.');
@@ -623,6 +630,13 @@ const BookSession = () => {
                   </div>
                 </div>
 
+                {/* Booking process note */}
+                <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800/30 rounded-lg p-3 mb-4">
+                  <p className="text-blue-800 dark:text-blue-400 text-sm">
+                    <strong>How it works:</strong> After booking, your session will be sent to the tutor for approval. Once approved, you'll be able to communicate with them through the conversation created for this session. Payment will be handled later.
+                  </p>
+                </div>
+
                 <div className="flex flex-col sm:flex-row gap-3">
                   <button
                       type="submit"
@@ -634,7 +648,7 @@ const BookSession = () => {
                       }
                       className="btn-primary flex-1 disabled:opacity-50"
                   >
-                    {submitting ? 'Booking...' : 'Proceed to Payment'}
+                    {submitting ? 'Booking...' : 'Book Session'}
                   </button>
                 </div>
               </div>

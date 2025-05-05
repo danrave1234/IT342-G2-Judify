@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useSession } from '../../context/SessionContext';
 import { SESSION_STATUS } from '../../types';
-import { FaVideo, FaMapMarkerAlt, FaClock, FaCalendarAlt, FaArrowLeft, FaUser, FaStar } from 'react-icons/fa';
+import { FaVideo, FaMapMarkerAlt, FaClock, FaCalendarAlt, FaArrowLeft, FaUser, FaStar, FaComment } from 'react-icons/fa';
 import { toast } from 'react-toastify';
+import { conversationApi } from '../../api/api';
+import { useUser } from '../../context/UserContext';
 
 const SessionDetail = () => {
   const { sessionId } = useParams();
@@ -12,6 +14,8 @@ const SessionDetail = () => {
   const [session, setSession] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [conversationLoading, setConversationLoading] = useState(false);
+  const { user } = useUser();
 
   useEffect(() => {
     fetchSessionData();
@@ -90,6 +94,52 @@ const SessionDetail = () => {
 
   const handleLeaveReview = () => {
     navigate(`/student/review/session/${sessionId}`);
+  };
+
+  const handleMessageTutor = async () => {
+    if (!session || !session.tutorId || !user?.userId) {
+      toast.error('Unable to start conversation. Missing tutor or user information.');
+      return;
+    }
+    
+    setConversationLoading(true);
+    try {
+      // Check if conversation already exists for this session
+      const conversationsResponse = await conversationApi.getConversations(user.userId);
+      const conversations = conversationsResponse.data || [];
+      
+      // Find a conversation with this session ID
+      const existingConversation = conversations.find(conv => 
+        conv.sessionId === sessionId || conv.sessionId === session.id
+      );
+      
+      if (existingConversation) {
+        // Redirect to existing conversation
+        navigate(`/messages/${existingConversation.conversationId}`);
+        return;
+      }
+      
+      // Create new conversation
+      const conversationData = {
+        tutorId: session.tutorId,
+        studentId: user.userId,
+        sessionId: sessionId,
+        lastMessageTime: new Date().toISOString()
+      };
+      
+      const response = await conversationApi.createConversation(conversationData);
+      if (response.data && response.data.conversationId) {
+        toast.success('Conversation created successfully');
+        navigate(`/messages/${response.data.conversationId}`);
+      } else {
+        toast.error('Failed to create conversation');
+      }
+    } catch (error) {
+      console.error('Error handling message tutor action:', error);
+      toast.error('An error occurred while trying to message the tutor');
+    } finally {
+      setConversationLoading(false);
+    }
   };
 
   if (loading || !session) {
@@ -238,6 +288,19 @@ const SessionDetail = () => {
                 Join Meeting
               </a>
             )}
+
+            <button
+              onClick={handleMessageTutor}
+              disabled={conversationLoading}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors flex items-center"
+            >
+              {conversationLoading ? (
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></span>
+              ) : (
+                <FaComment className="mr-2" />
+              )}
+              Message Tutor
+            </button>
 
             {canReview && (
               <button

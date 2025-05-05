@@ -2403,6 +2403,15 @@ object NetworkUtils {
     }
 
     /**
+     * Public accessor for creating a GET connection
+     * @param url URL to connect to
+     * @return HttpURLConnection
+     */
+    fun getConnection(url: URL): HttpURLConnection {
+        return createGetConnection(url)
+    }
+
+    /**
      * Helper method to create an HttpURLConnection for POST requests
      * @param url The URL to connect to
      * @return The configured HttpURLConnection
@@ -2416,6 +2425,15 @@ object NetworkUtils {
         connection.connectTimeout = 15000
         connection.readTimeout = 15000
         return connection
+    }
+
+    /**
+     * Public accessor for creating a POST connection
+     * @param url URL to connect to
+     * @return HttpURLConnection
+     */
+    fun postConnection(url: URL): HttpURLConnection {
+        return createPostConnection(url)
     }
 
     /**
@@ -2435,6 +2453,15 @@ object NetworkUtils {
     }
 
     /**
+     * Public accessor for creating a PUT connection
+     * @param url URL to connect to
+     * @return HttpURLConnection
+     */
+    fun putConnection(url: URL): HttpURLConnection {
+        return createPutConnection(url)
+    }
+
+    /**
      * Helper method to create an HttpURLConnection for DELETE requests
      * @param url The URL to connect to
      * @return The configured HttpURLConnection
@@ -2447,6 +2474,15 @@ object NetworkUtils {
         connection.connectTimeout = 15000
         connection.readTimeout = 15000
         return connection
+    }
+
+    /**
+     * Public accessor for creating a DELETE connection
+     * @param url URL to connect to
+     * @return HttpURLConnection
+     */
+    fun deleteConnection(url: URL): HttpURLConnection {
+        return createDeleteConnection(url)
     }
 
     /**
@@ -2551,6 +2587,21 @@ object NetworkUtils {
         } finally {
             connection.disconnect()
         }
+    }
+
+    /**
+     * Public accessor for handling HTTP responses
+     * @param connection The HttpURLConnection to read from
+     * @param requestBody Optional request body for POST/PUT requests
+     * @param handler Lambda to process the response string
+     * @return Result containing the processed response or an error
+     */
+    fun <T> processResponse(
+        connection: HttpURLConnection,
+        requestBody: String? = null,
+        handler: (String) -> T
+    ): Result<T> {
+        return handleResponse(connection, requestBody, handler)
     }
 
     /**
@@ -2719,6 +2770,15 @@ object NetworkUtils {
 
         // Create a properly formatted URL
         return "$BASE_URL/$cleanEndpoint"
+    }
+
+    /**
+     * Public accessor for creating API URLs
+     * @param endpoint The API endpoint path
+     * @return Properly formatted URL string
+     */
+    fun getApiUrl(endpoint: String): String {
+        return createApiUrl(endpoint)
     }
 
     /**

@@ -9,6 +9,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.EditText
+import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.Spinner
 import android.widget.TextView
@@ -414,7 +415,7 @@ class TutorDashboardActivity : AppCompatActivity() {
 
         // Set up manage subjects
         binding.manageSubjects.setOnClickListener {
-            // TODO: Navigate to manage subjects screen
+            showManageSubjectsDialog()
         }
 
         // Set up notification icon click
@@ -1294,5 +1295,126 @@ class TutorDashboardActivity : AppCompatActivity() {
 
         // Add the chip to the container
         binding.subjectsContainer.addView(chip)
+    }
+
+    /**
+     * Shows a dialog for managing tutor subjects
+     */
+    private fun showManageSubjectsDialog() {
+        // Create dialog
+        val dialog = AlertDialog.Builder(this).create()
+        val dialogView = layoutInflater.inflate(R.layout.dialog_manage_subjects, null)
+        dialog.setView(dialogView)
+
+        // Get references to views
+        val currentSubjectsContainer = dialogView.findViewById<LinearLayout>(R.id.currentSubjectsContainer)
+        val noSubjectsTextView = dialogView.findViewById<TextView>(R.id.noSubjectsTextView)
+        val subjectEditText = dialogView.findViewById<EditText>(R.id.subjectEditText)
+        val addSubjectButton = dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.addSubjectButton)
+        val cancelButton = dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.cancelButton)
+        val saveButton = dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.saveButton)
+
+        // Get current subjects
+        val currentSubjects = mutableListOf<String>()
+
+        // If we have a tutor profile, get the subjects
+        if (currentTutorId > 0) {
+            // Add all subjects from the tutor profile
+            for (i in 0 until binding.subjectsContainer.childCount) {
+                val view = binding.subjectsContainer.getChildAt(i)
+                if (view is TextView && view.id != R.id.noSubjectsText) {
+                    currentSubjects.add(view.text.toString())
+                }
+            }
+        }
+
+        // Function to update the subjects list in the dialog
+        fun updateSubjectsList() {
+            // Clear the container
+            currentSubjectsContainer.removeAllViews()
+
+            if (currentSubjects.isEmpty()) {
+                noSubjectsTextView.visibility = View.VISIBLE
+            } else {
+                noSubjectsTextView.visibility = View.GONE
+
+                // Add each subject to the container
+                for (subject in currentSubjects) {
+                    val subjectView = layoutInflater.inflate(R.layout.item_subject, null)
+                    val subjectNameTextView = subjectView.findViewById<TextView>(R.id.subjectNameTextView)
+                    val removeSubjectButton = subjectView.findViewById<ImageButton>(R.id.removeSubjectButton)
+
+                    subjectNameTextView.text = subject
+
+                    // Set up remove button
+                    removeSubjectButton.setOnClickListener {
+                        currentSubjects.remove(subject)
+                        updateSubjectsList()
+                    }
+
+                    currentSubjectsContainer.addView(subjectView)
+                }
+            }
+        }
+
+        // Initial update of subjects list
+        updateSubjectsList()
+
+        // Set up add button
+        addSubjectButton.setOnClickListener {
+            val newSubject = subjectEditText.text.toString().trim()
+            if (newSubject.isNotEmpty() && !currentSubjects.contains(newSubject)) {
+                currentSubjects.add(newSubject)
+                updateSubjectsList()
+                subjectEditText.text.clear()
+            } else if (currentSubjects.contains(newSubject)) {
+                Toast.makeText(this, "Subject already added", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        // Set up cancel button
+        cancelButton.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        // Set up save button
+        saveButton.setOnClickListener {
+            if (currentTutorId > 0) {
+                // Save the subjects
+                lifecycleScope.launch {
+                    try {
+                        // First delete all existing subjects
+                        val deleteResult = NetworkUtils.deleteAllSubjectsForTutor(currentTutorId)
+
+                        if (deleteResult.isSuccess) {
+                            // Then add the new subjects
+                            val addResult = NetworkUtils.addSubjectsForTutor(currentTutorId, currentSubjects)
+
+                            if (addResult.isSuccess) {
+                                // Update the UI
+                                loadSubjects(currentSubjects)
+                                Toast.makeText(this@TutorDashboardActivity, "Subjects updated successfully", Toast.LENGTH_SHORT).show()
+                            } else {
+                                val error = addResult.exceptionOrNull()
+                                Log.e(TAG, "Error adding subjects: ${error?.message}", error)
+                                Toast.makeText(this@TutorDashboardActivity, "Failed to update subjects", Toast.LENGTH_SHORT).show()
+                            }
+                        } else {
+                            val error = deleteResult.exceptionOrNull()
+                            Log.e(TAG, "Error deleting subjects: ${error?.message}", error)
+                            Toast.makeText(this@TutorDashboardActivity, "Failed to update subjects", Toast.LENGTH_SHORT).show()
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Exception updating subjects: ${e.message}", e)
+                        Toast.makeText(this@TutorDashboardActivity, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+
+            dialog.dismiss()
+        }
+
+        // Show the dialog
+        dialog.show()
     }
 }

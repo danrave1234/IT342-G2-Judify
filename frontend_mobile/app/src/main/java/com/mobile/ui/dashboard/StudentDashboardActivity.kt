@@ -508,13 +508,17 @@ class StudentDashboardActivity : AppCompatActivity() {
     private fun loadStudentSessions() {
         Log.d(TAG, "Loading student sessions")
         binding.loadingProgressBar.visibility = View.VISIBLE
+        binding.noSessionsContainer.visibility = View.GONE
+        binding.allSessionsRecyclerView.visibility = View.GONE
 
         // Get user ID from preferences
         val userId = PreferenceUtils.getUserId(this)
         if (userId == null) {
             Log.e(TAG, "Unable to load sessions: No user ID found in preferences")
             binding.loadingProgressBar.visibility = View.GONE
-            binding.noSessionsText.visibility = View.VISIBLE
+            binding.noSessionsContainer.visibility = View.VISIBLE
+            binding.noSessionsText.text = "Unable to load sessions. User ID not found."
+            binding.sessionCountText.text = "0 sessions"
             return
         }
 
@@ -523,39 +527,45 @@ class StudentDashboardActivity : AppCompatActivity() {
                 val result = NetworkUtils.getStudentSessions(userId.toString())
                 if (result.isSuccess) {
                     val sessions = result.getOrNull() ?: emptyList()
+
+                    // Update session count badge
+                    binding.sessionCountText.text = "${sessions.size} session${if (sessions.size != 1) "s" else ""}"
+
                     if (sessions.isNotEmpty()) {
-                        binding.noSessionsText.visibility = View.GONE
+                        binding.noSessionsContainer.visibility = View.GONE
                         binding.allSessionsRecyclerView.visibility = View.VISIBLE
                         sessionAdapter.submitList(sessions)
                         Log.d(TAG, "Loaded ${sessions.size} sessions for student")
                     } else {
-                        binding.noSessionsText.text = "You don't have any sessions yet. Book a session with a tutor to get started!"
-                        binding.noSessionsText.visibility = View.VISIBLE
+                        binding.noSessionsText.text = "No sessions found"
+                        binding.noSessionsContainer.visibility = View.VISIBLE
                         binding.allSessionsRecyclerView.visibility = View.GONE
                         Log.d(TAG, "No sessions found for student")
                     }
                 } else {
                     val error = result.exceptionOrNull()
                     val errorMsg = error?.message ?: "Unknown error"
+                    binding.sessionCountText.text = "0 sessions"
 
                     // Check if it's a 404 error which likely means the user just doesn't have any sessions yet
                     if (errorMsg.contains("404")) {
                         Log.d(TAG, "No sessions found for student (404): likely a new user")
-                        binding.noSessionsText.text = "You don't have any sessions yet. Book a session with a tutor to get started!"
+                        binding.noSessionsText.text = "No sessions found"
                     } else {
                         Log.e(TAG, "Failed to load student sessions: $errorMsg", error)
                         binding.noSessionsText.text = "Unable to load sessions. Pull down to refresh."
                         Toast.makeText(this@StudentDashboardActivity, "Failed to load sessions", Toast.LENGTH_SHORT).show()
                     }
 
-                    binding.noSessionsText.visibility = View.VISIBLE
+                    binding.noSessionsContainer.visibility = View.VISIBLE
                     binding.allSessionsRecyclerView.visibility = View.GONE
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Exception loading student sessions: ${e.message}", e)
                 binding.noSessionsText.text = "Unable to load sessions. Pull down to refresh."
-                binding.noSessionsText.visibility = View.VISIBLE
+                binding.noSessionsContainer.visibility = View.VISIBLE
                 binding.allSessionsRecyclerView.visibility = View.GONE
+                binding.sessionCountText.text = "0 sessions"
                 Toast.makeText(this@StudentDashboardActivity, "Error loading sessions", Toast.LENGTH_SHORT).show()
             } finally {
                 binding.loadingProgressBar.visibility = View.GONE

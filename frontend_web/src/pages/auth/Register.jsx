@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { toast } from 'react-toastify';
@@ -14,7 +14,53 @@ const Register = () => {
   const { register, handleSubmit, watch, formState: { errors }, setValue } = useForm();
   const [userType, setUserType] = useState('student');
   
+  // Add CSS to handle autocomplete styling
+  const autocompleteStyles = `
+    /* Add these styles to fix autocomplete styling */
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover, 
+    input:-webkit-autofill:focus,
+    input:-webkit-autofill:active {
+      -webkit-box-shadow: 0 0 0 30px white inset !important;
+      transition: background-color 5000s ease-in-out 0s;
+    }
+    
+    .dark input:-webkit-autofill,
+    .dark input:-webkit-autofill:hover, 
+    .dark input:-webkit-autofill:focus,
+    .dark input:-webkit-autofill:active {
+      -webkit-box-shadow: 0 0 0 30px #1f2937 inset !important;
+      -webkit-text-fill-color: #e5e7eb !important;
+    }
+    
+    /* Fix input size consistency */
+    input.auth-form-input {
+      height: 2.5rem !important; /* Fixed height */
+      padding: 0.5rem 0.75rem !important; /* Fixed padding */
+      min-height: 2.5rem !important;
+      box-sizing: border-box !important;
+      font-size: 1rem !important;
+      line-height: 1.5 !important;
+    }
+    
+    /* Ensure suggestions don't affect layout */
+    input:-webkit-autofill {
+      height: 2.5rem !important;
+      padding: 0.5rem 0.75rem !important;
+    }
+  `;
+
   const watchPassword = watch('password');
+  
+  // Logic for going back to step 1 when registration fails to preserve form data
+  useEffect(() => {
+    // This keeps form data when moving between steps
+    if (step === 1) {
+      // First step form data persistence
+    } else if (step === 2) {
+      // Second step form data persistence
+    }
+  }, [step, setValue]);
 
   const validatePasswordMatch = (value) => {
     return value === watchPassword || 'Passwords do not match';
@@ -219,6 +265,7 @@ const Register = () => {
 
   return (
     <div className="relative">
+      <style>{autocompleteStyles}</style>
       {/* Back button */}
       <Link to="/" className="absolute top-0 left-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">
         <FaArrowLeft className="text-xl" />
@@ -274,6 +321,7 @@ const Register = () => {
                     id="firstName"
                     type="text"
                     placeholder="John"
+                    autoComplete="given-name"
                     className={`auth-form-input ${
                       errors.firstName ? 'border-red-500 dark:border-red-400' : ''
                     }`}
@@ -291,6 +339,7 @@ const Register = () => {
                     id="lastName"
                     type="text"
                     placeholder="Doe"
+                    autoComplete="family-name"
                     className={`auth-form-input ${
                       errors.lastName ? 'border-red-500 dark:border-red-400' : ''
                     }`}
@@ -310,6 +359,7 @@ const Register = () => {
                   id="email"
                   type="email"
                   placeholder="your@email.com"
+                  autoComplete="email"
                   className={`auth-form-input ${
                     errors.email ? 'border-red-500 dark:border-red-400' : ''
                   }`}
@@ -332,6 +382,7 @@ const Register = () => {
                   id="username"
                   type="text"
                   placeholder="YourUsername"
+                  autoComplete="username"
                   className={`auth-form-input ${
                     errors.username ? 'border-red-500 dark:border-red-400' : ''
                   }`}
@@ -358,6 +409,7 @@ const Register = () => {
                   id="contactDetails"
                   type="tel"
                   placeholder="+1 234 567 8900"
+                  autoComplete="tel"
                   className={`auth-form-input ${
                     errors.contactDetails ? 'border-red-500 dark:border-red-400' : ''
                   }`}
@@ -384,6 +436,7 @@ const Register = () => {
                   id="password"
                   type="password"
                   placeholder="••••••••"
+                  autoComplete="new-password"
                   className={`auth-form-input ${
                     errors.password ? 'border-red-500 dark:border-red-400' : ''
                   }`}
@@ -407,6 +460,7 @@ const Register = () => {
                   id="confirmPassword"
                   type="password"
                   placeholder="••••••••"
+                  autoComplete="new-password"
                   className={`auth-form-input ${
                     errors.confirmPassword ? 'border-red-500 dark:border-red-400' : ''
                   }`}

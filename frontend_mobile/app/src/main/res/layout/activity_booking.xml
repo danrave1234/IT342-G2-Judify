@@ -7,15 +7,18 @@
     android:background="?attr/colorSurface"
     tools:context=".ui.booking.BookingActivity">
 
-    <!-- Simplified Toolbar without AppBarLayout -->
-    <androidx.appcompat.widget.Toolbar
-        android:id="@+id/toolbar"
-        android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:background="@android:color/transparent"
-        app:navigationIcon="@drawable/ic_arrow_back"
-        app:titleTextColor="@color/primary_blue"
-        android:elevation="0dp" />
+    <!-- Back button similar to login/register pages -->
+    <ImageView
+        android:id="@+id/backButton"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:src="@drawable/ic_arrow_right"
+        android:rotation="180"
+        android:tint="@color/primary_blue"
+        android:padding="4dp"
+        android:layout_margin="16dp"
+        android:background="@drawable/circle_button_background"
+        android:elevation="4dp" />
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
@@ -495,14 +498,14 @@
                             android:layout_height="wrap_content"
                             android:orientation="horizontal"
                             android:layout_marginBottom="4dp">
-                            
+
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Tutor Rate:"
                                 android:textSize="14sp"
                                 android:textColor="?android:attr/textColorSecondary" />
-                                
+
                             <TextView
                                 android:id="@+id/tutorRateText"
                                 android:layout_width="match_parent"
@@ -519,14 +522,14 @@
                             android:layout_height="wrap_content"
                             android:orientation="horizontal"
                             android:layout_marginBottom="4dp">
-                            
+
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Duration:"
                                 android:textSize="14sp"
                                 android:textColor="?android:attr/textColorSecondary" />
-                                
+
                             <TextView
                                 android:id="@+id/summaryDurationText"
                                 android:layout_width="match_parent"
@@ -549,7 +552,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="horizontal">
-                            
+
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
@@ -557,7 +560,7 @@
                                 android:textSize="16sp"
                                 android:textStyle="bold"
                                 android:textColor="@color/primary_blue" />
-                                
+
                             <TextView
                                 android:id="@+id/totalPriceText"
                                 android:layout_width="match_parent"

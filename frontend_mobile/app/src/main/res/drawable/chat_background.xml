@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient
+        android:type="linear"
+        android:angle="135"
+        android:startColor="#F5F8FF"
+        android:centerColor="#F8FBFF"
+        android:endColor="#F0F4FF" />
+
+    <item android:name="android:pattern">
+        <bitmap
+            android:src="@drawable/pattern_dots"
+            android:tileMode="repeat"
+            android:gravity="center"
+            android:alpha="0.05" />
+    </item>
+</shape> 

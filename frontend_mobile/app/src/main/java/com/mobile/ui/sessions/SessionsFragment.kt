@@ -3,6 +3,7 @@ package com.mobile.ui.sessions
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.lifecycle.lifecycleScope
@@ -24,6 +25,8 @@ class SessionsFragment : BaseFragment() {
     private val TAG = "SessionsFragment"
     private lateinit var recyclerView: RecyclerView
     private lateinit var noSessionsText: TextView
+    private lateinit var noSessionsContainer: LinearLayout
+    private lateinit var sessionCountLabel: TextView
     private lateinit var swipeRefreshLayout: SwipeRefreshLayout
     private lateinit var sessionAdapter: SessionAdapter
 
@@ -37,6 +40,8 @@ class SessionsFragment : BaseFragment() {
         // Initialize views
         recyclerView = view.findViewById(R.id.sessionsRecyclerView)
         noSessionsText = view.findViewById(R.id.noSessionsText)
+        noSessionsContainer = view.findViewById(R.id.noSessionsContainer)
+        sessionCountLabel = view.findViewById(R.id.sessionCountLabel)
         swipeRefreshLayout = view.findViewById(R.id.swipeRefreshLayout)
 
         // Set up RecyclerView
@@ -56,52 +61,58 @@ class SessionsFragment : BaseFragment() {
     private fun loadTutorSessions() {
         // Show loading indicator
         swipeRefreshLayout.isRefreshing = true
-        noSessionsText.visibility = View.GONE
-        
+        noSessionsContainer.visibility = View.GONE
+
         val userId = PreferenceUtils.getUserId(requireContext())
         if (userId == null) {
             Toast.makeText(requireContext(), "User ID not found", Toast.LENGTH_SHORT).show()
             swipeRefreshLayout.isRefreshing = false
-            noSessionsText.visibility = View.VISIBLE
+            noSessionsContainer.visibility = View.VISIBLE
             return
         }
 
         lifecycleScope.launch {
             try {
                 val result = NetworkUtils.getTutorSessions(userId.toString())
-                
+
                 // Hide loading indicator
                 swipeRefreshLayout.isRefreshing = false
-                
+
                 if (result.isSuccess) {
                     val sessions = result.getOrNull() ?: emptyList()
                     if (sessions.isNotEmpty()) {
-                        noSessionsText.visibility = View.GONE
+                        // Update session count label
+                        sessionCountLabel.text = "Your tutoring sessions (${sessions.size})"
+
+                        noSessionsContainer.visibility = View.GONE
                         recyclerView.visibility = View.VISIBLE
                         sessionAdapter.submitList(sessions)
                         Log.d(TAG, "Loaded ${sessions.size} sessions for tutor")
                     } else {
-                        noSessionsText.text = "You don't have any sessions yet. Create study locations to be found by learners!"
-                        noSessionsText.visibility = View.VISIBLE
+                        sessionCountLabel.text = "Your tutoring sessions"
+                        noSessionsText.text = "No sessions found"
+                        noSessionsContainer.visibility = View.VISIBLE
                         recyclerView.visibility = View.GONE
                         Log.d(TAG, "No sessions found for tutor")
                     }
                 } else {
                     val error = result.exceptionOrNull()
                     Log.e(TAG, "Error loading sessions: ${error?.message}", error)
+                    sessionCountLabel.text = "Your tutoring sessions"
                     noSessionsText.text = "Unable to load your sessions. Please try again."
-                    noSessionsText.visibility = View.VISIBLE
+                    noSessionsContainer.visibility = View.VISIBLE
                     recyclerView.visibility = View.GONE
                     Toast.makeText(requireContext(), "Failed to load sessions: ${error?.message}", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
                 swipeRefreshLayout.isRefreshing = false
                 Log.e(TAG, "Exception loading sessions: ${e.message}", e)
+                sessionCountLabel.text = "Your tutoring sessions"
                 noSessionsText.text = "Unable to load your sessions. Please try again."
-                noSessionsText.visibility = View.VISIBLE
+                noSessionsContainer.visibility = View.VISIBLE
                 recyclerView.visibility = View.GONE
                 Toast.makeText(requireContext(), "Error: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
     }
-} 
+}

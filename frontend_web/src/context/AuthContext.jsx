@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { userApi } from '../api/api';
+import { authApi } from '../api'; // Import from the new API structure
 
 const AuthContext = createContext();
 
@@ -25,7 +25,7 @@ export const AuthProvider = ({ children }) => {
   const fetchCurrentUser = async () => {
     try {
       setLoading(true);
-      const response = await userApi.getCurrentUser();
+      const response = await authApi.getCurrentUser();
       setCurrentUser(response.data);
       setError('');
     } catch (err) {
@@ -40,7 +40,7 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       setLoading(true);
-      const response = await userApi.login({ email, password });
+      const response = await authApi.login({ email, password });
       
       // Save the token to local storage
       const authToken = response.data.token;
@@ -64,7 +64,7 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     try {
       setLoading(true);
-      const response = await userApi.register(userData);
+      const response = await authApi.register(userData);
       
       // Automatically log the user in
       const authToken = response.data.token;
@@ -94,7 +94,7 @@ export const AuthProvider = ({ children }) => {
   const updateProfile = async (profileData) => {
     try {
       setLoading(true);
-      const response = await userApi.updateProfile(profileData);
+      const response = await authApi.updateProfile(profileData);
       setCurrentUser(response.data);
       return { success: true };
     } catch (err) {
@@ -108,6 +108,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const value = {
+    user: currentUser, // Add an alias for consistency
     currentUser,
     loading,
     error,

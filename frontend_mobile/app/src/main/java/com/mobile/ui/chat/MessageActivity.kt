@@ -16,6 +16,9 @@ import com.mobile.ui.chat.adapters.MessageAdapter
 import com.mobile.utils.NetworkUtils
 import com.mobile.utils.PreferenceUtils
 import kotlinx.coroutines.*
+import java.net.URL
+import java.text.SimpleDateFormat
+import java.util.*
 import java.util.concurrent.TimeUnit
 
 /**
@@ -38,10 +41,17 @@ class MessageActivity : AppCompatActivity() {
     private var lastMessageId: Long = -1
     private var messageList: List<Message> = emptyList()
 
+    // Session-related variables
+    private var sessionId: Long = -1
+    private var sessionDetails: NetworkUtils.TutoringSession? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMessageBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // Hide session details card initially
+        binding.sessionDetailsInclude.root.visibility = View.GONE
 
         // Get conversation details from intent
         conversationId = intent.getLongExtra("CONVERSATION_ID", -1L)
@@ -92,6 +102,9 @@ class MessageActivity : AppCompatActivity() {
         // Load messages
         refreshMessages()
 
+        // Fetch session details if available
+        fetchSessionDetails()
+
         // Set up send button
         binding.sendButton.setOnClickListener {
             val content = binding.messageEditText.text.toString().trim()
@@ -115,7 +128,7 @@ class MessageActivity : AppCompatActivity() {
 
                 response.onSuccess { conversation ->
                     Log.d("MessageActivity", "Successfully fetched conversation: ${conversation.id}")
-                    
+
                     // Determine the other user ID based on roles if not already set or incorrectly set
                     // This is crucial when opening from sessions where otherUserId might not be passed correctly
                     if (otherUserId == -1L || otherUserId == currentUserId) {
@@ -126,7 +139,7 @@ class MessageActivity : AppCompatActivity() {
                         }
                         Log.d("MessageActivity", "Updated otherUserId to: $otherUserId")
                     }
-                    
+
                     updateConversationNames(conversation)
                 }.onFailure { error ->
                     Log.e("MessageActivity", "Failed to load conversation details: ${error.message}", error)
@@ -297,7 +310,7 @@ class MessageActivity : AppCompatActivity() {
 
     private fun sendMessageInternal(content: String) {
         Log.d("MessageActivity", "Sending message to user ID: $otherUserId in conversation: $conversationId")
-        
+
         CoroutineScope(Dispatchers.IO).launch {
             val message = Message(
                 id = 0, // Will be assigned by the server
@@ -436,5 +449,249 @@ class MessageActivity : AppCompatActivity() {
         super.onPause()
         // Stop polling when the activity is paused
         stopPolling()
+    }
+
+    /**
+     * Fetch session details for the current conversation
+     */
+    private fun fetchSessionDetails() {
+        if (conversationId <= 0) return
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                // Use SessionUtils to get session details
+                val result = com.mobile.utils.SessionUtils.getSessionByConversationId(conversationId)
+
+                result.fold(
+                    onSuccess = { session ->
+                        // Update the session details
+                        sessionId = session.id
+                        sessionDetails = session
+
+                        // Update the UI on the main thread
+                        withContext(Dispatchers.Main) {
+                            updateSessionDetailsUI()
+                        }
+                    },
+                    onFailure = { exception ->
+                        // Handle error
+                        Log.e("MessageActivity", "Error fetching session details: ${exception.message}", exception)
+                    }
+                )
+            } catch (e: Exception) {
+                Log.e("MessageActivity", "Exception fetching session details: ${e.message}", e)
+            }
+        }
+    }
+
+    /**
+     * Update the UI with session details
+     */
+    private fun updateSessionDetailsUI() {
+        val session = sessionDetails ?: return
+
+        try {
+            // Get the root view of the included layout
+            val sessionDetailsView = binding.sessionDetailsInclude.root
+
+            // Find views in the included layout
+            val sessionSubjectText = sessionDetailsView.findViewById<android.widget.TextView>(R.id.sessionSubjectText)
+            val sessionDateText = sessionDetailsView.findViewById<android.widget.TextView>(R.id.sessionDateText)
+            val sessionTimeText = sessionDetailsView.findViewById<android.widget.TextView>(R.id.sessionTimeText)
+            val sessionTypeText = sessionDetailsView.findViewById<android.widget.TextView>(R.id.sessionTypeText)
+            val sessionLocationLayout = sessionDetailsView.findViewById<android.widget.LinearLayout>(R.id.sessionLocationLayout)
+            val sessionLocationText = sessionDetailsView.findViewById<android.widget.TextView>(R.id.sessionLocationText)
+            val sessionPriceText = sessionDetailsView.findViewById<android.widget.TextView>(R.id.sessionPriceText)
+            val sessionStatusText = sessionDetailsView.findViewById<android.widget.TextView>(R.id.sessionStatusText)
+            val sessionNotesLayout = sessionDetailsView.findViewById<android.widget.LinearLayout>(R.id.sessionNotesLayout)
+            val sessionNotesText = sessionDetailsView.findViewById<android.widget.TextView>(R.id.sessionNotesText)
+            val tutorActionButtonsLayout = sessionDetailsView.findViewById<android.widget.LinearLayout>(R.id.tutorActionButtonsLayout)
+            val approveButton = sessionDetailsView.findViewById<com.google.android.material.button.MaterialButton>(R.id.approveButton)
+            val rejectButton = sessionDetailsView.findViewById<com.google.android.material.button.MaterialButton>(R.id.rejectButton)
+
+            // Set session details
+            sessionSubjectText.text = session.subject
+
+            // Format and set date
+            val dateText = formatDateForDisplay(session.startTime)
+            sessionDateText.text = dateText
+
+            // Format and set time
+            val timeText = formatTimeForDisplay(session.startTime, session.endTime)
+            sessionTimeText.text = timeText
+
+            // Set session type
+            sessionTypeText.text = session.sessionType
+
+            // Set location if available
+            if (session.sessionType == "In-Person" && session.notes?.contains("location:") == true) {
+                sessionLocationLayout.visibility = View.VISIBLE
+                val locationText = session.notes.substringAfter("location:").trim()
+                sessionLocationText.text = locationText
+            } else {
+                sessionLocationLayout.visibility = View.GONE
+            }
+
+            // Set price (hardcoded for now since TutoringSession doesn't have a price field)
+            sessionPriceText.text = "$35.00"
+
+            // Set status
+            sessionStatusText.text = session.status
+
+            // Set status color based on status
+            when (session.status.uppercase()) {
+                "PENDING" -> sessionStatusText.setTextColor(resources.getColor(R.color.warning, null))
+                "SCHEDULED" -> sessionStatusText.setTextColor(resources.getColor(R.color.primary_blue, null))
+                "COMPLETED" -> sessionStatusText.setTextColor(resources.getColor(R.color.success, null))
+                "CANCELLED" -> sessionStatusText.setTextColor(resources.getColor(R.color.error, null))
+                else -> sessionStatusText.setTextColor(resources.getColor(R.color.text_primary, null))
+            }
+
+            // Set notes
+            if (session.notes.isNullOrEmpty()) {
+                sessionNotesLayout.visibility = View.GONE
+            } else {
+                sessionNotesLayout.visibility = View.VISIBLE
+                sessionNotesText.text = session.notes
+            }
+
+            // Show/hide tutor action buttons based on role and session status
+            val userRole = PreferenceUtils.getUserRole(this)
+            val isTutor = userRole == "TUTOR"
+            val isPending = session.status.uppercase() == "PENDING"
+
+            if (isTutor && isPending) {
+                tutorActionButtonsLayout.visibility = View.VISIBLE
+
+                // Set up approve button
+                approveButton.setOnClickListener {
+                    approveSession(session.id)
+                }
+
+                // Set up reject button
+                rejectButton.setOnClickListener {
+                    rejectSession(session.id)
+                }
+            } else {
+                tutorActionButtonsLayout.visibility = View.GONE
+            }
+
+            // Show the session details card
+            sessionDetailsView.visibility = View.VISIBLE
+
+            Log.d("MessageActivity", "Session details UI updated successfully")
+        } catch (e: Exception) {
+            Log.e("MessageActivity", "Error updating session details UI: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Approve a session
+     */
+    private fun approveSession(sessionId: Long) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                // Use SessionUtils to approve the session
+                val result = com.mobile.utils.SessionUtils.acceptSession(sessionId)
+
+                result.fold(
+                    onSuccess = { session ->
+                        // Update the session details
+                        sessionDetails = session
+
+                        // Update the UI on the main thread
+                        withContext(Dispatchers.Main) {
+                            updateSessionDetailsUI()
+                            Toast.makeText(this@MessageActivity, "Session approved", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    onFailure = { exception ->
+                        // Handle error
+                        Log.e("MessageActivity", "Error approving session: ${exception.message}", exception)
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(this@MessageActivity, "Error approving session", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                )
+            } catch (e: Exception) {
+                Log.e("MessageActivity", "Exception approving session: ${e.message}", e)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MessageActivity, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    /**
+     * Reject a session
+     */
+    private fun rejectSession(sessionId: Long) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                // Use SessionUtils to reject the session
+                val result = com.mobile.utils.SessionUtils.rejectSession(sessionId)
+
+                result.fold(
+                    onSuccess = { session ->
+                        // Update the session details
+                        sessionDetails = session
+
+                        // Update the UI on the main thread
+                        withContext(Dispatchers.Main) {
+                            updateSessionDetailsUI()
+                            Toast.makeText(this@MessageActivity, "Session rejected", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    onFailure = { exception ->
+                        // Handle error
+                        Log.e("MessageActivity", "Error rejecting session: ${exception.message}", exception)
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(this@MessageActivity, "Error rejecting session", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                )
+            } catch (e: Exception) {
+                Log.e("MessageActivity", "Exception rejecting session: ${e.message}", e)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MessageActivity, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    /**
+     * Format a date string for display
+     */
+    private fun formatDateForDisplay(dateString: String): String {
+        try {
+            val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+            val outputFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+            val date = inputFormat.parse(dateString) ?: return dateString
+            return outputFormat.format(date)
+        } catch (e: Exception) {
+            Log.e("MessageActivity", "Error formatting date: ${e.message}", e)
+            return dateString
+        }
+    }
+
+    /**
+     * Format a time string for display
+     */
+    private fun formatTimeForDisplay(startTimeString: String, endTimeString: String): String {
+        try {
+            val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+            val outputFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+
+            val startDate = inputFormat.parse(startTimeString) ?: return "$startTimeString - $endTimeString"
+            val endDate = inputFormat.parse(endTimeString) ?: return "$startTimeString - $endTimeString"
+
+            val formattedStartTime = outputFormat.format(startDate)
+            val formattedEndTime = outputFormat.format(endDate)
+
+            return "$formattedStartTime - $formattedEndTime"
+        } catch (e: Exception) {
+            Log.e("MessageActivity", "Error formatting time: ${e.message}", e)
+            return "$startTimeString - $endTimeString"
+        }
     }
 }

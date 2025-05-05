@@ -295,4 +295,14 @@ public class TutoringSessionService {
         session.setConversation(conversationEntity);
         return sessionRepository.save(session);
     }
-} 
+
+    /**
+     * Find a session by conversation ID
+     * 
+     * @param conversationId The ID of the conversation
+     * @return The session entity or null if not found
+     */
+    public TutoringSessionEntity getSessionByConversationId(Long conversationId) {
+        return sessionRepository.findByConversationConversationId(conversationId);
+    }
+}

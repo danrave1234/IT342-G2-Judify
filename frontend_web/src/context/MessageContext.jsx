@@ -1,744 +1,443 @@
-import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { useUser } from './UserContext';
-import PollingService from '../services/pollingService';
-import axios from 'axios';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import simpleMessageService from '../services/simpleMessageService';
+import useInterval from '../hooks/useInterval';
+import { useAuth } from './AuthContext';
+import { toast } from 'react-toastify';
 import PropTypes from 'prop-types';
 
 const MessageContext = createContext(null);
 
-export const useMessages = () => useContext(MessageContext);
+// Polling interval in milliseconds
+const POLLING_INTERVAL = 5000;
+
+export const useMessages = () => {
+  const context = useContext(MessageContext);
+  if (!context) {
+    throw new Error('useMessages must be used within a MessageProvider');
+  }
+  return context;
+};
 
 export const MessageProvider = ({ children }) => {
-  const { user } = useUser();
-  const [isConnected, setIsConnected] = useState(false);
+  const { user } = useAuth();
   const [conversations, setConversations] = useState([]);
   const [activeConversation, setActiveConversation] = useState(null);
   const [messages, setMessages] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
-  const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(0);
-  const messagePageSize = 20; // Number of messages to load per page
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalMessages, setTotalMessages] = useState(0);
+  const [isSending, setIsSending] = useState(false);
+  const [unreadMessages, setUnreadMessages] = useState({});
+  const [error, setError] = useState(null);
+  const messagePageSize = 20;
+  
+  // Track if polling should be active
+  const [isPollingActive, setIsPollingActive] = useState(false);
+  
+  // Track the last message timestamp to detect new messages
+  const lastMessageTimestampRef = useRef(null);
+  
+  // Track if we're currently joining a conversation
+  const joiningRef = useRef(false);
 
-  // Ref to track if we're already loading more messages
-  const isLoadingMoreRef = useRef(false);
-
-  // Initialize connection with the polling service when user is available
-  useEffect(() => {
-    if (!user) return;
-
-    // Connect to the polling service
-    PollingService.connect(
-      user.userId,
-      user.token || localStorage.getItem('auth_token'),
-      // On connected callback
-      () => {
-        console.log('Polling service connected');
-        setIsConnected(true);
-        // Load conversations if any
-        loadConversationsFromStorage();
-      },
-      // On error callback
-      (errorMessage) => {
-        console.error('Polling service connection error:', errorMessage);
-        setError('Failed to connect to messaging service');
-        // Still try to load data from localStorage
-        loadConversationsFromStorage();
-      }
-    );
-
-    // Clean up on unmount
-    return () => {
-      PollingService.disconnect();
-      setIsConnected(false);
-    };
-  }, [user]);
-
-  // Load conversations from localStorage
-  const loadConversationsFromStorage = useCallback(async () => {
-    if (!user) return { success: false, message: 'No user logged in' };
-
+  // Function to fetch new messages for the active conversation
+  const fetchMessages = useCallback(async () => {
+    if (!activeConversation || !isPollingActive) return;
+    
     try {
-      console.log('Loading conversations from localStorage');
-      const storageKey = `judify_conversations_${user.userId}`;
-      const storedConversations = localStorage.getItem(storageKey);
-
-      if (storedConversations) {
-        const parsedConversations = JSON.parse(storedConversations);
-        console.log(`Loaded ${parsedConversations.length} conversations from localStorage`);
-
-        setConversations(parsedConversations);
-        return { 
-          success: true, 
-          conversations: parsedConversations,
-          message: 'Loaded conversations from localStorage'
-        };
-      } else {
-        console.log('No conversations found in localStorage');
-        return { 
-          success: true, 
-          conversations: [],
-          message: 'No conversations found in localStorage'
-        };
-      }
-    } catch (error) {
-      console.error('Error loading conversations from localStorage:', error);
-      return { 
-        success: false, 
-        conversations: [],
-        message: 'Error loading conversations from localStorage'
-      };
-    }
-  }, [user]);
-
-  // Save conversations to localStorage
-  const saveConversationsToStorage = useCallback((updatedConversations) => {
-    if (!user) return;
-
-    try {
-      localStorage.setItem(`judify_conversations_${user.userId}`, JSON.stringify(updatedConversations));
-    } catch (error) {
-      console.error('Error saving conversations to localStorage:', error);
-    }
-  }, [user]);
-
-  // Load conversations from the server
-  const getConversations = useCallback(async () => {
-    if (!user) return { success: false, message: 'No user logged in' };
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      console.log('Fetching conversations from server for user:', user.userId);
-
-      // Try multiple endpoints to get conversations - needed for different user roles
-      const endpoints = [
-        `/api/conversations/user/${user.userId}`,
-        `/api/conversations/findByUser/${user.userId}`,
-        `/api/conversations/findByTutor/${user.userId}`,
-        `/api/conversations/findByStudent/${user.userId}`,
-        `/api/conversations` // Fallback to get all conversations and filter client-side
-      ];
-
-      let serverConversations = [];
-      let serverSuccess = false;
-
-      // Try endpoints until one works
-      for (const endpoint of endpoints) {
-        try {
-          console.log(`Trying to fetch conversations from endpoint: ${endpoint}`);
-          const response = await axios.get(endpoint);
-
-          // Handle different response formats
-          if (response?.data) {
-            if (Array.isArray(response.data)) {
-              // Direct array of conversations
-              serverConversations = response.data;
-
-              // If using the fallback all-conversations endpoint, filter to only include this user's conversations
-              if (endpoint === '/api/conversations') {
-                console.log('Using fallback endpoint, filtering conversations for current user');
-                serverConversations = serverConversations.filter(conv => 
-                  (conv.student && conv.student.userId === user.userId) || 
-                  (conv.tutor && conv.tutor.userId === user.userId)
-                );
-              }
-
-              serverSuccess = true;
-              console.log(`Successfully fetched ${serverConversations.length} conversations from ${endpoint}`);
-              break;
-            } else if (response.data.content && Array.isArray(response.data.content)) {
-              // Paginated response
-              serverConversations = response.data.content;
-              serverSuccess = true;
-              console.log(`Successfully fetched ${serverConversations.length} conversations from ${endpoint} (paginated)`);
-              break;
-            } else if (response.data.conversations && Array.isArray(response.data.conversations)) {
-              // Wrapped in conversations field
-              serverConversations = response.data.conversations;
-              serverSuccess = true;
-              console.log(`Successfully fetched ${serverConversations.length} conversations from ${endpoint} (wrapped)`);
-              break;
-            }
+      const fetchedMessages = await simpleMessageService.getMessages(activeConversation, {
+        page: 0,
+        size: messagePageSize
+      });
+      
+      if (fetchedMessages.length > 0) {
+        // Sort messages by timestamp
+        const sortedMessages = [...fetchedMessages].sort((a, b) => {
+          const timeA = new Date(a.timestamp || a.createdAt || a.sentAt).getTime();
+          const timeB = new Date(b.timestamp || b.createdAt || b.sentAt).getTime();
+          return timeA - timeB;
+        });
+        
+        // Get latest message timestamp
+        const latestMessage = sortedMessages[sortedMessages.length - 1];
+        const latestTimestamp = new Date(
+          latestMessage.timestamp || latestMessage.createdAt || latestMessage.sentAt
+        ).getTime();
+        
+        // Check if we have new messages based on timestamp
+        if (!lastMessageTimestampRef.current || latestTimestamp > lastMessageTimestampRef.current) {
+          // Update the latest timestamp
+          lastMessageTimestampRef.current = latestTimestamp;
+          
+          // Update messages state with new messages
+          setMessages(sortedMessages);
+          
+          // Mark messages as read if we have a user
+          if (user && user.userId) {
+            simpleMessageService.markAllAsRead(activeConversation, user.userId);
           }
-        } catch (err) {
-          console.warn(`Endpoint ${endpoint} failed:`, err.message);
-          // Continue to next endpoint
         }
       }
-
-      if (serverSuccess && serverConversations.length > 0) {
-        // Map server conversations to include client-friendly IDs and properties
-        const processedConversations = serverConversations.map(conv => {
-          // Handle different conversation formats
-          let studentUser, tutorUser, otherUser, otherUserId;
-
-          // Check if conversation has student/tutor fields
-          if (conv.student && conv.tutor) {
-            studentUser = conv.student;
-            tutorUser = conv.tutor;
-
-            // Determine who the other user is based on current user role
-            if (user.userId === studentUser.userId) {
-              otherUser = tutorUser;
-              otherUserId = tutorUser.userId;
-            } else {
-              otherUser = studentUser;
-              otherUserId = studentUser.userId;
-            }
-          } 
-          // Handle different conversation formats (user1/user2 format)
-          else if (conv.user1 && conv.user2) {
-            if (conv.user1.userId === user.userId) {
-              otherUser = conv.user2;
-              otherUserId = conv.user2.userId;
-            } else {
-              otherUser = conv.user1;
-              otherUserId = conv.user1.userId;
-            }
-          }
-          // Handle minimal format with just IDs
-          else {
-            // Find the other user ID
-            if (conv.user1Id === user.userId) {
-              otherUserId = conv.user2Id;
-            } else if (conv.user2Id === user.userId) {
-              otherUserId = conv.user1Id;
-            } else if (conv.studentId === user.userId) {
-              otherUserId = conv.tutorId;
-            } else if (conv.tutorId === user.userId) {
-              otherUserId = conv.studentId;
-            }
-
-            // Create minimal other user object
-            otherUser = { userId: otherUserId };
-          }
-
-          // Basic conversation object with fallbacks for missing fields
-          return {
-            // Keep both client-side ID and server ID for reference
-            id: conv.conversationId || conv.id,
-            conversationId: conv.conversationId || conv.id,
-            serverConversationId: conv.conversationId || conv.id,
-
-            // Add user references - ensure we have both IDs
-            user1Id: user.userId,
-            user2Id: otherUserId,
-            user1: user,
-            user2: otherUser,
-
-            // Add student/tutor references if available
-            student: conv.student || (user.role === 'STUDENT' ? user : otherUser),
-            tutor: conv.tutor || (user.role === 'TUTOR' ? user : otherUser),
-
-            // Extra data for display
-            lastMessage: conv.lastMessage || "Start a conversation",
-            updatedAt: conv.updatedAt || new Date().toISOString(),
-            unreadCount: conv.unreadCount || 0
-          };
-        });
-
-        console.log(`Processed ${processedConversations.length} conversations`);
-
-        // Update state with fetched conversations
-        setConversations(processedConversations);
-
-        // Save to localStorage for offline access
-        saveConversationsToStorage(processedConversations);
-
-        setLoading(false);
-        return { 
-          success: true, 
-          conversations: processedConversations,
-          message: 'Conversations loaded successfully'
-        };
-      } else {
-        // No conversations or failed to fetch
-        console.log('No conversations found or failed to fetch from server, using localStorage');
-
-        // Load from localStorage as fallback
-        const storageResult = await loadConversationsFromStorage();
-
-        setLoading(false);
-        return { 
-          success: storageResult.success, 
-          conversations: storageResult.conversations || [],
-          message: serverSuccess ? 'No conversations found on server' : 'Failed to fetch from server, using localStorage'
-        };
-      }
     } catch (error) {
-      console.error('Error fetching conversations:', error);
-
-      // Load from localStorage as fallback
-      const storageResult = await loadConversationsFromStorage();
-
-      setLoading(false);
-      setError('Failed to fetch conversations from server');
-
-      return { 
-        success: storageResult.success, 
-        conversations: storageResult.conversations || [],
-        message: 'Error fetching conversations from server, using localStorage'
-      };
+      console.error('Error fetching messages:', error);
     }
-  }, [user, loadConversationsFromStorage, saveConversationsToStorage]);
-
-  // Get or create a conversation with another user
-  const getOrCreateConversation = useCallback(async (otherUserId) => {
-    if (!user) return { success: false, message: 'No user logged in' };
-
-    try {
-      console.log(`Getting or creating conversation with user ${otherUserId}`);
-
-      // First try to find an existing conversation with this user
-      const existingConversation = conversations.find(conv => 
-        (conv.user1Id === user.userId && conv.user2Id === Number(otherUserId)) || 
-        (conv.user1Id === Number(otherUserId) && conv.user2Id === user.userId) ||
-        (conv.student?.userId === user.userId && conv.tutor?.userId === Number(otherUserId)) ||
-        (conv.student?.userId === Number(otherUserId) && conv.tutor?.userId === user.userId)
-      );
-
-      if (existingConversation) {
-        console.log('Found existing conversation:', existingConversation);
-        return { 
-          success: true, 
-          conversation: existingConversation,
-          message: 'Found existing conversation'
-        };
-      }
-
-      // If no existing conversation, create one
-      console.log('No existing conversation found, creating new one');
-
-      // Multiple endpoints to try for conversation creation
-      const endpoints = [
-        '/api/conversations',
-        '/api/conversations/create'
-      ];
-
-      for (const endpoint of endpoints) {
-        try {
-          console.log(`Trying to create conversation with endpoint: ${endpoint}`);
-
-          // Determine conversation payload based on user roles
-          let payload;
-          if (user.role === 'STUDENT') {
-            payload = {
-              studentId: user.userId,
-              tutorId: Number(otherUserId)
-            };
-          } else if (user.role === 'TUTOR') {
-            payload = {
-              studentId: Number(otherUserId),
-              tutorId: user.userId
-            };
-          } else {
-            // Fallback if role is not determined or is something else
-            payload = {
-              user1Id: user.userId,
-              user2Id: Number(otherUserId)
-            };
-          }
-
-          const response = await axios.post(endpoint, payload);
-
-          if (response?.data) {
-            console.log('New conversation created:', response.data);
-
-            // Create conversation object from response
-            const newConversation = {
-              // Keep both client-side ID and server ID for reference
-              id: response.data.conversationId || response.data.id,
-              conversationId: response.data.conversationId || response.data.id,
-              serverConversationId: response.data.conversationId || response.data.id,
-
-              // Add user references
-              user1Id: user.userId,
-              user2Id: Number(otherUserId),
-              user1: user,
-              user2: { userId: Number(otherUserId) },
-
-              // Add student/tutor references if available
-              student: user.role === 'STUDENT' ? user : { userId: Number(otherUserId) },
-              tutor: user.role === 'TUTOR' ? user : { userId: Number(otherUserId) },
-
-              // Extra data for display
-              lastMessage: "",
-              updatedAt: new Date().toISOString(),
-              unreadCount: 0
-            };
-
-            // Add to conversations list
-            const updatedConversations = [...conversations, newConversation];
-            setConversations(updatedConversations);
-
-            // Save to localStorage
-            saveConversationsToStorage(updatedConversations);
-
-            return { 
-              success: true, 
-              conversation: newConversation,
-              message: 'New conversation created'
-            };
-          }
-        } catch (err) {
-          console.warn(`Failed to create conversation with endpoint ${endpoint}:`, err.message);
-          // Try the next endpoint
-        }
-      }
-
-      throw new Error('All conversation creation endpoints failed');
-    } catch (error) {
-      console.error('Error getting or creating conversation:', error);
-      return { 
-        success: false, 
-        message: `Failed to create conversation: ${error.message}`
-      };
-    }
-  }, [user, conversations, saveConversationsToStorage]);
-
-  // Set active conversation and subscribe to messages
+  }, [activeConversation, isPollingActive, messagePageSize, user]);
+  
+  // Set up the polling interval
+  useInterval(fetchMessages, isPollingActive ? POLLING_INTERVAL : null);
+  
+  // Cleanup when component unmounts
   useEffect(() => {
-    if (!activeConversation) return;
-
-    const conversationId = activeConversation.conversationId || activeConversation.id;
-    console.log(`Subscribing to messages for conversation ${conversationId}`);
-
-    // Set up subscription to receive new messages
-    const subscription = PollingService.subscribeToConversation(
-      conversationId, 
-      (message) => {
-        console.log('New message received:', message);
-
-        // Add new message to state
-        setMessages((prevMessages) => {
-          // Check if message is already in the list
-          const messageExists = prevMessages.some(m => 
-            m.messageId === message.messageId || 
-            m.id === message.messageId ||
-            m.messageId === message.id ||
-            m.id === message.id
-          );
-
-          if (messageExists) {
-            return prevMessages;
-          }
-
-          // Add new message and sort by timestamp
-          const updatedMessages = [...prevMessages, message].sort((a, b) => 
-            new Date(b.timestamp || b.createdAt) - new Date(a.timestamp || a.createdAt)
-          );
-
-          return updatedMessages;
-        });
-
-        // Update conversation last message
-        setConversations((prevConversations) => {
-          const updatedConversations = prevConversations.map(conv => {
-            if (conv.conversationId === conversationId || conv.id === conversationId) {
-              return {
-                ...conv,
-                lastMessage: message.content,
-                updatedAt: message.timestamp || message.createdAt || new Date().toISOString()
-              };
-            }
-            return conv;
-          });
-
-          // Save updated conversations to localStorage
-          saveConversationsToStorage(updatedConversations);
-
-          return updatedConversations;
-        });
-      }
-    );
-
-    // Join the conversation
-    PollingService.joinConversation(conversationId);
-
     return () => {
-      // Unsubscribe when the active conversation changes
-      if (subscription) {
-        subscription.unsubscribe();
-      }
-
-      // Leave the conversation
-      PollingService.leaveConversation(conversationId);
+      // Reset polling state when unmounting
+      setIsPollingActive(false);
     };
-  }, [activeConversation, saveConversationsToStorage]);
+  }, []);
 
-  // Load messages for a conversation
+  /**
+   * Leave the current conversation
+   */
+  const leaveConversation = useCallback(() => {
+    if (activeConversation) {
+      console.log(`Leaving conversation ${activeConversation}`);
+      
+      // Stop polling
+      setIsPollingActive(false);
+      
+      // Reset conversation state
+      setActiveConversation(null);
+      setMessages([]);
+      setCurrentPage(0);
+      setTotalPages(0);
+      setTotalMessages(0);
+      setHasMoreMessages(false);
+      lastMessageTimestampRef.current = null;
+    }
+  }, [activeConversation]);
+
+  /**
+   * Load messages for a conversation
+   * @param {number} conversationId The ID of the conversation
+   */
   const loadMessages = useCallback(async (conversationId) => {
     if (!conversationId) {
-      console.error('No conversation ID provided');
-      return { success: false, message: 'No conversation ID provided' };
+      console.error('Cannot load messages: conversationId is undefined');
+      return;
     }
 
-    setLoading(true);
-    setCurrentPage(0);
-    setMessages([]);
+    setIsLoading(true);
     setError(null);
 
     try {
-      console.log(`Loading messages for conversation ${conversationId}`);
-      const result = await PollingService.loadConversationMessages(conversationId, 0, messagePageSize);
-
-      setLoading(false);
-
-      if (result.success) {
-        setMessages(result.messages);
-        setHasMoreMessages(result.hasMore);
-        console.log(`Loaded ${result.messages.length} messages`);
-        return { 
-          success: true, 
-          messages: result.messages,
-          hasMore: result.hasMore
-        };
-      } else {
-        setError('Failed to load messages');
-        console.error('Failed to load messages:', result.message);
-        return { 
-          success: false, 
-          message: result.message
-        };
+      const messagesData = await simpleMessageService.getMessages(conversationId, { 
+        page: 0, 
+        size: messagePageSize 
+      });
+      
+      // Sort messages by timestamp (oldest to newest)
+      const sortedMessages = messagesData.sort((a, b) => {
+        const timeA = new Date(a.timestamp || a.createdAt || a.sentAt).getTime();
+        const timeB = new Date(b.timestamp || b.createdAt || b.sentAt).getTime();
+        return timeA - timeB;
+      });
+      
+      setMessages(sortedMessages);
+      setCurrentPage(0);
+      setHasMoreMessages(messagesData.length >= messagePageSize);
+      
+      // Store the latest message timestamp
+      if (sortedMessages.length > 0) {
+        const latestMessage = sortedMessages[sortedMessages.length - 1];
+        lastMessageTimestampRef.current = new Date(
+          latestMessage.timestamp || latestMessage.createdAt || latestMessage.sentAt
+        ).getTime();
+      }
+      
+      // After loading messages, mark them all as read if we have a user
+      if (user && user.userId) {
+        try {
+          await simpleMessageService.markAllAsRead(conversationId, user.userId);
+        } catch (markError) {
+          console.warn('Error marking messages as read:', markError);
+        }
       }
     } catch (error) {
-      setLoading(false);
-      setError('Error loading messages');
       console.error('Error loading messages:', error);
-      return { 
-        success: false, 
-        message: error.message
-      };
+      setError('Failed to load messages. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
-  }, [messagePageSize]);
+  }, [user, messagePageSize]);
 
-  // Load more messages for the current conversation
-  const loadMoreMessages = useCallback(async () => {
-    if (!activeConversation) {
-      console.error('No active conversation');
-      return { success: false, message: 'No active conversation' };
-    }
-
-    // Use ref to prevent duplicate calls while loading
-    if (isLoadingMoreRef.current || loadingMore || !hasMoreMessages) {
-      console.log('Not loading more messages: already loading or no more messages');
-      return { success: false, message: 'Already loading or no more messages' };
+  /**
+   * Join a conversation to start receiving messages
+   * @param {number} conversationId The ID of the conversation to join
+   */
+  const joinConversation = useCallback(async (conversationId) => {
+    // Validate conversation ID
+    if (!conversationId) {
+      console.error('Cannot join conversation: conversationId is undefined');
+      return;
     }
 
-    const conversationId = activeConversation.conversationId || activeConversation.id;
-    const nextPage = currentPage + 1;
+    // Convert to string for consistency in comparisons
+    const conversationIdStr = String(conversationId);
+    
+    // First check if we're already in this conversation
+    if (activeConversation === conversationIdStr) {
+      console.log(`Already in conversation ${conversationIdStr}, skipping join`);
+      return;
+    }
+    
+    // Check if we're already in the process of joining a conversation
+    if (joiningRef.current) {
+      console.log('Already joining a conversation, ignoring duplicate request');
+      return;
+    }
+    
+    // Set joining flag to prevent concurrent join attempts
+    joiningRef.current = true;
 
-    isLoadingMoreRef.current = true;
-    setLoadingMore(true);
+    // If we're in a different conversation, leave it first
+    if (activeConversation && activeConversation !== conversationIdStr) {
+      await leaveConversation();
+    }
+
+    setIsLoading(true);
+    setError(null);
 
     try {
-      console.log(`Loading more messages for conversation ${conversationId}, page ${nextPage}`);
-      const result = await PollingService.loadMoreMessages(conversationId, nextPage, messagePageSize);
+      // Get conversation details
+      await simpleMessageService.getConversation(conversationIdStr);
+      
+      // Set as active conversation
+      setActiveConversation(conversationIdStr);
+      
+      // Load initial messages
+      await loadMessages(conversationIdStr);
+      
+      // Start polling for this conversation
+      setIsPollingActive(true);
+    } catch (error) {
+      console.error('Error joining conversation:', error);
+      setError('Failed to join conversation. Please try again.');
+    } finally {
+      setIsLoading(false);
+      // Reset joining flag
+      joiningRef.current = false;
+    }
+  }, [activeConversation, leaveConversation, loadMessages]);
 
-      setLoadingMore(false);
-      isLoadingMoreRef.current = false;
+  /**
+   * Load more messages (pagination)
+   * @param {number} conversationId The ID of the conversation
+   */
+  const loadMoreMessages = useCallback(async (conversationId) => {
+    if (!conversationId || isLoadingMore) {
+      return;
+    }
 
-      if (result.success) {
-        setCurrentPage(nextPage);
+    // Convert to string for consistency
+    const conversationIdStr = String(conversationId);
 
-        // Append new messages to existing messages, ensuring no duplicates
-        setMessages((prevMessages) => {
-          const existingMessageIds = new Set(prevMessages.map(m => m.messageId || m.id));
-          const newMessages = result.messages.filter(m => 
-            !existingMessageIds.has(m.messageId) && !existingMessageIds.has(m.id)
-          );
+    // Make sure we have an active conversation that matches
+    if (activeConversation !== conversationIdStr) {
+      console.warn('Cannot load more messages: No active conversation or ID mismatch');
+      return;
+    }
 
-          const updatedMessages = [...prevMessages, ...newMessages].sort((a, b) => 
-            new Date(b.timestamp || b.createdAt) - new Date(a.timestamp || a.createdAt)
-          );
+    setIsLoadingMore(true);
+    setError(null);
 
-          return updatedMessages;
+    try {
+      const nextPage = currentPage + 1;
+      
+      // Load messages for the next page
+      const moreMessagesData = await simpleMessageService.getMessages(conversationIdStr, {
+        page: nextPage,
+        size: messagePageSize
+      });
+      
+      if (moreMessagesData.length > 0) {
+        // Sort new messages by timestamp (oldest to newest)
+        const sortedNewMessages = moreMessagesData.sort((a, b) => {
+          const timeA = new Date(a.timestamp || a.createdAt || a.sentAt).getTime();
+          const timeB = new Date(b.timestamp || b.createdAt || b.sentAt).getTime();
+          return timeA - timeB;
         });
-
-        setHasMoreMessages(result.hasMore);
-
-        console.log(`Loaded ${result.messages.length} more messages`);
-        return { 
-          success: true, 
-          messages: result.messages,
-          hasMore: result.hasMore
-        };
+        
+        // Combine with existing messages, avoiding duplicates
+        setMessages(prevMessages => {
+          // Get IDs of existing messages
+          const existingIds = new Set(prevMessages.map(msg => msg.messageId || msg.id));
+          
+          // Filter out duplicates
+          const uniqueNewMessages = sortedNewMessages.filter(
+            msg => !existingIds.has(msg.messageId || msg.id)
+          );
+          
+          // Prepend unique new messages to the existing ones
+          return [...uniqueNewMessages, ...prevMessages];
+        });
+        
+        setCurrentPage(nextPage);
+        setHasMoreMessages(moreMessagesData.length >= messagePageSize);
       } else {
-        console.error('Failed to load more messages:', result.message);
-        return { 
-          success: false, 
-          message: result.message
-        };
+        setHasMoreMessages(false);
       }
     } catch (error) {
-      setLoadingMore(false);
-      isLoadingMoreRef.current = false;
       console.error('Error loading more messages:', error);
-      return { 
-        success: false, 
-        message: error.message
-      };
+      setError('Failed to load more messages. Please try again.');
+    } finally {
+      setIsLoadingMore(false);
     }
-  }, [activeConversation, currentPage, hasMoreMessages, loadingMore, messagePageSize]);
+  }, [currentPage, isLoadingMore, activeConversation, messagePageSize]);
 
-  // Send a message in the current conversation
-  const sendMessage = useCallback(async (message) => {
-    if (!user) {
-      console.error('No user logged in');
-      return { success: false, message: 'No user logged in' };
+  /**
+   * Send a message to the current conversation
+   * @param {string} content The message content
+   */
+  const sendMessage = useCallback(async (content) => {
+    if (!activeConversation || !content) {
+      console.error('Cannot send message: missing conversation or content');
+      return null;
+    }
+    
+    if (!user || !user.userId) {
+      console.error('Cannot send message: user is not authenticated');
+      setError('You must be logged in to send messages');
+      return null;
     }
 
-    if (!activeConversation) {
-      console.error('No active conversation');
-      return { success: false, message: 'No active conversation' };
-    }
-
-    const conversationId = activeConversation.conversationId || activeConversation.id;
+    setIsSending(true);
+    setError(null);
 
     try {
-      console.log(`Sending message in conversation ${conversationId}:`, message);
-
-      // Determine recipient ID
-      const recipientId = activeConversation.user1Id === user.userId ? 
-        activeConversation.user2Id : activeConversation.user1Id;
-
+      // Get conversation details
+      const conversationDetails = await simpleMessageService.getConversation(activeConversation);
+      
+      // Handle case where conversation details might be incomplete
+      if (!conversationDetails) {
+        console.error('Cannot determine receiver ID: missing conversation details');
+        throw new Error('Failed to identify message recipient');
+      }
+      
+      // Determine the receiver ID based on the conversation structure
+      let receiverId;
+      
+      // Check if we have user1Id/user2Id format
+      if (conversationDetails.user1Id !== undefined && conversationDetails.user2Id !== undefined) {
+        // If the current user is user1, then the receiver is user2, and vice versa
+        receiverId = conversationDetails.user1Id === user.userId 
+          ? conversationDetails.user2Id 
+          : conversationDetails.user1Id;
+      } 
+      // Check if we have studentId/tutorId format
+      else if (conversationDetails.studentId !== undefined || conversationDetails.tutorId !== undefined) {
+        // If one of the IDs matches the current user, use the other one as receiver
+        if (conversationDetails.studentId === user.userId) {
+          receiverId = conversationDetails.tutorId;
+        } else if (conversationDetails.tutorId === user.userId) {
+          receiverId = conversationDetails.studentId;
+        } else {
+          // Fallback: use studentId as receiver if user is tutor or tutorId if user is student
+          receiverId = user.role === 'TUTOR' 
+            ? conversationDetails.studentId 
+            : conversationDetails.tutorId;
+        }
+      } else {
+        // No valid IDs found
+        console.error('Cannot determine receiver ID from conversation details:', conversationDetails);
+        throw new Error('Failed to identify message recipient');
+      }
+      
+      // Final validation of receiverId
+      if (!receiverId) {
+        console.error('Receiver ID is undefined or null:', { conversationDetails, userId: user.userId });
+        throw new Error('Invalid message recipient');
+      }
+      
+      // Prepare message data
       const messageData = {
-        ...message,
-        conversationId,
+        conversationId: activeConversation,
         senderId: user.userId,
-        receiverId: recipientId,
+        receiverId: receiverId,
+        content: content,
         timestamp: new Date().toISOString()
       };
 
       // Send the message
-      const result = await PollingService.sendMessage(messageData);
-
-      if (result.success) {
-        console.log('Message sent successfully:', result.message);
-
-        // Update conversation with last message
-        setConversations((prevConversations) => {
-          const updatedConversations = prevConversations.map(conv => {
-            if (conv.conversationId === conversationId || conv.id === conversationId) {
-              return {
-                ...conv,
-                lastMessage: messageData.content,
-                updatedAt: new Date().toISOString()
-              };
-            }
-            return conv;
-          });
-
-          // Sort conversations by most recent update
-          updatedConversations.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-
-          // Save updated conversations to localStorage
-          saveConversationsToStorage(updatedConversations);
-
-          return updatedConversations;
-        });
-
-        return { 
-          success: true, 
-          message: result.message
-        };
-      } else {
-        console.error('Failed to send message:', result.message);
-        return { 
-          success: false, 
-          message: result.message
-        };
-      }
+      const sentMessage = await simpleMessageService.sendMessage(messageData);
+      
+      // Update the local messages state with the sent message
+      setMessages(prevMessages => [...prevMessages, sentMessage]);
+      
+      // Update the latest message timestamp
+      lastMessageTimestampRef.current = new Date(
+        sentMessage.timestamp || sentMessage.createdAt || sentMessage.sentAt
+      ).getTime();
+      
+      // Immediately fetch messages to get any other new messages
+      fetchMessages();
+      
+      return sentMessage;
     } catch (error) {
       console.error('Error sending message:', error);
-      return { 
-        success: false, 
-        message: error.message
-      };
+      setError('Failed to send message. Please try again.');
+      toast.error('Failed to send message. Please try again.');
+      return null;
+    } finally {
+      setIsSending(false);
     }
-  }, [user, activeConversation, saveConversationsToStorage]);
+  }, [activeConversation, user, fetchMessages]);
 
-  // Mark a message as read
-  const markMessageAsRead = useCallback(async (messageId, conversationId) => {
-    if (!user) {
-      console.error('No user logged in');
-      return { success: false, message: 'No user logged in' };
+  /**
+   * Mark a message as read
+   * @param {number} messageId The ID of the message to mark as read
+   */
+  const markAsRead = useCallback(async (messageId) => {
+    if (!messageId) {
+      console.warn('Cannot mark message as read: messageId is undefined');
+      return;
     }
 
     try {
-      console.log(`Marking message ${messageId} as read`);
-
-      // Use polling service to mark message as read
-      // Only pass messageId as that's all the polling service needs now
-      const result = await PollingService.markMessageAsRead(messageId);
-
-      // Update unread count in conversations
-      if (result.success) {
-        setConversations((prevConversations) => {
-          const updatedConversations = prevConversations.map(conv => {
-            if (conv.conversationId === conversationId || conv.id === conversationId) {
-              return {
-                ...conv,
-                unreadCount: Math.max(0, (conv.unreadCount || 0) - 1)
-              };
-            }
-            return conv;
-          });
-
-          // Save updated conversations to localStorage
-          saveConversationsToStorage(updatedConversations);
-
-          return updatedConversations;
-        });
-      }
-
-      return result;
+      // Mark message as read locally
+      setMessages(prevMessages => 
+        prevMessages.map(msg => 
+          (msg.messageId === messageId || msg.id === messageId) 
+            ? { ...msg, isRead: true } 
+            : msg
+        )
+      );
     } catch (error) {
-      console.error('Error marking message as read:', error);
-      return { 
-        success: false, 
-        message: error.message
-      };
+      console.warn('Error marking message as read:', error);
     }
-  }, [user, saveConversationsToStorage]);
+  }, []);
 
-  // The context value
   const contextValue = {
-    // Connection state
-    isConnected,
-
-    // Conversations
     conversations,
-    getConversations,
-    getOrCreateConversation,
-
-    // Active conversation
     activeConversation,
-    setActiveConversation,
-
-    // Messages
     messages,
+    isLoading,
+    isLoadingMore,
+    hasMoreMessages,
+    isSending,
+    unreadMessages,
+    error,
+    joinConversation,
+    leaveConversation,
     loadMessages,
     loadMoreMessages,
     sendMessage,
-    markMessageAsRead,
-
-    // Loading state
-    loading,
-    loadingMore,
-    hasMoreMessages,
-
-    // Error state
-    error
+    markAsRead
   };
 
   return (
-    <MessageContext.Provider
-      value={contextValue}
-    >
+    <MessageContext.Provider value={contextValue}>
       {children}
     </MessageContext.Provider>
   );
@@ -748,4 +447,4 @@ MessageProvider.propTypes = {
   children: PropTypes.node.isRequired
 };
 
-export default MessageProvider; 
+export default MessageContext; 

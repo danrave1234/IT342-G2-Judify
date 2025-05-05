@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { FaCalendarAlt, FaClock} from 'react-icons/fa';
 import axios from 'axios';
 import { FaStar, FaMapMarkerAlt, FaDollarSign, FaVideo, FaUserFriends } from 'react-icons/fa';
+import { toast } from 'react-toastify';
 
 const Dashboard = () => {
   const [sessions, setSessions] = useState([]);
@@ -297,6 +298,103 @@ const Dashboard = () => {
     }
   };
 
+  // Function to handle session click - redirects to conversation instead of session detail
+  const handleSessionClick = async (session) => {
+    try {
+      // Display loading toast
+      const loadingToastId = toast.loading("Opening conversation...");
+      
+      // Get user from localStorage
+      const userString = localStorage.getItem('user');
+      if (!userString) {
+        toast.update(loadingToastId, { render: "User information not found, please login again", type: "error", isLoading: false, autoClose: 3000 });
+        return;
+      }
+      
+      const user = JSON.parse(userString);
+      
+      // First check if conversation already exists for this session
+      const { conversationApi } = await import('../../api/api');
+      
+      // Create conversation data - matches mobile app format
+      const conversationData = {
+        studentId: user.userId,
+        tutorId: session.tutorId,
+        sessionId: session.sessionId || session.id,
+        lastMessageTime: new Date().toISOString()
+      };
+      
+      console.log('Creating conversation with data:', conversationData);
+      
+      let conversationId;
+      
+      // Try to find an existing conversation first
+      try {
+        const conversationsResponse = await conversationApi.getConversations(user.userId);
+        const conversations = conversationsResponse?.data || [];
+        
+        // Find if there's an existing conversation for this session
+        const existingConversation = conversations.find(conv => 
+          (conv.sessionId === session.sessionId || conv.sessionId === session.id) ||
+          (conv.studentId === user.userId && conv.tutorId === session.tutorId)
+        );
+        
+        if (existingConversation) {
+          conversationId = existingConversation.conversationId || existingConversation.id;
+          console.log(`Found existing conversation: ${conversationId}`);
+        }
+      } catch (err) {
+        console.log('Error finding existing conversations, will create new one:', err);
+      }
+      
+      // If no existing conversation found, create a new one
+      if (!conversationId) {
+        try {
+          const response = await conversationApi.createConversation(conversationData);
+          if (response?.data) {
+            conversationId = response.data.conversationId || response.data.id;
+            console.log(`Created new conversation: ${conversationId}`);
+          } else {
+            throw new Error('No conversation ID returned from API');
+          }
+        } catch (err) {
+          console.error('Error creating conversation:', err);
+          
+          // Try using findBetweenUsers as a fallback
+          try {
+            console.log('Trying findBetweenUsers as fallback');
+            const api = await import('../../api/api').then(module => module.api);
+            const fallbackResponse = await api.get(`/conversations/findBetweenUsers/${user.userId}/${session.tutorId}`);
+            
+            if (fallbackResponse?.data) {
+              conversationId = fallbackResponse.data.conversationId || fallbackResponse.data.id;
+              console.log(`Found conversation via fallback: ${conversationId}`);
+            } else {
+              throw new Error('Failed to get conversation from fallback method');
+            }
+          } catch (fallbackErr) {
+            console.error('Fallback method also failed:', fallbackErr);
+            toast.update(loadingToastId, { render: "Failed to create conversation", type: "error", isLoading: false, autoClose: 3000 });
+            return;
+          }
+        }
+      }
+      
+      // Close loading toast
+      toast.update(loadingToastId, { render: "Opening conversation...", type: "success", isLoading: false, autoClose: 1500 });
+      
+      // Navigate to the conversation
+      if (conversationId) {
+        navigate(`/messages/${conversationId}`);
+      } else {
+        toast.error('Could not establish a conversation with the tutor');
+      }
+    } catch (error) {
+      console.error('Error handling session click:', error);
+      toast.error('There was a problem accessing the conversation');
+    }
+  };
+
   return (
     <div className="container mx-auto py-8 px-4">
       <h1 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">Student Dashboard</h1>
@@ -432,7 +530,7 @@ const Dashboard = () => {
                 <div 
                   key={session.sessionId || session.id} 
                   className="bg-white dark:bg-dark-800 rounded-lg shadow-sm border border-gray-200 dark:border-dark-700 p-4 w-72 flex-shrink-0 cursor-pointer hover:shadow-md"
-                  onClick={() => navigate(`/student/sessions/${session.sessionId || session.id}`)}
+                  onClick={() => handleSessionClick(session)}
                 >
                   <div className="flex flex-col h-full">
                     <div className="mb-2">
