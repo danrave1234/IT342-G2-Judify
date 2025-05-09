@@ -191,8 +191,14 @@ const BookSession = () => {
       try {
         // Ensure times are valid before creating Date objects
         if (slot.startTime && slot.endTime) {
-          const startTime = new Date(`${dateStr}T${slot.startTime}`);
-          const endTime = new Date(`${dateStr}T${slot.endTime}`);
+          // Create Date objects with explicit timezone handling
+          // By appending 'Z' to the time string, we ensure it's interpreted as UTC
+          const startTimeStr = `${dateStr}T${slot.startTime}`;
+          const endTimeStr = `${dateStr}T${slot.endTime}`;
+
+          // Create Date objects from the time strings
+          const startTime = new Date(startTimeStr);
+          const endTime = new Date(endTimeStr);
 
           // Check if Date objects are valid
           if (!(startTime instanceof Date && !isNaN(startTime)) || !(endTime instanceof Date && !isNaN(endTime))) {
@@ -208,10 +214,21 @@ const BookSession = () => {
 
             // Ensure the slot ends within the tutor's availability window and is in the future if today
             if (slotEnd <= endTime && (!isToday || currentTime > now)) {
+              // Create ISO strings that preserve the selected time without timezone conversion
+              const timeValue = new Date(
+                Date.UTC(
+                  selectedDate.getFullYear(),
+                  selectedDate.getMonth(),
+                  selectedDate.getDate(),
+                  currentTime.getHours(),
+                  currentTime.getMinutes()
+                )
+              ).toISOString();
+
               processedTimeSlots.push({
-                startTime: format(currentTime, 'p'), // e.g., "10:00 AM"
-                endTime: format(slotEnd, 'p'), // e.g., "11:00 AM"
-                value: currentTime.toISOString() // Store ISO string for submission
+                startTime: format(currentTime, 'p'), // e.g., "10:00 AM" - for display only
+                endTime: format(slotEnd, 'p'), // e.g., "11:00 AM" - for display only
+                value: timeValue // Store ISO string for submission
               });
             }
             // Move to next 30-minute interval
@@ -305,17 +322,28 @@ const BookSession = () => {
     setError('');
 
     try {
-      const startTime = new Date(selectedTimeSlot.value);
+      // Use the ISO string directly from selectedTimeSlot.value to avoid timezone issues
+      const startTimeISO = selectedTimeSlot.value;
+
+      // Parse the ISO string to create a Date object for calculating the end time
+      const startTime = new Date(startTimeISO);
       const endTime = new Date(startTime);
       endTime.setMinutes(endTime.getMinutes() + sessionInfo.duration * 60);
+
+      // Format the end time as ISO string
+      const endTimeISO = endTime.toISOString();
+
+      console.log('Selected time (local):', new Date(startTimeISO).toLocaleString());
+      console.log('Start time ISO:', startTimeISO);
+      console.log('End time ISO:', endTimeISO);
 
       const sessionData = {
         tutorId: tutor.profileId, // Use tutor's profile ID, not user ID
         studentId: user.userId,
         subject: sessionInfo.subject,
         notes: sessionInfo.notes,
-        startTime: startTime.toISOString(),
-        endTime: endTime.toISOString(),
+        startTime: startTimeISO,
+        endTime: endTimeISO,
         price: calculateTotalPrice(),
         status: 'PENDING', // Create as PENDING instead of SCHEDULED
         locationData: sessionInfo.sessionType === 'Online' ? null : sessionInfo.locationName || 'In person - TBD',
