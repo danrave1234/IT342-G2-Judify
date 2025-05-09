@@ -46,8 +46,14 @@ public class TutoringSessionEntity {
     private Double price;
     private String notes;
 
-    @Column(nullable = true)    // Explicitly marking as nullable
-    private String locationData;    // For in-person sessions
+    @Column(nullable = true)    // Latitude for in-person sessions
+    private Double latitude;
+
+    @Column(nullable = true)    // Longitude for in-person sessions
+    private Double longitude;
+
+    @Column(nullable = true)    // Location name for in-person sessions
+    private String locationName;
 
     @Column(nullable = true)    // Explicitly marking as nullable
     private String meetingLink;     // For online sessions
@@ -141,11 +147,72 @@ public class TutoringSessionEntity {
         this.notes = notes;
     }
 
-    public String getLocationData() {
-        return locationData;
+    public Double getLatitude() {
+        return latitude;
     }
+    public void setLatitude(Double latitude) {
+        this.latitude = latitude;
+    }
+
+    public Double getLongitude() {
+        return longitude;
+    }
+    public void setLongitude(Double longitude) {
+        this.longitude = longitude;
+    }
+
+    public String getLocationName() {
+        return locationName;
+    }
+    public void setLocationName(String locationName) {
+        this.locationName = locationName;
+    }
+
+    // For backward compatibility
+    public String getLocationData() {
+        if (latitude != null && longitude != null) {
+            String name = locationName != null ? locationName : "Location";
+            return String.format("Lat: %f, Long: %f, Name: %s", latitude, longitude, name);
+        }
+        return null;
+    }
+
     public void setLocationData(String locationData) {
-        this.locationData = locationData;
+        if (locationData != null && !locationData.isEmpty()) {
+            // Try to parse latitude, longitude, and name from the locationData string
+            try {
+                // Expected format: "Lat: 12.345, Long: 67.890, Name: Some Location"
+                String[] parts = locationData.split(",");
+                if (parts.length >= 2) {
+                    // Extract latitude
+                    String latPart = parts[0].trim();
+                    if (latPart.startsWith("Lat:")) {
+                        this.latitude = Double.parseDouble(latPart.substring(4).trim());
+                    }
+
+                    // Extract longitude
+                    String longPart = parts[1].trim();
+                    if (longPart.startsWith("Long:")) {
+                        this.longitude = Double.parseDouble(longPart.substring(5).trim());
+                    }
+
+                    // Extract name if available
+                    if (parts.length >= 3) {
+                        String namePart = parts[2].trim();
+                        if (namePart.startsWith("Name:")) {
+                            this.locationName = namePart.substring(5).trim();
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                // If parsing fails, store the whole string as locationName
+                this.locationName = locationData;
+            }
+        } else {
+            this.latitude = null;
+            this.longitude = null;
+            this.locationName = null;
+        }
     }
 
     public String getMeetingLink() {

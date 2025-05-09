@@ -449,6 +449,10 @@ class BookingViewModel(
         subject: String,
         sessionType: String,
         notes: String,
+        location: String = "",
+        latitude: Double? = null,
+        longitude: Double? = null,
+        locationName: String? = null,
         callback: (Boolean) -> Unit
     ) {
         viewModelScope.launch {
@@ -481,7 +485,10 @@ class BookingViewModel(
                         endTime,
                         subject,
                         sessionType,
-                        "",  // Empty string for location since it's not being passed to this method
+                        location,  // Pass the legacy location parameter for backward compatibility
+                        latitude,  // Pass the latitude parameter
+                        longitude, // Pass the longitude parameter
+                        locationName, // Pass the locationName parameter
                         notes
                     )
 

@@ -57,6 +57,11 @@ object PreferenceUtils {
         editor.putString(KEY_USER_EMAIL, email)
         editor.putString(KEY_USER_ROLE, role)
         editor.apply()
+
+        // Also save the role to the PREF_FILE_NAME SharedPreferences file
+        // This ensures consistency with getUserRole() which retrieves from this location
+        val sharedPreferences = context.getSharedPreferences(PREF_FILE_NAME, Context.MODE_PRIVATE)
+        sharedPreferences.edit().putString(KEY_ROLE, role).apply()
     }
 
     /**
@@ -197,15 +202,25 @@ object PreferenceUtils {
         editor.remove(KEY_USER_USERNAME)
         editor.remove(KEY_USER_BIO)
         editor.apply()
+
+        // Also clear the role from the PREF_FILE_NAME SharedPreferences file
+        // This ensures consistency with saveUserDetails which saves to this location
+        val sharedPreferences = context.getSharedPreferences(PREF_FILE_NAME, Context.MODE_PRIVATE)
+        sharedPreferences.edit().remove(KEY_ROLE).apply()
     }
 
     /**
      * Clear all preferences (complete reset)
      */
     fun clearPreferences(context: Context) {
+        // Clear preferences from PREF_NAME
         val editor = getPreferences(context).edit()
         editor.clear()
         editor.apply()
+
+        // Also clear preferences from PREF_FILE_NAME
+        val sharedPreferences = context.getSharedPreferences(PREF_FILE_NAME, Context.MODE_PRIVATE)
+        sharedPreferences.edit().clear().apply()
     }
 
     /**

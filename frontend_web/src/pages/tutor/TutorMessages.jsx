@@ -667,9 +667,96 @@ const TutorMessages = () => {
                                   isMine 
                                     ? 'bg-primary-500 text-white rounded-tr-none' 
                                     : 'bg-gray-100 dark:bg-dark-700 text-gray-900 dark:text-white rounded-tl-none'
-                                }`}
+                                }
+                                ${msg.messageType === 'SESSION_DETAILS' ? 'border-2 border-yellow-500' : ''}
+                                ${msg.messageType === 'SESSION_ACTION' ? 'border-2 border-blue-500' : ''}
+                                `}
                               >
-                                <p>{msg.content}</p>
+                                {msg.messageType === 'SESSION_DETAILS' ? (
+                                  <div>
+                                    <div className="font-bold mb-2">Session Request</div>
+                                    <div className="whitespace-pre-line">{msg.content}</div>
+                                    {msg.sessionId && !isMine && (
+                                      <div className="mt-3 flex space-x-2">
+                                        <button 
+                                          onClick={() => {
+                                            // Call API to accept session
+                                            fetch(`/api/tutoring-sessions/acceptSession/${msg.sessionId}`, {
+                                              method: 'PUT',
+                                              headers: {
+                                                'Content-Type': 'application/json',
+                                              },
+                                              credentials: 'include'
+                                            })
+                                            .then(response => {
+                                              if (response.ok) {
+                                                toast.success('Session accepted successfully');
+                                              } else {
+                                                toast.error('Failed to accept session');
+                                              }
+                                            })
+                                            .catch(error => {
+                                              console.error('Error accepting session:', error);
+                                              toast.error('Failed to accept session');
+                                            });
+                                          }}
+                                          className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm"
+                                        >
+                                          Accept
+                                        </button>
+                                        <button 
+                                          onClick={() => {
+                                            // Call API to reject session
+                                            fetch(`/api/tutoring-sessions/rejectSession/${msg.sessionId}`, {
+                                              method: 'PUT',
+                                              headers: {
+                                                'Content-Type': 'application/json',
+                                              },
+                                              credentials: 'include'
+                                            })
+                                            .then(response => {
+                                              if (response.ok) {
+                                                toast.success('Session rejected');
+                                              } else {
+                                                toast.error('Failed to reject session');
+                                              }
+                                            })
+                                            .catch(error => {
+                                              console.error('Error rejecting session:', error);
+                                              toast.error('Failed to reject session');
+                                            });
+                                          }}
+                                          className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm"
+                                        >
+                                          Reject
+                                        </button>
+                                        <button 
+                                          onClick={() => window.open(`/tutor/sessions/${msg.sessionId}`, '_blank')}
+                                          className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm"
+                                        >
+                                          View Details
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : msg.messageType === 'SESSION_ACTION' ? (
+                                  <div>
+                                    <div className="font-bold mb-2">Session Update</div>
+                                    <p>{msg.content}</p>
+                                    {msg.sessionId && (
+                                      <div className="mt-2 flex justify-end">
+                                        <button 
+                                          onClick={() => window.open(`/tutor/sessions/${msg.sessionId}`, '_blank')}
+                                          className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm"
+                                        >
+                                          View Session
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <p>{msg.content}</p>
+                                )}
                                 <span className={`text-xs block mt-1 ${
                                   isMine ? 'text-primary-100' : 'text-gray-500 dark:text-gray-400'
                                 }`}>

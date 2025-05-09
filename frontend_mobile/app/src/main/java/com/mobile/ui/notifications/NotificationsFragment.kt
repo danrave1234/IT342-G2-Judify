@@ -8,7 +8,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.ProgressBar
-import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -22,6 +21,7 @@ import com.mobile.service.NotificationManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.mobile.utils.UiUtils
 
 class NotificationsFragment : Fragment() {
 
@@ -108,10 +108,10 @@ class NotificationsFragment : Fragment() {
                     notifications.addAll(cachedNotifications)
                     adapter.notifyDataSetChanged()
                     showContent()
-                    Toast.makeText(requireContext(), "Showing cached notifications", Toast.LENGTH_SHORT).show()
+                    UiUtils.showInfoSnackbar(requireView(), "Showing cached notifications")
                 } else {
                     showErrorState()
-                    Toast.makeText(requireContext(), "Failed to load notifications", Toast.LENGTH_SHORT).show()
+                    UiUtils.showErrorSnackbar(requireView(), "Failed to load notifications")
                 }
             }
         }
@@ -131,7 +131,7 @@ class NotificationsFragment : Fragment() {
                     adapter.notifyItemChanged(index)
                 }
             } else {
-                Toast.makeText(requireContext(), "Failed to mark notification as read", Toast.LENGTH_SHORT).show()
+                UiUtils.showErrorSnackbar(requireView(), "Failed to mark notification as read")
             }
         }
     }
@@ -150,9 +150,9 @@ class NotificationsFragment : Fragment() {
                     notifications[i] = notifications[i].copy(isRead = true)
                 }
                 adapter.notifyDataSetChanged()
-                Toast.makeText(requireContext(), "All notifications marked as read", Toast.LENGTH_SHORT).show()
+                UiUtils.showSuccessSnackbar(requireView(), "All notifications marked as read")
             } else {
-                Toast.makeText(requireContext(), "Failed to mark all notifications as read", Toast.LENGTH_SHORT).show()
+                UiUtils.showErrorSnackbar(requireView(), "Failed to mark all notifications as read")
             }
         }
     }
@@ -162,77 +162,49 @@ class NotificationsFragment : Fragment() {
         when (notification.type) {
             "SESSION_REMINDER" -> {
                 // Show session reminder details
-                Toast.makeText(
-                    requireContext(),
-                    "Session Reminder: ${notification.content}",
-                    Toast.LENGTH_LONG
-                ).show()
+                UiUtils.showSnackbar(requireView(), "Session Reminder: ${notification.content}")
 
                 // Log the action
                 Log.d("NotificationsFragment", "Clicked on session reminder notification: ${notification.id}")
             }
             "NEW_MESSAGE" -> {
                 // Show message notification details
-                Toast.makeText(
-                    requireContext(),
-                    "New Message: ${notification.content}",
-                    Toast.LENGTH_LONG
-                ).show()
+                UiUtils.showSnackbar(requireView(), "New Message: ${notification.content}")
 
                 // Log the action
                 Log.d("NotificationsFragment", "Clicked on message notification: ${notification.id}")
             }
             "PAYMENT_CONFIRMATION" -> {
                 // Show payment confirmation details
-                Toast.makeText(
-                    requireContext(),
-                    "Payment Confirmation: ${notification.content}",
-                    Toast.LENGTH_LONG
-                ).show()
+                UiUtils.showSnackbar(requireView(), "Payment Confirmation: ${notification.content}")
 
                 // Log the action
                 Log.d("NotificationsFragment", "Clicked on payment notification: ${notification.id}")
             }
             "BOOKING_CONFIRMATION" -> {
                 // Show booking confirmation details
-                Toast.makeText(
-                    requireContext(),
-                    "Booking Confirmation: ${notification.content}",
-                    Toast.LENGTH_LONG
-                ).show()
+                UiUtils.showSnackbar(requireView(), "Booking Confirmation: ${notification.content}")
 
                 // Log the action
                 Log.d("NotificationsFragment", "Clicked on booking confirmation notification: ${notification.id}")
             }
             "BOOKING_CANCELLATION" -> {
                 // Show booking cancellation details
-                Toast.makeText(
-                    requireContext(),
-                    "Booking Cancellation: ${notification.content}",
-                    Toast.LENGTH_LONG
-                ).show()
+                UiUtils.showSnackbar(requireView(), "Booking Cancellation: ${notification.content}")
 
                 // Log the action
                 Log.d("NotificationsFragment", "Clicked on booking cancellation notification: ${notification.id}")
             }
             "REVIEW_RECEIVED" -> {
                 // Show review details
-                Toast.makeText(
-                    requireContext(),
-                    "Review Received: ${notification.content}",
-                    Toast.LENGTH_LONG
-                ).show()
+                UiUtils.showSnackbar(requireView(), "Review Received: ${notification.content}")
 
                 // Log the action
                 Log.d("NotificationsFragment", "Clicked on review notification: ${notification.id}")
             }
             else -> {
                 // Handle unknown notification types
-                Toast.makeText(
-                    requireContext(),
-                    "Notification: ${notification.content}",
-                    Toast.LENGTH_LONG
-                ).show()
+                UiUtils.showSnackbar(requireView(), "Notification: ${notification.content}")
 
                 // Log the action
                 Log.d("NotificationsFragment", "Clicked on unknown notification type: ${notification.type}")

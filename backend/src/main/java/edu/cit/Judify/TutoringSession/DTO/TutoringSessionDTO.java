@@ -12,7 +12,10 @@ public class TutoringSessionDTO {
     private String status; // PENDING, NEGOTIATING, SCHEDULED, ONGOING, COMPLETED, CANCELLED
     private Double price;
     private String notes;
-    private String locationData;    // For in-person sessions
+    private Double latitude;       // Latitude for in-person sessions
+    private Double longitude;      // Longitude for in-person sessions
+    private String locationName;   // Location name for in-person sessions
+    private String locationData;   // For backward compatibility
     private String meetingLink;     // For online sessions
     private String sessionType;     // "online" or "in-person"
     private Date createdAt;
@@ -98,6 +101,30 @@ public class TutoringSessionDTO {
 
     public void setNotes(String notes) {
         this.notes = notes;
+    }
+
+    public Double getLatitude() {
+        return latitude;
+    }
+
+    public void setLatitude(Double latitude) {
+        this.latitude = latitude;
+    }
+
+    public Double getLongitude() {
+        return longitude;
+    }
+
+    public void setLongitude(Double longitude) {
+        this.longitude = longitude;
+    }
+
+    public String getLocationName() {
+        return locationName;
+    }
+
+    public void setLocationName(String locationName) {
+        this.locationName = locationName;
     }
 
     public String getLocationData() {

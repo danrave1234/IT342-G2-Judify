@@ -12,13 +12,13 @@ import android.view.MenuItem
 import android.view.View
 import android.widget.Button
 import android.widget.TextView
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.mobile.R
+import com.mobile.utils.UiUtils
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
@@ -43,6 +43,7 @@ class MapPickerActivity : AppCompatActivity() {
     private lateinit var instructionsText: TextView
     private lateinit var selectedLocationMarker: Marker
     private lateinit var gotoMyLocationButton: FloatingActionButton
+    private lateinit var rootView: View
 
     private var selectedLatitude: Double = 0.0
     private var selectedLongitude: Double = 0.0
@@ -55,6 +56,9 @@ class MapPickerActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_map_picker)
+
+        // Store root view for Snackbars
+        rootView = findViewById(android.R.id.content)
 
         // Initialize UI components
         mapView = findViewById(R.id.mapPickerView)
@@ -156,7 +160,7 @@ class MapPickerActivity : AppCompatActivity() {
                 setResult(Activity.RESULT_OK, resultIntent)
                 finish()
             } else {
-                Toast.makeText(this, "Please select a meeting location", Toast.LENGTH_SHORT).show()
+                UiUtils.showErrorSnackbar(rootView, "Please select a meeting location")
             }
         }
 
@@ -166,7 +170,7 @@ class MapPickerActivity : AppCompatActivity() {
             if (myLocation != null) {
                 mapView.controller.animateTo(myLocation)
             } else {
-                Toast.makeText(this, "Location not available yet", Toast.LENGTH_SHORT).show()
+                UiUtils.showWarningSnackbar(rootView, "Location not available yet")
             }
         }
     }

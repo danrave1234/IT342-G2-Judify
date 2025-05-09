@@ -122,6 +122,87 @@
                                 android:textColor="?android:attr/textColorSecondary"
                                 android:layout_marginTop="4dp" />
 
+                            <TextView
+                                android:id="@+id/tutorRateText"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="$0.00/hr"
+                                android:textSize="16sp"
+                                android:textColor="@color/primary_blue"
+                                android:textStyle="bold"
+                                android:layout_marginTop="4dp" />
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:layout_marginTop="4dp">
+                                
+                                <TextView
+                                    android:id="@+id/blueRateText"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="$0.00/hr"
+                                    android:textSize="14sp"
+                                    android:textColor="@color/primary_blue"
+                                    android:textStyle="bold" />
+                                    
+                                <TextView
+                                    android:id="@+id/cardBlueRateText"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="$0.00/hr"
+                                    android:textSize="14sp"
+                                    android:textColor="@color/primary_blue"
+                                    android:textStyle="bold"
+                                    android:layout_marginStart="8dp"
+                                    android:visibility="gone" />
+                                    
+                                <TextView
+                                    android:id="@+id/blueDurationText"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="1 hour"
+                                    android:textSize="14sp"
+                                    android:textColor="@color/primary_blue"
+                                    android:textStyle="bold"
+                                    android:layout_marginStart="8dp"
+                                    android:visibility="gone" />
+                                    
+                                <TextView
+                                    android:id="@+id/blueTotalText"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="$0.00"
+                                    android:textSize="14sp"
+                                    android:textColor="@color/primary_blue"
+                                    android:textStyle="bold"
+                                    android:layout_marginStart="8dp"
+                                    android:visibility="gone" />
+                                    
+                                <TextView
+                                    android:id="@+id/cardBlueDurationText"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="1 hour"
+                                    android:textSize="14sp"
+                                    android:textColor="@color/primary_blue"
+                                    android:textStyle="bold"
+                                    android:layout_marginStart="8dp"
+                                    android:visibility="gone" />
+                                    
+                                <TextView
+                                    android:id="@+id/cardBlueTotalText"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="$0.00"
+                                    android:textSize="14sp"
+                                    android:textColor="@color/primary_blue"
+                                    android:textStyle="bold"
+                                    android:layout_marginStart="8dp"
+                                    android:visibility="gone" />
+                            </LinearLayout>
+
                             <LinearLayout
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
@@ -318,8 +399,10 @@
                         android:orientation="horizontal"
                         android:paddingStart="4dp"
                         android:paddingEnd="4dp"
+                        android:paddingTop="4dp"
+                        android:paddingBottom="4dp"
                         app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
-                        tools:listitem="@layout/item_subject"
+                        tools:listitem="@layout/item_booking_subject"
                         tools:itemCount="3" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -507,13 +590,13 @@
                                 android:textColor="?android:attr/textColorSecondary" />
 
                             <TextView
-                                android:id="@+id/tutorRateText"
+                                android:id="@+id/summaryCardBlueRateText1"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:text="$35.00/hr"
+                                android:text="$0.00/hr"
+                                android:textColor="@color/white"
                                 android:textSize="14sp"
                                 android:textStyle="bold"
-                                android:textColor="?android:attr/textColorPrimary"
                                 android:gravity="end" />
                         </LinearLayout>
 
@@ -531,13 +614,13 @@
                                 android:textColor="?android:attr/textColorSecondary" />
 
                             <TextView
-                                android:id="@+id/summaryDurationText"
+                                android:id="@+id/summaryCardBlueDurationText1"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:text="1 hour"
+                                android:textColor="@color/white"
                                 android:textSize="14sp"
                                 android:textStyle="bold"
-                                android:textColor="?android:attr/textColorPrimary"
                                 android:gravity="end" />
                         </LinearLayout>
 
@@ -562,10 +645,10 @@
                                 android:textColor="@color/primary_blue" />
 
                             <TextView
-                                android:id="@+id/totalPriceText"
+                                android:id="@+id/summaryCardBlueTotalText1"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:text="$35.00"
+                                android:text="$0.00"
                                 android:textSize="16sp"
                                 android:textStyle="bold"
                                 android:textColor="@color/primary_blue"
@@ -625,22 +708,138 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Book Button - Larger, More Prominent -->
+            <!-- Booking Summary Card -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="4dp"
+                app:cardBackgroundColor="@color/primary_blue">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Session Summary"
+                        android:textColor="@color/white"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="12dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Tutor Rate:"
+                            android:textColor="@color/white"
+                            android:textSize="14sp" />
+
+                        <TextView
+                            android:id="@+id/summaryCardBlueRateText3"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="$0.00/hr"
+                            android:textColor="@color/white"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="8dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Duration:"
+                            android:textColor="@color/white"
+                            android:textSize="14sp" />
+
+                        <TextView
+                            android:id="@+id/summaryCardBlueDurationText3"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="1 hour"
+                            android:textColor="@color/white"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="#80FFFFFF"
+                        android:layout_marginTop="12dp"
+                        android:layout_marginBottom="12dp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Total:"
+                            android:textColor="@color/white"
+                            android:textSize="18sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/summaryCardBlueTotalText3"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="$0.00"
+                            android:textColor="@color/white"
+                            android:textSize="18sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Selection Status Text View - Replaces Toasts -->
+            <TextView
+                android:id="@+id/selectionStatusTextView1"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="16dp"
+                android:gravity="center"
+                android:padding="8dp"
+                android:textColor="@color/primary_blue"
+                android:textSize="14sp"
+                android:background="@drawable/rounded_selection_background"
+                android:visibility="gone"
+                tools:text="Selected time: 10:00 AM - 11:00 AM"
+                tools:visibility="visible" />
+
+            <!-- Book Button -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/bookButton"
                 android:layout_width="match_parent"
-                android:layout_height="56dp"
+                android:layout_height="64dp"
                 android:text="Book Session"
-                android:textSize="16sp"
-                android:textStyle="bold"
                 android:textAllCaps="false"
-                android:layout_marginBottom="16dp"
+                android:textSize="16sp"
                 app:cornerRadius="12dp"
-                android:backgroundTint="@color/primary_blue"
-                app:icon="@drawable/ic_check"
-                app:iconGravity="textStart" />
+                app:backgroundTint="@color/primary_blue" />
 
-            <!-- Error Text Display -->
             <TextView
                 android:id="@+id/errorTextView"
                 android:layout_width="match_parent"
@@ -648,43 +847,53 @@
                 android:layout_marginTop="16dp"
                 android:textColor="@color/error"
                 android:textSize="14sp"
-                android:gravity="center"
-                android:visibility="gone" />
+                android:visibility="gone"
+                tools:text="Error message here"
+                tools:visibility="visible" />
+
         </LinearLayout>
+
+        <!-- Progress bar for loading states -->
+        <ProgressBar
+            android:id="@+id/progressBar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:visibility="gone" />
     </androidx.core.widget.NestedScrollView>
 
-    <!-- Improved Loading Overlay - Full screen with semi-transparent background -->
+    <!-- Full Screen Overlay for Loading State -->
     <FrameLayout
         android:id="@+id/progressOverlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="#80000000"
+        android:visibility="gone"
         android:clickable="true"
-        android:focusable="true"
-        android:visibility="gone">
+        android:focusable="true">
 
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
             android:layout_gravity="center"
-            android:gravity="center"
+            android:orientation="vertical"
             android:padding="24dp"
-            android:background="@drawable/bg_loading_dialog">
+            android:background="@drawable/rounded_dialog_background">
 
             <ProgressBar
-                android:id="@+id/progressBar"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
+                android:layout_gravity="center_horizontal"
                 android:indeterminateTint="@color/primary_blue" />
 
             <TextView
                 android:id="@+id/loadingText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
                 android:layout_marginTop="16dp"
                 android:text="Processing your booking..."
-                android:textColor="@color/black"
+                android:textColor="?android:attr/textColorPrimary"
                 android:textSize="16sp" />
         </LinearLayout>
     </FrameLayout>

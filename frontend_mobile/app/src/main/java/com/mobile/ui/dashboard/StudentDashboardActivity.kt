@@ -20,6 +20,7 @@ import com.mobile.ui.notifications.NotificationsFragment
 import com.mobile.ui.profile.ProfileFragment
 import com.mobile.utils.NetworkUtils
 import com.mobile.utils.PreferenceUtils
+import com.mobile.utils.UiUtils
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -100,8 +101,8 @@ class StudentDashboardActivity : AppCompatActivity() {
                         }
                     }
 
-                    // Show a toast to confirm successful booking
-                    Toast.makeText(this, "Session booked successfully!", Toast.LENGTH_SHORT).show()
+                    // Show a success message
+                    UiUtils.showSuccessSnackbar(findViewById(android.R.id.content), "Session booked successfully!")
                 } catch (e: Exception) {
                     Log.e(TAG, "Error scrolling to sessions: ${e.message}", e)
                 }
@@ -168,10 +169,10 @@ class StudentDashboardActivity : AppCompatActivity() {
                     }
 
                     // Show a success message
-                    Toast.makeText(this, "Session booked successfully!", Toast.LENGTH_SHORT).show()
+                    UiUtils.showSuccessSnackbar(findViewById(android.R.id.content), "Session booked successfully!")
                 } else {
-                    Log.d(TAG, "Standard success result received, showing toast")
-                    Toast.makeText(this, "Session booked successfully!", Toast.LENGTH_SHORT).show()
+                    Log.d(TAG, "Standard success result received, showing success message")
+                    UiUtils.showSuccessSnackbar(findViewById(android.R.id.content), "Session booked successfully!")
                 }
             } else {
                 Log.d(TAG, "Booking was canceled or unsuccessful, resultCode=$resultCode")
@@ -288,13 +289,13 @@ class StudentDashboardActivity : AppCompatActivity() {
 
         // Add a toast message when clicked
         messageView.setOnClickListener {
-            Toast.makeText(this, "Please try again later", Toast.LENGTH_SHORT).show()
+            UiUtils.showErrorSnackbar(findViewById(android.R.id.content), "Please try again later")
         }
 
         container.addView(messageView)
 
         // Show a toast message
-        Toast.makeText(this, "Unable to load tutors. Please check your connection.", Toast.LENGTH_LONG).show()
+        UiUtils.showErrorSnackbar(findViewById(android.R.id.content), "Unable to load tutors. Please check your connection.")
     }
 
     private fun setupBottomNavigation() {
@@ -418,8 +419,7 @@ class StudentDashboardActivity : AppCompatActivity() {
 
         // Set up filter button click listener
         binding.filterButton.setOnClickListener {
-            // TODO: Show filter options
-            Toast.makeText(this, "Filters coming soon!", Toast.LENGTH_SHORT).show()
+            UiUtils.showInfoSnackbar(findViewById(android.R.id.content), "Filters coming soon!")
         }
 
         // Set up see all tutors click listener
@@ -498,7 +498,27 @@ class StudentDashboardActivity : AppCompatActivity() {
                     showMainContent(false)
                     loadFragment(NotificationsFragment())
                 }
+                "SESSIONS" -> {
+                    // For students, sessions tab opens TutorSearchActivity
+                    val intent = Intent(this, TutorSearchActivity::class.java)
+                    startActivity(intent)
+                    overridePendingTransition(0, 0)
+                }
             }
+        }
+
+        // Check if we have a specific session ID to display
+        val sessionId = intent.getLongExtra("SESSION_ID", -1L)
+        if (sessionId != -1L) {
+            // Log that we received a session ID
+            Log.d(TAG, "Received request to view session with ID: $sessionId")
+
+            // For students, we'll show their sessions in the dashboard
+            // and highlight the session with the given ID if possible
+            loadStudentSessions()
+
+            // Show a toast to indicate we received the session ID
+            UiUtils.showSnackbar(findViewById(android.R.id.content), "Viewing session details (Session ID: $sessionId)")
         }
     }
 
@@ -554,7 +574,7 @@ class StudentDashboardActivity : AppCompatActivity() {
                     } else {
                         Log.e(TAG, "Failed to load student sessions: $errorMsg", error)
                         binding.noSessionsText.text = "Unable to load sessions. Pull down to refresh."
-                        Toast.makeText(this@StudentDashboardActivity, "Failed to load sessions", Toast.LENGTH_SHORT).show()
+                        UiUtils.showErrorSnackbar(findViewById(android.R.id.content), "Failed to load sessions")
                     }
 
                     binding.noSessionsContainer.visibility = View.VISIBLE
@@ -566,7 +586,7 @@ class StudentDashboardActivity : AppCompatActivity() {
                 binding.noSessionsContainer.visibility = View.VISIBLE
                 binding.allSessionsRecyclerView.visibility = View.GONE
                 binding.sessionCountText.text = "0 sessions"
-                Toast.makeText(this@StudentDashboardActivity, "Error loading sessions", Toast.LENGTH_SHORT).show()
+                UiUtils.showErrorSnackbar(findViewById(android.R.id.content), "Error loading sessions")
             } finally {
                 binding.loadingProgressBar.visibility = View.GONE
             }
@@ -585,6 +605,7 @@ class StudentDashboardActivity : AppCompatActivity() {
             val time: TextView = view.findViewById(R.id.sessionTime)
             val status: TextView = view.findViewById(R.id.sessionStatus)
             val tutorName: TextView = view.findViewById(R.id.tutorName)
+            val sessionType: TextView = view.findViewById(R.id.sessionType)
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -730,20 +751,25 @@ class StudentDashboardActivity : AppCompatActivity() {
                 }
             }
 
+            // Set session type - if empty or null, default to "Online"
+            val sessionTypeValue = if (session.sessionType.isNullOrEmpty()) "Online" else session.sessionType
+            holder.sessionType.text = sessionTypeValue
+            
+            // Log the session type for debugging
+            Log.d(TAG, "Session ${session.id} type: '$sessionTypeValue', original value: '${session.sessionType}'")
+
             // Set click listener to open conversation with tutor
             holder.itemView.setOnClickListener {
                 // Get the current user ID
                     val currentUserId = PreferenceUtils.getUserId(this@StudentDashboardActivity) ?: -1L
 
                 if (currentUserId == -1L) {
-                    Toast.makeText(this@StudentDashboardActivity,
-                        "Unable to identify current user. Please log in again.", Toast.LENGTH_SHORT).show()
+                    UiUtils.showErrorSnackbar(findViewById(android.R.id.content), "Unable to identify current user. Please log in again.")
                     return@setOnClickListener
                 }
 
                 // Show loading toast
-                    Toast.makeText(this@StudentDashboardActivity,
-                        "Opening conversation...", Toast.LENGTH_SHORT).show()
+                    UiUtils.showSnackbar(findViewById(android.R.id.content), "Opening conversation...")
 
                 // Launch coroutine to handle conversation
                 lifecycleScope.launch {
@@ -808,16 +834,14 @@ class StudentDashboardActivity : AppCompatActivity() {
                                         openConversation(newConversation.id, tutorId, session.tutorName)
                                     } else {
                                         Log.e(TAG, "Conversation creation succeeded but returned null")
-                                        Toast.makeText(this@StudentDashboardActivity, 
-                                            "Failed to create conversation", Toast.LENGTH_SHORT).show()
+                                        UiUtils.showErrorSnackbar(findViewById(android.R.id.content), "Failed to create conversation")
                                     }
                                 } else {
                                     // Log the error
                                     val error = createResult.exceptionOrNull()
                                     Log.e(TAG, "Failed to create conversation: ${error?.message}", error)
 
-                                    Toast.makeText(this@StudentDashboardActivity, 
-                                        "Failed to create conversation", Toast.LENGTH_SHORT).show()
+                                    UiUtils.showErrorSnackbar(findViewById(android.R.id.content), "Failed to create conversation")
                                 }
                             }
                         } else {
@@ -825,13 +849,11 @@ class StudentDashboardActivity : AppCompatActivity() {
                             val error = conversationsResult.exceptionOrNull()
                             Log.e(TAG, "Failed to load conversations: ${error?.message}", error)
 
-                            Toast.makeText(this@StudentDashboardActivity, 
-                                "Failed to load conversations", Toast.LENGTH_SHORT).show()
+                            UiUtils.showErrorSnackbar(findViewById(android.R.id.content), "Failed to load conversations")
                         }
                     } catch (e: Exception) {
                         Log.e(TAG, "Error opening conversation: ${e.message}", e)
-                        Toast.makeText(this@StudentDashboardActivity, 
-                            "Error opening conversation: ${e.message}", Toast.LENGTH_SHORT).show()
+                        UiUtils.showErrorSnackbar(findViewById(android.R.id.content), "Error opening conversation: ${e.message}")
                     }
                 }
             }
@@ -943,38 +965,22 @@ class StudentDashboardActivity : AppCompatActivity() {
                             // loadAdditionalUserData(user.userId)
                         } else {
                             Log.e(TAG, "User is null for email: $userEmail")
-                            Toast.makeText(
-                                this@StudentDashboardActivity,
-                                "Failed to load user data. Please try again later.",
-                                Toast.LENGTH_SHORT
-                            ).show()
+                            UiUtils.showErrorSnackbar(findViewById(android.R.id.content), "Failed to load user data. Please try again later.")
                         }
                     } else {
                         // Handle error
                         Log.e(TAG, "Failed to find user by email: $userEmail")
-                        Toast.makeText(
-                            this@StudentDashboardActivity,
-                            "Failed to load user data. Please try again later.",
-                            Toast.LENGTH_SHORT
-                        ).show()
+                        UiUtils.showErrorSnackbar(findViewById(android.R.id.content), "Failed to load user data. Please try again later.")
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Error loading user data: ${e.message}", e)
-                    Toast.makeText(
-                        this@StudentDashboardActivity,
-                        "Error loading data: ${e.message}",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    UiUtils.showErrorSnackbar(findViewById(android.R.id.content), "Error loading data: ${e.message}")
                 }
             }
         } else {
             // Handle case where user email is not available
             Log.e(TAG, "User email is not available")
-            Toast.makeText(
-                this@StudentDashboardActivity,
-                "User email not found. Please log in again.",
-                Toast.LENGTH_SHORT
-            ).show()
+            UiUtils.showErrorSnackbar(findViewById(android.R.id.content), "User email not found. Please log in again.")
         }
     }
 

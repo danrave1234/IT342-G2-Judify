@@ -10,12 +10,12 @@ import android.widget.Button
 import android.widget.ImageButton
 import android.widget.ProgressBar
 import android.widget.TextView
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.mobile.R
+import com.mobile.utils.UiUtils
 
 /**
  * Activity for video call sessions.
@@ -36,6 +36,7 @@ class VideoCallActivity : AppCompatActivity() {
     private lateinit var statusText: TextView
     private lateinit var localVideoView: View
     private lateinit var remoteVideoView: View
+    private lateinit var rootView: View
     
     private var sessionId: String = ""
     private var sessionStarted = false
@@ -58,8 +59,11 @@ class VideoCallActivity : AppCompatActivity() {
         sessionId = intent.getStringExtra(EXTRA_SESSION_ID) ?: ""
         participantName = intent.getStringExtra(EXTRA_PARTICIPANT_NAME) ?: "Participant"
         
+        // Store root view for Snackbars
+        rootView = findViewById(android.R.id.content)
+        
         if (sessionId.isEmpty()) {
-            Toast.makeText(this, "Invalid session ID", Toast.LENGTH_SHORT).show()
+            UiUtils.showErrorSnackbar(rootView, "Invalid session ID")
             finish()
             return
         }
@@ -128,11 +132,10 @@ class VideoCallActivity : AppCompatActivity() {
             if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
                 initializeCall()
             } else {
-                Toast.makeText(
-                    this,
-                    "Camera and microphone permissions are required for video calls",
-                    Toast.LENGTH_LONG
-                ).show()
+                UiUtils.showErrorSnackbar(
+                    rootView,
+                    "Camera and microphone permissions are required for video calls"
+                )
                 finish()
             }
         }
@@ -181,7 +184,7 @@ class VideoCallActivity : AppCompatActivity() {
     private fun endVideoCall() {
         // In a real app, this would disconnect from video call service
         // For demo purposes, we'll just finish the activity
-        Toast.makeText(this, "Video session ended", Toast.LENGTH_SHORT).show()
+        UiUtils.showSnackbar(rootView, "Video session ended")
         finish()
     }
 
@@ -196,11 +199,11 @@ class VideoCallActivity : AppCompatActivity() {
             else R.drawable.ic_mic_off
         )
         
-        Toast.makeText(
-            this,
-            if (isAudioEnabled) "Microphone enabled" else "Microphone disabled",
-            Toast.LENGTH_SHORT
-        ).show()
+        // Show status message
+        UiUtils.showSnackbar(
+            rootView,
+            if (isAudioEnabled) "Microphone is now on" else "Microphone is now off"
+        )
     }
 
     private fun toggleCamera() {
@@ -217,19 +220,20 @@ class VideoCallActivity : AppCompatActivity() {
         // Update local video view
         localVideoView.visibility = if (isVideoEnabled) View.VISIBLE else View.INVISIBLE
         
-        Toast.makeText(
-            this,
-            if (isVideoEnabled) "Camera enabled" else "Camera disabled",
-            Toast.LENGTH_SHORT
-        ).show()
+        // Show status message
+        UiUtils.showSnackbar(
+            rootView,
+            if (isVideoEnabled) "Camera is now on" else "Camera is now off"
+        )
     }
 
     private fun toggleScreenShare() {
         // In a real app, this would toggle screen sharing in the video call SDK
         toggleScreenShareButton.isSelected = !toggleScreenShareButton.isSelected
-        Toast.makeText(this, 
-            if (toggleScreenShareButton.isSelected) "Screen sharing started" else "Screen sharing stopped", 
-            Toast.LENGTH_SHORT).show()
+        UiUtils.showSnackbar(
+            rootView,
+            if (toggleScreenShareButton.isSelected) "Screen sharing started" else "Screen sharing stopped"
+        )
     }
 
     private fun toggleSpeaker() {
@@ -243,11 +247,11 @@ class VideoCallActivity : AppCompatActivity() {
             else R.drawable.ic_speaker_off
         )
         
-        Toast.makeText(
-            this,
-            if (isSpeakerOn) "Speaker enabled" else "Speaker disabled",
-            Toast.LENGTH_SHORT
-        ).show()
+        // Show status message
+        UiUtils.showSnackbar(
+            rootView,
+            if (isSpeakerOn) "Speaker is now on" else "Speaker is now off"
+        )
     }
 
     private fun showVideoControls() {
@@ -296,7 +300,7 @@ class VideoCallActivity : AppCompatActivity() {
             // 4. Connect to signaling server
             // 5. Create and send offer/answer
             
-            Toast.makeText(this, "Connected to video session", Toast.LENGTH_SHORT).show()
+            UiUtils.showSnackbar(rootView, "Connected to video session")
         }, 2000)
     }
 

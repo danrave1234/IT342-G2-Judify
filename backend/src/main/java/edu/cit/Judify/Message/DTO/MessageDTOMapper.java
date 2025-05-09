@@ -4,6 +4,7 @@ import org.springframework.stereotype.Component;
 
 import edu.cit.Judify.Conversation.ConversationEntity;
 import edu.cit.Judify.Message.MessageEntity;
+import edu.cit.Judify.TutoringSession.TutoringSessionEntity;
 import edu.cit.Judify.User.UserEntity;
 
 @Component
@@ -22,6 +23,13 @@ public class MessageDTOMapper {
         dto.setContent(entity.getContent());
         dto.setCreatedAt(entity.getTimestamp());
         dto.setIsRead(entity.getIsRead());
+        dto.setMessageType(entity.getMessageType());
+
+        // Set sessionId if session is not null
+        if (entity.getSession() != null) {
+            dto.setSessionId(entity.getSession().getSessionId());
+        }
+
         return dto;
     }
 
@@ -38,6 +46,15 @@ public class MessageDTOMapper {
         entity.setContent(dto.getContent());
         entity.setTimestamp(dto.getCreatedAt());
         entity.setIsRead(dto.getIsRead());
+        entity.setMessageType(dto.getMessageType());
+        return entity;
+    }
+
+    public MessageEntity toEntity(MessageDTO dto, ConversationEntity conversation, UserEntity sender, UserEntity receiver, TutoringSessionEntity session) {
+        MessageEntity entity = toEntity(dto, conversation, sender, receiver);
+        if (entity != null && session != null) {
+            entity.setSession(session);
+        }
         return entity;
     }
 } 

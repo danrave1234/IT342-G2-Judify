@@ -2,12 +2,16 @@ package edu.cit.Judify.Message.DTO;
 
 import java.util.Date;
 
+import edu.cit.Judify.Message.MessageEntity.MessageType;
+
 public class MessageDTO {
     private Long messageId;
     private Long conversationId;
     private Long senderId;
     private Long receiverId;
     private String content;
+    private MessageType messageType = MessageType.TEXT;
+    private Long sessionId;
     private Date createdAt;
     private Boolean isRead;
 
@@ -70,5 +74,21 @@ public class MessageDTO {
 
     public void setIsRead(Boolean isRead) {
         this.isRead = isRead;
+    }
+
+    public MessageType getMessageType() {
+        return messageType;
+    }
+
+    public void setMessageType(MessageType messageType) {
+        this.messageType = messageType;
+    }
+
+    public Long getSessionId() {
+        return sessionId;
+    }
+
+    public void setSessionId(Long sessionId) {
+        this.sessionId = sessionId;
     }
 } 

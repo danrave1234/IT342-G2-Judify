@@ -19,7 +19,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import edu.cit.Judify.Conversation.ConversationEntity;
 import edu.cit.Judify.Conversation.ConversationService;
+import edu.cit.Judify.Message.MessageService;
 import edu.cit.Judify.TutorProfile.TutorProfileService;
 import edu.cit.Judify.TutoringSession.DTO.TutoringSessionDTO;
 import edu.cit.Judify.TutoringSession.DTO.TutoringSessionDTOMapper;
@@ -41,6 +43,7 @@ public class TutoringSessionController {
     private final TutoringSessionService sessionService;
     private final TutoringSessionDTOMapper sessionDTOMapper;
     private final ConversationService conversationService;
+    private final MessageService messageService;
 
     @Autowired
     private TutorProfileService tutorProfileService;
@@ -48,10 +51,12 @@ public class TutoringSessionController {
     @Autowired
     public TutoringSessionController(TutoringSessionService sessionService, 
                                     TutoringSessionDTOMapper sessionDTOMapper,
-                                    ConversationService conversationService) {
+                                    ConversationService conversationService,
+                                    MessageService messageService) {
         this.sessionService = sessionService;
         this.sessionDTOMapper = sessionDTOMapper;
         this.conversationService = conversationService;
+        this.messageService = messageService;
     }
 
     @Operation(summary = "Create a new tutoring session", description = "Creates a new tutoring session between a tutor and a student")
@@ -120,10 +125,32 @@ public class TutoringSessionController {
             TutoringSessionEntity session = sessionDTOMapper.toEntity(sessionDTO);
             System.out.println("Converted DTO to entity, student ID: " + (session.getStudent() != null ? session.getStudent().getUserId() : "null"));
 
-            // No longer automatically create conversation for each booked session
+            // Create a conversation for the session
+            ConversationEntity conversation = new ConversationEntity();
+            conversation.setStudent(session.getStudent());
+            conversation.setTutor(session.getTutor());
+            ConversationEntity savedConversation = conversationService.createConversation(conversation);
 
+            // Link the conversation to the session
+            session.setConversation(savedConversation);
+
+            // Save the session
             TutoringSessionEntity savedSession = sessionService.createSession(session);
             System.out.println("Session saved successfully with ID: " + savedSession.getSessionId());
+
+            // Send a session details message in the conversation
+            try {
+                messageService.sendSessionDetailsMessage(
+                    savedConversation.getConversationId(),
+                    savedSession.getSessionId(),
+                    session.getStudent().getUserId(), // Student is the sender of the booking
+                    session.getTutor().getUserId()    // Tutor is the receiver of the booking
+                );
+                System.out.println("Session details message sent in conversation: " + savedConversation.getConversationId());
+            } catch (Exception e) {
+                System.out.println("Error sending session details message: " + e.getMessage());
+                // Continue even if message sending fails
+            }
 
             return ResponseEntity.ok(sessionDTOMapper.toDTO(savedSession));
         } catch (Exception e) {
@@ -399,11 +426,29 @@ public class TutoringSessionController {
     @GetMapping("/findByConversation/{conversationId}")
     public ResponseEntity<TutoringSessionDTO> getSessionByConversationId(
             @Parameter(description = "Conversation ID") @PathVariable Long conversationId) {
-        TutoringSessionEntity session = sessionService.getSessionByConversationId(conversationId);
-        if (session == null) {
+        try {
+            System.out.println("Looking for session with conversation ID: " + conversationId);
+            
+            // Check if conversation exists
+            boolean conversationExists = conversationService.getConversationById(conversationId).isPresent();
+            if (!conversationExists) {
+                System.out.println("Conversation not found with ID: " + conversationId);
+                return ResponseEntity.notFound().build();
+            }
+            
+            TutoringSessionEntity session = sessionService.getSessionByConversationId(conversationId);
+            if (session == null) {
+                System.out.println("No session found for conversation ID: " + conversationId);
+                return ResponseEntity.notFound().build();
+            }
+            
+            System.out.println("Found session: " + session.getSessionId() + " for conversation: " + conversationId);
+            return ResponseEntity.ok(sessionDTOMapper.toDTO(session));
+        } catch (Exception e) {
+            System.out.println("Error retrieving session for conversation " + conversationId + ": " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.notFound().build();
         }
-        return ResponseEntity.ok(sessionDTOMapper.toDTO(session));
     }
 
     @Operation(summary = "Accept a tutoring session", description = "Tutor accepts a pending tutoring session")
@@ -446,6 +491,24 @@ public class TutoringSessionController {
             // Save the updated session
             TutoringSessionEntity updatedSession = sessionService.updateSession(sessionId, session);
 
+            // Send a session action message in the conversation
+            if (updatedSession.getConversation() != null) {
+                try {
+                    messageService.sendSessionActionMessage(
+                        updatedSession.getConversation().getConversationId(),
+                        updatedSession.getSessionId(),
+                        updatedSession.getTutor().getUserId(),  // Tutor is the sender of the acceptance
+                        updatedSession.getStudent().getUserId(), // Student is the receiver of the acceptance
+                        true // Accepted
+                    );
+                    System.out.println("Session acceptance message sent in conversation: " + 
+                                      updatedSession.getConversation().getConversationId());
+                } catch (Exception e) {
+                    System.out.println("Error sending session acceptance message: " + e.getMessage());
+                    // Continue even if message sending fails
+                }
+            }
+
             return ResponseEntity.ok(sessionDTOMapper.toDTO(updatedSession));
         } catch (Exception e) {
             return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR)
@@ -487,6 +550,24 @@ public class TutoringSessionController {
 
             // Save the updated session
             TutoringSessionEntity updatedSession = sessionService.updateSession(sessionId, session);
+
+            // Send a session action message in the conversation
+            if (updatedSession.getConversation() != null) {
+                try {
+                    messageService.sendSessionActionMessage(
+                        updatedSession.getConversation().getConversationId(),
+                        updatedSession.getSessionId(),
+                        updatedSession.getTutor().getUserId(),  // Tutor is the sender of the rejection
+                        updatedSession.getStudent().getUserId(), // Student is the receiver of the rejection
+                        false // Rejected
+                    );
+                    System.out.println("Session rejection message sent in conversation: " + 
+                                      updatedSession.getConversation().getConversationId());
+                } catch (Exception e) {
+                    System.out.println("Error sending session rejection message: " + e.getMessage());
+                    // Continue even if message sending fails
+                }
+            }
 
             return ResponseEntity.ok(sessionDTOMapper.toDTO(updatedSession));
         } catch (Exception e) {

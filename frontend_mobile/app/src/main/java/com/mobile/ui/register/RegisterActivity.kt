@@ -6,13 +6,13 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
 import android.widget.EditText
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.mobile.R
 import com.mobile.model.User
 import com.mobile.databinding.ActivityRegisterBinding
 import com.mobile.ui.login.LoginActivity
 import com.mobile.repository.AuthRepository
+import com.mobile.utils.UiUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -61,11 +61,10 @@ class RegisterActivity : AppCompatActivity() {
 
             // Validate input
             if (email.isEmpty() || username.isEmpty()) {
-                Toast.makeText(
-                    applicationContext,
-                    getString(R.string.please_fill_all_fields),
-                    Toast.LENGTH_SHORT
-                ).show()
+                UiUtils.showErrorSnackbar(
+                    binding.root,
+                    getString(R.string.please_fill_all_fields)
+                )
                 return@setOnClickListener
             }
 
@@ -79,21 +78,18 @@ class RegisterActivity : AppCompatActivity() {
 
         // Set up social login buttons
         facebookButton.setOnClickListener {
-            Toast.makeText(
-                applicationContext,
-                "Facebook login coming soon!",
-                Toast.LENGTH_SHORT
-            ).show()
+            UiUtils.showInfoSnackbar(
+                binding.root,
+                "Facebook login coming soon!"
+            )
         }
 
         googleButton.setOnClickListener {
-            Toast.makeText(
-                applicationContext,
-                "Google login coming soon!",
-                Toast.LENGTH_SHORT
-            ).show()
+            UiUtils.showInfoSnackbar(
+                binding.root,
+                "Google login coming soon!"
+            )
         }
-
 
         // Set up sign in text view
         signInTextView.setOnClickListener {
@@ -129,11 +125,10 @@ class RegisterActivity : AppCompatActivity() {
 
                 if (authResponse.success) {
                     // Registration successful
-                    Toast.makeText(
-                        applicationContext,
-                        getString(R.string.registration_successful),
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    UiUtils.showSuccessSnackbar(
+                        binding.root,
+                        getString(R.string.registration_successful)
+                    )
 
                     // Navigate to login screen
                     val intent = Intent(this@RegisterActivity, LoginActivity::class.java)
@@ -141,22 +136,20 @@ class RegisterActivity : AppCompatActivity() {
                     finish()
                 } else {
                     // Registration failed
-                    Toast.makeText(
-                        applicationContext,
-                        "${getString(R.string.registration_failed)}: ${authResponse.message}",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    UiUtils.showErrorSnackbar(
+                        binding.root,
+                        "${getString(R.string.registration_failed)}: ${authResponse.message}"
+                    )
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     binding.loading?.visibility = View.GONE
 
                     // Handle exception
-                    Toast.makeText(
-                        applicationContext,
-                        "${getString(R.string.registration_failed)}: ${e.message}",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    UiUtils.showErrorSnackbar(
+                        binding.root,
+                        "${getString(R.string.registration_failed)}: ${e.message}"
+                    )
                 }
             }
         }

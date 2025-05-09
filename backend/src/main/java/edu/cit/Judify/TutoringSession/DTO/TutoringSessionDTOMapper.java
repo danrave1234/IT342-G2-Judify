@@ -41,6 +41,9 @@ public class TutoringSessionDTOMapper {
         dto.setStatus(entity.getStatus());
         dto.setPrice(entity.getPrice());
         dto.setNotes(entity.getNotes());
+        dto.setLatitude(entity.getLatitude());
+        dto.setLongitude(entity.getLongitude());
+        dto.setLocationName(entity.getLocationName());
         dto.setLocationData(entity.getLocationData());
         dto.setMeetingLink(entity.getMeetingLink());
         dto.setSessionType(entity.getSessionType());
@@ -159,6 +162,9 @@ public class TutoringSessionDTOMapper {
         entity.setStatus(dto.getStatus());
         entity.setPrice(dto.getPrice());
         entity.setNotes(dto.getNotes());
+        entity.setLatitude(dto.getLatitude());
+        entity.setLongitude(dto.getLongitude());
+        entity.setLocationName(dto.getLocationName());
         entity.setLocationData(dto.getLocationData());
         entity.setMeetingLink(dto.getMeetingLink());
         entity.setSessionType(dto.getSessionType());

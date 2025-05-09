@@ -16,6 +16,7 @@ import androidx.cardview.widget.CardView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.textfield.TextInputEditText
@@ -23,6 +24,7 @@ import com.google.android.material.textfield.TextInputLayout
 import com.mobile.R
 import com.mobile.utils.NetworkUtils
 import com.mobile.utils.PaymentUtils
+import com.mobile.utils.UiUtils
 import de.hdodenhof.circleimageview.CircleImageView
 import java.text.SimpleDateFormat
 import java.util.*
@@ -84,7 +86,7 @@ class BookingActivity : AppCompatActivity() {
         // Get the tutor ID from the intent
         tutorId = intent.getLongExtra(EXTRA_TUTOR_ID, -1)
         if (tutorId == -1L) {
-            Toast.makeText(this, "Invalid tutor ID", Toast.LENGTH_SHORT).show()
+            UiUtils.showErrorSnackbar(findViewById(android.R.id.content), "Invalid tutor ID")
             finish()
             return
         }
@@ -136,11 +138,10 @@ class BookingActivity : AppCompatActivity() {
                     onFailure = { exception ->
                         Log.e("BookingActivity", "Server connectivity failed: ${exception.message}")
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(
-                                this@BookingActivity,
-                                "Warning: Server connection issues detected. Some features may not work properly.",
-                                Toast.LENGTH_LONG
-                            ).show()
+                            UiUtils.showWarningSnackbar(
+                                findViewById(android.R.id.content),
+                                "Warning: Server connection issues detected. Some features may not work properly."
+                            )
                         }
                     }
                 )
@@ -171,18 +172,18 @@ class BookingActivity : AppCompatActivity() {
         timeSlotAdapter = TimeSlotAdapter(emptyList()) { timeSlot ->
             selectedTimeSlot = timeSlot
             // Update UI to show selected time slot
-            Toast.makeText(this, "Selected time: $timeSlot", Toast.LENGTH_SHORT).show()
+            highlightSelectedTimeSlot(timeSlot)
         }
         timeSlotRecyclerView.adapter = timeSlotAdapter
 
         // Initialize subjects RecyclerView
         subjectsRecyclerView = findViewById(R.id.subjectsRecyclerView)
-        subjectsRecyclerView.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        subjectsRecyclerView.layoutManager = GridLayoutManager(this, 3)
         subjectsRecyclerView.isNestedScrollingEnabled = false
         subjectAdapter = TutorSubjectAdapter(emptyList()) { subject ->
             selectedSubject = subject.subject
             // Update UI to show selected subject
-            Toast.makeText(this, "Selected subject: ${subject.subject}", Toast.LENGTH_SHORT).show()
+            highlightSelectedSubject(subject.subject)
         }
         subjectsRecyclerView.adapter = subjectAdapter
 
@@ -213,6 +214,32 @@ class BookingActivity : AppCompatActivity() {
                 selectedDuration = 1.0
                 updateSessionSummary()
             }
+        }
+    }
+
+    /**
+     * Provide visual feedback for selected time slot instead of using Toast
+     */
+    private fun highlightSelectedTimeSlot(timeSlot: String) {
+        // This will be handled by the adapter's selection logic
+        // We can add a small text indication at the bottom of the screen
+        val selectionText = findViewById<TextView>(R.id.selectionStatusTextView1)
+        if (selectionText != null) {
+            selectionText.text = "Selected time: $timeSlot"
+            selectionText.visibility = View.VISIBLE
+        }
+    }
+
+    /**
+     * Provide visual feedback for selected subject instead of using Toast
+     */
+    private fun highlightSelectedSubject(subject: String) {
+        // This will be handled by the adapter's selection logic
+        // We can add a small text indication at the bottom of the screen
+        val selectionText = findViewById<TextView>(R.id.selectionStatusTextView1)
+        if (selectionText != null) {
+            selectionText.text = "Selected subject: $subject"
+            selectionText.visibility = View.VISIBLE
         }
     }
 
@@ -289,8 +316,12 @@ class BookingActivity : AppCompatActivity() {
                 tutorExpertiseText.text = profile.subjects.joinToString(", ")
                 tutorRatingText.rating = profile.rating
 
-                // Set hourly rate
+                // Set hourly rate in all places
                 tutorRateText.text = String.format("$%.2f/hr", profile.hourlyRate)
+                findViewById<TextView>(R.id.blueRateText)?.text = String.format("$%.2f/hr", profile.hourlyRate)
+                findViewById<TextView>(R.id.cardBlueRateText)?.text = String.format("$%.2f/hr", profile.hourlyRate)
+                findViewById<TextView>(R.id.summaryCardBlueRateText1)?.text = String.format("$%.2f/hr", profile.hourlyRate)
+                findViewById<TextView>(R.id.summaryCardBlueRateText3)?.text = String.format("$%.2f/hr", profile.hourlyRate)
 
                 // Update the session summary with new rate
                 updateSessionSummary()
@@ -378,6 +409,15 @@ class BookingActivity : AppCompatActivity() {
                             Log.d("BookingActivity", "Loaded ${subjects.size} subjects: ${subjects.map { it.subject }}")
 
                             tutorSubjects = subjects
+                            
+                            // Adjust grid span count based on number of subjects
+                            val spanCount = when {
+                                subjects.size <= 2 -> 2
+                                subjects.size <= 4 -> 2
+                                else -> 3
+                            }
+                            (subjectsRecyclerView.layoutManager as GridLayoutManager).spanCount = spanCount
+                            
                             // Update the adapter with all subjects
                             subjectAdapter.updateSubjects(subjects)
 
@@ -420,6 +460,15 @@ class BookingActivity : AppCompatActivity() {
                                             createdAt = ""
                                         )
                                     }
+                                    
+                                    // Adjust grid span count based on number of subjects
+                                    val spanCount = when {
+                                        subjectsFromProfile.size <= 2 -> 2
+                                        subjectsFromProfile.size <= 4 -> 2
+                                        else -> 3
+                                    }
+                                    (subjectsRecyclerView.layoutManager as GridLayoutManager).spanCount = spanCount
+                                    
                                     tutorSubjects = subjectsFromProfile
                                     subjectAdapter.updateSubjects(subjectsFromProfile)
 
@@ -520,30 +569,37 @@ class BookingActivity : AppCompatActivity() {
 
     private fun validateInputs(): Boolean {
         var isValid = true
+        val rootView = findViewById<View>(android.R.id.content)
+        val errorMessages = mutableListOf<String>()
 
         // Check if date is selected
         val selectedDateTextView = findViewById<TextView>(R.id.selectedDateTextView)
         if (selectedDateTextView?.text.isNullOrEmpty() || selectedDateTextView?.text == "Select a date") {
-            Toast.makeText(this, "Please select a date", Toast.LENGTH_SHORT).show()
+            errorMessages.add("Please select a date")
             isValid = false
         }
 
         // Check if time slot is selected
         if (selectedTimeSlot == null) {
-            Toast.makeText(this, "Please select a time slot", Toast.LENGTH_SHORT).show()
+            errorMessages.add("Please select a time slot")
             isValid = false
         }
 
         // Check if subject is selected
         if (selectedSubject.isEmpty()) {
-            Toast.makeText(this, "Please select a subject", Toast.LENGTH_SHORT).show()
+            errorMessages.add("Please select a subject")
             isValid = false
         }
 
         // If in-person session, check if location is selected
         if (selectedSessionType == "In-Person" && selectedMeetingLocationName.isEmpty()) {
-            Toast.makeText(this, "Please select a meeting location", Toast.LENGTH_SHORT).show()
+            errorMessages.add("Please select a meeting location")
             isValid = false
+        }
+
+        // Show all validation errors in a single snackbar if there are any
+        if (errorMessages.isNotEmpty()) {
+            UiUtils.showErrorSnackbar(rootView, errorMessages.joinToString(", "))
         }
 
         return isValid
@@ -551,15 +607,16 @@ class BookingActivity : AppCompatActivity() {
 
     private fun bookSession() {
         showLoading(true, "Booking your session...")
+        val rootView = findViewById<View>(android.R.id.content)
 
         if (selectedTimeSlot == null) {
-            Toast.makeText(this, "Please select a time slot", Toast.LENGTH_SHORT).show()
+            UiUtils.showErrorSnackbar(rootView, "Please select a time slot")
             showLoading(false)
             return
         }
 
         if (selectedSubject.isEmpty()) {
-            Toast.makeText(this, "Please select a subject", Toast.LENGTH_SHORT).show()
+            UiUtils.showErrorSnackbar(rootView, "Please select a subject")
             showLoading(false)
             return
         }
@@ -577,7 +634,7 @@ class BookingActivity : AppCompatActivity() {
 
         val selectedDate = findViewById<TextView>(R.id.selectedDateTextView).text.toString()
         if (selectedDate == "Select a date") {
-            Toast.makeText(this, "Please select a date", Toast.LENGTH_SHORT).show()
+            UiUtils.showErrorSnackbar(rootView, "Please select a date")
             showLoading(false)
             return
         }
@@ -622,20 +679,29 @@ class BookingActivity : AppCompatActivity() {
                 endTime = endTimeString,
                 subject = selectedSubject,
                 sessionType = selectedSessionType,
-                notes = notes
+                notes = notes,
+                location = if (selectedSessionType == "In-Person" && selectedMeetingLocationName.isNotEmpty()) {
+                    // Format location data as a string with coordinates and name for backward compatibility
+                    "Lat: $selectedMeetingLatitude, Long: $selectedMeetingLongitude, Name: $selectedMeetingLocationName"
+                } else {
+                    ""
+                },
+                latitude = if (selectedSessionType == "In-Person") selectedMeetingLatitude else null,
+                longitude = if (selectedSessionType == "In-Person") selectedMeetingLongitude else null,
+                locationName = if (selectedSessionType == "In-Person") selectedMeetingLocationName else null
             ) { success ->
                 // Note: This callback will be called by the ViewModel and should handle hiding loading
                 runOnUiThread {
                     showLoading(false)
                     if (!success) {
-                        // Only show error toast - successful booking is handled by the observer
-                        Toast.makeText(this, "Failed to book session. Please try again.", Toast.LENGTH_SHORT).show()
+                        // Only show error snackbar - successful booking is handled by the observer
+                        UiUtils.showErrorSnackbar(rootView, "Failed to book session. Please try again.")
                     }
                 }
             }
         } catch (e: Exception) {
             Log.e("BookingActivity", "Error booking session: ${e.message}", e)
-            Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+            UiUtils.showErrorSnackbar(rootView, "Error: ${e.message}")
             showLoading(false)
         }
     }
@@ -645,11 +711,29 @@ class BookingActivity : AppCompatActivity() {
      */
     private fun updateSessionSummary() {
         try {
-            // Find summary text views if not already initialized
+            // Find primary text views if not already initialized
             val tutorRateTextView = findViewById<TextView>(R.id.tutorRateText)
-            val summaryDurationTextView = findViewById<TextView>(R.id.summaryDurationText)
-            val totalPriceTextView = findViewById<TextView>(R.id.totalPriceText)
-
+            
+            // Find blue card section text views
+            val blueRateTextView = findViewById<TextView>(R.id.blueRateText)
+            val blueDurationTextView = findViewById<TextView>(R.id.blueDurationText)
+            val blueTotalTextView = findViewById<TextView>(R.id.blueTotalText)
+            
+            // Find card blue section text views (renamed to avoid duplicates)
+            val cardBlueRateTextView = findViewById<TextView>(R.id.cardBlueRateText)
+            val cardBlueDurationTextView = findViewById<TextView>(R.id.cardBlueDurationText)
+            val cardBlueTotalTextView = findViewById<TextView>(R.id.cardBlueTotalText)
+            
+            // Find summary card blue section text views with suffix 1
+            val summaryCardBlueRateTextView1 = findViewById<TextView>(R.id.summaryCardBlueRateText1)
+            val summaryCardBlueDurationTextView1 = findViewById<TextView>(R.id.summaryCardBlueDurationText1)
+            val summaryCardBlueTotalTextView1 = findViewById<TextView>(R.id.summaryCardBlueTotalText1)
+            
+            // Find summary card blue section text views with suffix 3
+            val summaryCardBlueRateTextView3 = findViewById<TextView>(R.id.summaryCardBlueRateText3)
+            val summaryCardBlueDurationTextView3 = findViewById<TextView>(R.id.summaryCardBlueDurationText3)
+            val summaryCardBlueTotalTextView3 = findViewById<TextView>(R.id.summaryCardBlueTotalText3)
+            
             // Get the tutor's hourly rate from the profile
             val tutorProfile = viewModel.bookingState.value?.tutorProfile
             val hourlyRate = tutorProfile?.hourlyRate ?: 0.0
@@ -664,10 +748,28 @@ class BookingActivity : AppCompatActivity() {
             // Calculate the total price
             val totalPrice = hourlyRate * selectedDuration
 
-            // Update the UI elements
+            // Update tutor rate text view
             tutorRateTextView?.text = String.format("$%.2f/hr", hourlyRate)
-            summaryDurationTextView?.text = durationText
-            totalPriceTextView?.text = String.format("$%.2f", totalPrice)
+            
+            // Update the blue card section
+            blueRateTextView?.text = String.format("$%.2f/hr", hourlyRate)
+            blueDurationTextView?.text = durationText
+            blueTotalTextView?.text = String.format("$%.2f", totalPrice)
+            
+            // Update the blue card section in bottom card
+            cardBlueRateTextView?.text = String.format("$%.2f/hr", hourlyRate)
+            cardBlueDurationTextView?.text = durationText
+            cardBlueTotalTextView?.text = String.format("$%.2f", totalPrice)
+            
+            // Update the summary card blue section 1
+            summaryCardBlueRateTextView1?.text = String.format("$%.2f/hr", hourlyRate)
+            summaryCardBlueDurationTextView1?.text = durationText
+            summaryCardBlueTotalTextView1?.text = String.format("$%.2f", totalPrice)
+            
+            // Update the summary card blue section 3
+            summaryCardBlueRateTextView3?.text = String.format("$%.2f/hr", hourlyRate)
+            summaryCardBlueDurationTextView3?.text = durationText
+            summaryCardBlueTotalTextView3?.text = String.format("$%.2f", totalPrice)
 
             Log.d("BookingActivity", "Updated session summary: Rate=$hourlyRate, Duration=$selectedDuration, Total=$totalPrice")
         } catch (e: Exception) {
@@ -683,11 +785,12 @@ class BookingActivity : AppCompatActivity() {
             try {
                 // Show progress indicator
                 showLoading(true, "Starting conversation...")
+                val rootView = findViewById<View>(android.R.id.content)
 
                 // Get the current user ID from preferences
                 val currentUserId = com.mobile.utils.PreferenceUtils.getUserId(this@BookingActivity)
                 if (currentUserId == null || currentUserId <= 0) {
-                    Toast.makeText(this@BookingActivity, "You need to be logged in to send messages", Toast.LENGTH_SHORT).show()
+                    UiUtils.showErrorSnackbar(rootView, "You need to be logged in to send messages")
                     showLoading(false)
                     return@launch
                 }
@@ -711,21 +814,19 @@ class BookingActivity : AppCompatActivity() {
                     },
                     onFailure = { error ->
                         Log.e("BookingActivity", "Failed to create conversation", error)
-                        Toast.makeText(
-                            this@BookingActivity,
-                            "Could not start conversation: ${error.message}",
-                            Toast.LENGTH_SHORT
-                        ).show()
+                        UiUtils.showErrorSnackbar(
+                            rootView,
+                            "Could not start conversation: ${error.message}"
+                        )
                     }
                 )
             } catch (e: Exception) {
                 showLoading(false)
                 Log.e("BookingActivity", "Error starting conversation", e)
-                Toast.makeText(
-                    this@BookingActivity,
-                    "Error: ${e.message}",
-                    Toast.LENGTH_SHORT
-                ).show()
+                UiUtils.showErrorSnackbar(
+                    findViewById(android.R.id.content),
+                    "Error: ${e.message}"
+                )
             }
         }
     }
@@ -757,101 +858,53 @@ class BookingActivity : AppCompatActivity() {
     private fun showBookingConfirmationDialog() {
         try {
             Log.d("BookingActivity", "Showing booking confirmation dialog")
+            val rootView = findViewById<View>(android.R.id.content)
 
             // Set result code immediately to indicate success
             setResult(RESULT_OK)
             Log.d("BookingActivity", "Set result code to RESULT_OK")
 
-            // Determine if we can use Material Design dialog
-            val canUseMaterialDialog = try {
-                // Check if the MaterialComponents class is available
-                Class.forName("com.google.android.material.dialog.MaterialAlertDialogBuilder")
-                true
-            } catch (e: ClassNotFoundException) {
-                Log.w("BookingActivity", "MaterialAlertDialogBuilder not available, using AppCompat dialog")
-                false
-            }
-
             // Get the tutor name from the viewModel
             val tutorName = viewModel.bookingState.value?.tutorProfile?.name ?: "the tutor"
             val message = "Your session has been booked successfully! " +
-                          "You'll receive a notification when $tutorName confirms the session."
+                         "You'll receive a notification when $tutorName confirms the session."
 
-            // Create the appropriate dialog builder
-            if (canUseMaterialDialog) {
-                // Use Material Design dialog if available
-                val builder = androidx.appcompat.app.AlertDialog.Builder(this, R.style.AlertDialogTheme)
-                builder.setTitle("Booking Successful")
-                builder.setMessage(message)
-                builder.setPositiveButton("View My Sessions") { _, _ ->
-                    // Set a special result code to indicate we should switch to sessions tab
-                    Log.d("BookingActivity", "User clicked 'View My Sessions', setting RESULT_VIEW_SESSIONS")
-                    setResult(RESULT_VIEW_SESSIONS)
-                    Log.d("BookingActivity", "Finishing activity after 'View My Sessions'")
-
-                    // As a safety measure, directly navigate to LearnerDashboardActivity with a flag to show sessions
-                    try {
-                        val intent = Intent(this, Class.forName("com.mobile.ui.dashboard.LearnerDashboardActivity"))
-                        intent.putExtra("SHOW_SESSIONS", true)
-                        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                        startActivity(intent)
-                    } catch (e: Exception) {
-                        Log.e("BookingActivity", "Error navigating to dashboard: ${e.message}", e)
-                    }
-
-                    finish()
-                }
-                builder.setNegativeButton("Done") { _, _ -> 
-                    Log.d("BookingActivity", "User clicked 'Done', keeping RESULT_OK")
-                    Log.d("BookingActivity", "Finishing activity after 'Done'")
-                    finish()
-                }
-
-                // Create and show the dialog
-                val dialog = builder.create()
-                dialog.setCancelable(false) // Prevent dismissal by tapping outside
-                dialog.show()
-                Log.d("BookingActivity", "Dialog shown successfully")
-            } else {
-                // Fallback to standard Android dialog
-                val builder = androidx.appcompat.app.AlertDialog.Builder(this)
-                builder.setTitle("Booking Successful")
-                builder.setMessage(message)
-                builder.setPositiveButton("View My Sessions") { _, _ -> 
-                    // Set a special result code to indicate we should switch to sessions tab
-                    Log.d("BookingActivity", "User clicked 'View My Sessions', setting RESULT_VIEW_SESSIONS")
-                    setResult(RESULT_VIEW_SESSIONS)
-                    Log.d("BookingActivity", "Finishing activity after 'View My Sessions'")
-
-                    // As a safety measure, directly navigate to LearnerDashboardActivity with a flag to show sessions
-                    try {
-                        val intent = Intent(this, Class.forName("com.mobile.ui.dashboard.LearnerDashboardActivity"))
-                        intent.putExtra("SHOW_SESSIONS", true)
-                        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                        startActivity(intent)
-                    } catch (e: Exception) {
-                        Log.e("BookingActivity", "Error navigating to dashboard: ${e.message}", e)
-                    }
-
-                    finish()
-                }
-                builder.setNegativeButton("Done") { _, _ -> 
-                    Log.d("BookingActivity", "User clicked 'Done', keeping RESULT_OK")
-                    Log.d("BookingActivity", "Finishing activity after 'Done'")
-                    finish()
-                }
-
-                // Create and show the dialog
-                val dialog = builder.create()
-                dialog.setCancelable(false) // Prevent dismissal by tapping outside
-                dialog.show()
-                Log.d("BookingActivity", "Dialog shown successfully")
+            // Show a success snackbar instead of toast
+            UiUtils.showSuccessSnackbar(rootView, message)
+            
+            // Set result to navigate to sessions tab
+            setResult(RESULT_VIEW_SESSIONS)
+            
+            // Directly navigate to StudentDashboardActivity and show sessions
+            try {
+                Log.d("BookingActivity", "Automatically redirecting to dashboard after successful booking")
+                val intent = Intent(this, Class.forName("com.mobile.ui.dashboard.StudentDashboardActivity"))
+                intent.putExtra("SHOW_SESSIONS", true)
+                intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                startActivity(intent)
+                finish()
+            } catch (e: Exception) {
+                Log.e("BookingActivity", "Error navigating to dashboard: ${e.message}", e)
+                // Fall back to just finishing if we can't navigate
+                finish()
             }
         } catch (e: Exception) {
             Log.e("BookingActivity", "Error showing confirmation dialog: ${e.message}", e)
-            Toast.makeText(this, "Session booked successfully!", Toast.LENGTH_LONG).show()
-            Log.d("BookingActivity", "Finishing activity after toast fallback")
-            finish()
+            
+            // Use success snackbar as fallback
+            UiUtils.showSuccessSnackbar(findViewById(android.R.id.content), "Session booked successfully!")
+            
+            // Fall back to just finishing if we encounter an error
+            try {
+                val intent = Intent(this, Class.forName("com.mobile.ui.dashboard.StudentDashboardActivity"))
+                intent.putExtra("SHOW_SESSIONS", true)
+                intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                startActivity(intent)
+                finish()
+            } catch (ex: Exception) {
+                Log.e("BookingActivity", "Error in fallback navigation: ${ex.message}", ex)
+                finish()
+            }
         }
     }
 
@@ -903,11 +956,12 @@ class TutorSubjectAdapter(
 
     inner class SubjectViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val subjectText: TextView = itemView.findViewById(R.id.subjectNameTextView)
+        val cardView: CardView = itemView as CardView
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): SubjectViewHolder {
         val view = android.view.LayoutInflater.from(parent.context)
-            .inflate(R.layout.item_subject, parent, false)
+            .inflate(R.layout.item_booking_subject, parent, false)
         return SubjectViewHolder(view)
     }
 
@@ -915,20 +969,29 @@ class TutorSubjectAdapter(
         val subject = subjects[position]
         holder.subjectText.text = subject.subject
 
-        // Set selected state
+        // Set selected state with a cleaner design
         val isSelected = position == selectedPosition
-        holder.itemView.setBackgroundColor(
-            ContextCompat.getColor(
-                holder.itemView.context,
-                if (isSelected) R.color.primary_blue else R.color.white
+        if (isSelected) {
+            // Selected style
+            holder.cardView.setCardBackgroundColor(
+                ContextCompat.getColor(holder.itemView.context, R.color.primary_blue)
             )
-        )
-        holder.subjectText.setTextColor(
-            ContextCompat.getColor(
-                holder.itemView.context,
-                if (isSelected) R.color.white else R.color.black
+            holder.subjectText.setTextColor(
+                ContextCompat.getColor(holder.itemView.context, R.color.white)
             )
-        )
+            // Increase elevation for better visual feedback
+            holder.cardView.cardElevation = 4f
+        } else {
+            // Unselected style
+            holder.cardView.setCardBackgroundColor(
+                ContextCompat.getColor(holder.itemView.context, R.color.white)
+            )
+            holder.subjectText.setTextColor(
+                ContextCompat.getColor(holder.itemView.context, R.color.text_primary)
+            )
+            // Default elevation
+            holder.cardView.cardElevation = 2f
+        }
 
         // Set click listener
         holder.itemView.setOnClickListener {

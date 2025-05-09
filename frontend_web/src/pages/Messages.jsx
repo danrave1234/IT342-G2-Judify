@@ -81,7 +81,7 @@ const Messages = () => {
     // This cleanup function will run synchronously when the component unmounts
     return () => {
       console.log('Messages component unmounting - cleanup');
-      
+
       // First leave any active conversation to clean up context state
       if (activeConversation) {
         try {
@@ -206,7 +206,7 @@ const Messages = () => {
       console.log(`Already in conversation ${conversationId}, skipping join`);
       return;
     }
-    
+
     // Leave previous conversation before joining new one
     if (activeConversation && activeConversation !== conversationId) {
       console.log(`Leaving previous conversation ${activeConversation} before joining ${conversationId}`);
@@ -216,7 +216,7 @@ const Messages = () => {
         console.error('Error leaving previous conversation:', err);
       }
     }
-    
+
     // Only join if we have a valid conversationId and user
     if (conversationId && user) {
       console.log(`Joining conversation: ${conversationId}`);
@@ -227,7 +227,7 @@ const Messages = () => {
         setError('Failed to join conversation');
       }
     }
-    
+
     // Cleanup when the conversationId changes
     return () => {
       // We already handle leaving the conversation when changing to a new one,
@@ -253,10 +253,10 @@ const Messages = () => {
         console.log(`Already in conversation ${conversationId}, skipping reload`);
         return;
       }
-      
+
       // Navigate to the conversation URL (this will trigger the useEffect that joins the conversation)
       navigate(`/messages/${conversationId}`);
-      
+
       // Set this as the active conversation locally
       setActiveLocalConversation(conversation);
     } catch (err) {
@@ -279,21 +279,21 @@ const Messages = () => {
       const result = await getOrCreateConversation(otherUserId);
       if (result.success && result.conversation) {
         console.log('Conversation found or created:', result.conversation);
-        
+
         // Add the new conversation to the list
         if (!conversations.find(c => c.conversationId === result.conversation.conversationId)) {
           setConversations([...conversations, result.conversation]);
         }
-        
+
         // Select the conversation
         handleSelectConversation(result.conversation);
-        
+
         // If there's session context, send an initial message
         if (sessionContext) {
           const initialMessage = `Hi, I'd like to discuss our tutoring session ${
             sessionContext.date ? `scheduled for ${new Date(sessionContext.date).toLocaleDateString()}` : ''
           }${sessionContext.subject ? ` on ${sessionContext.subject}` : ''}.`;
-          
+
           // Set the message content (will be sent by the user manually)
           setNewMessage(initialMessage);
         }
@@ -311,25 +311,25 @@ const Messages = () => {
     e.preventDefault();
 
     if (!newMessage.trim()) return;
-    
+
     // Check if we have an active conversation
     if (!activeConversation && !conversationId) {
       toast.error('Please select a conversation first');
       return;
     }
-    
+
     // Use either the active conversation ID or the route parameter
     const targetConversationId = activeConversation || conversationId;
 
     try {
       setSendingMessage(true);
-      
+
       // Call sendMessage function from context
       await sendMessage(newMessage);
-      
+
       // Clear the input
       setNewMessage('');
-      
+
       // Scroll to bottom after sending
       scrollToBottom();
     } catch (err) {
@@ -360,7 +360,7 @@ const Messages = () => {
   // Set the active conversation in the context
   const setActiveConversation = (conversation) => {
     if (!conversation) return;
-    
+
     const conversationId = conversation.conversationId || conversation.id;
     if (conversationId) {
       joinConversation(conversationId);
@@ -378,7 +378,7 @@ const Messages = () => {
     try {
       // Clear any previous errors
       setError(null);
-      
+
       const response = await conversationApi.getConversations(user.userId);
       return { success: true, conversations: response.data || [] };
     } catch (err) {
@@ -399,7 +399,7 @@ const Messages = () => {
     try {
       // Clear any previous errors
       setError(null);
-      
+
       // Use the context function to load messages
       await joinConversation(conversationId);
       return { success: true };
@@ -429,19 +429,19 @@ const Messages = () => {
     try {
       // First check if conversation already exists
       const result = await getConversations();
-      
+
       if (result.success) {
         const existingConversation = result.conversations.find(conv => 
           (conv.user1Id === user.userId && conv.user2Id === Number(otherUserId)) || 
           (conv.user1Id === Number(otherUserId) && conv.user2Id === user.userId)
         );
-        
+
         if (existingConversation) {
           console.log('Found existing conversation:', existingConversation);
           return { success: true, conversation: existingConversation };
         }
       }
-      
+
       // If no existing conversation, create a new one
       console.log('Creating conversation with data: ', {
         studentId: user.role === 'STUDENT' ? user.userId : otherUserId,
@@ -449,14 +449,14 @@ const Messages = () => {
         sessionId: null,
         lastMessageTime: new Date().toISOString()
       });
-      
+
       const response = await conversationApi.createConversation({
         studentId: user.role === 'STUDENT' ? user.userId : otherUserId,
         tutorId: user.role === 'TUTOR' ? user.userId : otherUserId,
         sessionId: null,
         lastMessageTime: new Date().toISOString()
       });
-      
+
       console.log('Created new conversation:', response.data);
       return { 
         success: true, 
@@ -520,7 +520,7 @@ const Messages = () => {
                   const otherUserId = conversation.user1Id === user.userId ? conversation.user2Id : conversation.user1Id;
                   const userName = conversation.user1Id === user.userId ? 
                     conversation.user2Name : conversation.user1Name;
-                  
+
                   return (
                     <li 
                       key={conversation.conversationId || conversation.id}
@@ -625,11 +625,11 @@ const Messages = () => {
                         <Spinner />
                       </div>
                     )}
-                    
+
                     <div className="space-y-4">
                       {messages.map((message, index) => {
                         const isSender = message.senderId === user.userId;
-                        
+
                         return (
                           <div 
                             key={message.messageId || message.id || index}
@@ -642,9 +642,43 @@ const Messages = () => {
                                   ? 'bg-primary-600 text-white rounded-br-none' 
                                   : 'bg-gray-200 dark:bg-dark-700 text-gray-900 dark:text-white rounded-bl-none'
                                 }
+                                ${message.messageType === 'SESSION_DETAILS' ? 'border-2 border-yellow-500' : ''}
+                                ${message.messageType === 'SESSION_ACTION' ? 'border-2 border-blue-500' : ''}
                               `}
                             >
-                              <p>{message.content}</p>
+                              {message.messageType === 'SESSION_DETAILS' ? (
+                                <div>
+                                  <div className="font-bold mb-2">Session Details</div>
+                                  <div className="whitespace-pre-line">{message.content}</div>
+                                  {message.sessionId && (
+                                    <div className="mt-2 flex justify-end">
+                                      <button 
+                                        onClick={() => window.open(`/student/sessions/${message.sessionId}`, '_blank')}
+                                        className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm"
+                                      >
+                                        Open Session
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              ) : message.messageType === 'SESSION_ACTION' ? (
+                                <div>
+                                  <div className="font-bold mb-2">Session Update</div>
+                                  <p>{message.content}</p>
+                                  {message.sessionId && message.content.includes('accepted') && (
+                                    <div className="mt-2 flex justify-end">
+                                      <button 
+                                        onClick={() => window.open(`/student/sessions/${message.sessionId}`, '_blank')}
+                                        className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm"
+                                      >
+                                        View Session
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <p>{message.content}</p>
+                              )}
                               <p className={`text-xs mt-1 ${isSender ? 'text-primary-100' : 'text-gray-500 dark:text-gray-400'}`}>
                                 {formatTimestamp(message.timestamp || message.createdAt || message.sentAt)}
                               </p>

@@ -116,6 +116,42 @@ class MessageRepository {
                     Log.d("MessageRepository", "Processing ${networkMessages.size} messages")
 
                     networkMessages.map { networkMessage ->
+                        // Analyze message content to determine message type and extract session ID if present
+                        val content = networkMessage.content
+                        val messageType: Message.MessageType
+                        var sessionId: Long? = null
+
+                        // Check if this is a session details message
+                        if (content.contains("Subject:") && 
+                            (content.contains("Date:") || content.contains("Time:")) && 
+                            content.contains("Status:")) {
+                            messageType = Message.MessageType.SESSION_DETAILS
+
+                            // Try to extract session ID from the message content
+                            val sessionIdRegex = "Session ID: (\\d+)".toRegex()
+                            val matchResult = sessionIdRegex.find(content)
+                            sessionId = matchResult?.groupValues?.get(1)?.toLongOrNull()
+
+                            Log.d("MessageRepository", "Detected SESSION_DETAILS message with sessionId: $sessionId")
+                        }
+                        // Check if this is a session action message
+                        else if (content.contains("approved") || content.contains("rejected") || 
+                                content.contains("scheduled") || content.contains("cancelled") || 
+                                content.contains("completed")) {
+                            messageType = Message.MessageType.SESSION_ACTION
+
+                            // Try to extract session ID from the message content
+                            val sessionIdRegex = "Session ID: (\\d+)".toRegex()
+                            val matchResult = sessionIdRegex.find(content)
+                            sessionId = matchResult?.groupValues?.get(1)?.toLongOrNull()
+
+                            Log.d("MessageRepository", "Detected SESSION_ACTION message with sessionId: $sessionId")
+                        }
+                        // Default to regular text message
+                        else {
+                            messageType = Message.MessageType.TEXT
+                        }
+
                         Message(
                             id = networkMessage.id,
                             conversationId = networkMessage.conversationId,
@@ -124,7 +160,9 @@ class MessageRepository {
                             receiverId = 0, // Will be updated later if needed
                             content = networkMessage.content,
                             timestamp = parseTimestamp(networkMessage.timestamp) ?: System.currentTimeMillis(),
-                            readStatus = networkMessage.isRead
+                            readStatus = networkMessage.isRead,
+                            messageType = messageType,
+                            sessionId = sessionId
                         )
                     }
                     // Note: We're not sorting here anymore as the MessageActivity will handle sorting
@@ -145,7 +183,7 @@ class MessageRepository {
         return withContext(Dispatchers.IO) {
             try {
                 Log.d("MessageRepository", "Sending message: ${message.content} from ${message.senderId} to ${message.receiverId} in conversation ${message.conversationId}")
-                
+
                 // Format timestamp correctly
                 val timestamp = primaryTimeFormat.format(Date(message.timestamp))
 
@@ -165,7 +203,9 @@ class MessageRepository {
                         receiverId = message.receiverId, // Use the receiver ID from the original message
                         content = networkMessage.content,
                         timestamp = parseTimestamp(networkMessage.timestamp) ?: System.currentTimeMillis(),
-                        readStatus = networkMessage.isRead
+                        readStatus = networkMessage.isRead,
+                        messageType = message.messageType, // Preserve the original message type
+                        sessionId = message.sessionId // Preserve the original session ID
                     )
                 }
             } catch (e: Exception) {

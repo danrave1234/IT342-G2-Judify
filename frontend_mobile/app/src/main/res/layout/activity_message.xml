@@ -16,7 +16,6 @@
         <com.google.android.material.appbar.CollapsingToolbarLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:layout_scrollFlags="scroll|exitUntilCollapsed"
             app:contentScrim="@color/primary_blue">
 
             <!-- Gradient background for toolbar -->
@@ -73,7 +72,7 @@
                         android:layout_marginEnd="8dp"
                         android:orientation="vertical"
                         app:layout_constraintBottom_toBottomOf="parent"
-                        app:layout_constraintEnd_toStartOf="@+id/videoCallButton"
+                        app:layout_constraintEnd_toStartOf="@+id/optionsButton"
                         app:layout_constraintStart_toEndOf="@+id/profileContainer"
                         app:layout_constraintTop_toTopOf="parent">
 
@@ -100,18 +99,6 @@
                             tools:text="Online" />
                     </LinearLayout>
 
-                    <!-- Video Call Button -->
-                    <ImageButton
-                        android:id="@+id/videoCallButton"
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
-                        android:layout_marginEnd="8dp"
-                        android:background="?attr/selectableItemBackgroundBorderless"
-                        android:src="@drawable/ic_video_on"
-                        android:tint="@color/white"
-                        app:layout_constraintBottom_toBottomOf="parent"
-                        app:layout_constraintEnd_toStartOf="@+id/optionsButton"
-                        app:layout_constraintTop_toTopOf="parent" />
 
                     <!-- More Options Button -->
                     <ImageButton
@@ -156,12 +143,12 @@
             android:paddingTop="16dp"
             android:paddingEnd="12dp"
             android:paddingBottom="16dp"
-            app:layout_constraintBottom_toTopOf="@+id/attachmentPreviewArea"
+            app:layout_constraintBottom_toTopOf="@+id/messageInputContainer"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/sessionDetailsInclude"
             tools:listitem="@layout/item_message_received" />
-            
+
         <!-- Attachment Preview Area (Hidden by default) -->
         <androidx.constraintlayout.widget.ConstraintLayout
             android:id="@+id/attachmentPreviewArea"
@@ -173,6 +160,7 @@
             app:layout_constraintBottom_toTopOf="@+id/messageInputContainer"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/messagesRecyclerView"
             tools:visibility="visible">
 
             <ImageView
@@ -422,7 +410,7 @@
             app:layout_constraintBottom_toTopOf="@+id/messageInputContainer"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent">
+            app:layout_constraintTop_toBottomOf="@+id/sessionDetailsInclude">
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/emptyStateCard"
@@ -492,6 +480,6 @@
             app:layout_constraintBottom_toTopOf="@+id/messageInputContainer"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
+            app:layout_constraintTop_toBottomOf="@+id/sessionDetailsInclude" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 </androidx.coordinatorlayout.widget.CoordinatorLayout> 

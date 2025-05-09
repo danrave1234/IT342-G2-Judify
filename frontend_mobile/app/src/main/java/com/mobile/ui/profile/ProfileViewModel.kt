@@ -18,7 +18,10 @@ data class User(
     val name: String,
     val email: String,
     val username: String? = null, // Added username field
-    val profileImageUrl: String? = null
+    val profileImageUrl: String? = null,
+    val phoneNumber: String? = null, // Added phone number field
+    val bio: String? = null, // Added bio field
+    val role: String? = null // Added role field
 )
 
 // Data class for profile state
@@ -57,7 +60,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         val currentVal = _profileState.value ?: ProfileState()
         if (currentVal.user == null || currentVal.isLoading || currentVal.isUpdateSuccessful) {
             // Only set loading if data isn't present or already loading, or after an update
-            _profileState.value = ProfileState(isLoading = true) // Start with a clean loading state, reset flags
+            _profileState.value = ProfileState(isLoading = true, error = null) // Start with a clean loading state, reset flags and error
             Log.d(TAG, "loadUserProfile called for $email. State set to loading=true.")
         } else {
             Log.d(TAG, "loadUserProfile called for $email, but user data already exists. Refreshing might happen in background if needed.")
@@ -82,7 +85,10 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                         name = "$firstName $lastName".trim(),
                         email = email,
                         username = usernamePref, // Include username
-                        profileImageUrl = null // Profile image URL not stored in prefs currently
+                        profileImageUrl = null, // Profile image URL not stored in prefs currently
+                        phoneNumber = null, // Phone number not stored in prefs currently
+                        bio = null, // Bio not stored in prefs currently
+                        role = PreferenceUtils.getUserRole(context) // Get role from preferences
                     )
                     // Preserve stats if they exist, reset update flag
                     _profileState.postValue(_profileState.value?.copy(isLoading = false, user = user, isUpdateSuccessful = false))
@@ -133,7 +139,10 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                         name = "${userEntity.firstName} ${userEntity.lastName}".trim(),
                         email = userEntity.email,
                         username = userEntity.username, // Get username from backend response
-                        profileImageUrl = userEntity.profilePicture
+                        profileImageUrl = userEntity.profilePicture,
+                        phoneNumber = null, // Phone number not stored in backend response
+                        bio = null, // Bio not stored in backend response
+                        role = userEntity.roles ?: "STUDENT" // Get role from backend response
                     )
                     // Preserve stats if they exist, reset update flag
                     _profileState.postValue(_profileState.value?.copy(isLoading = false, user = user, isUpdateSuccessful = false))
@@ -146,7 +155,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                         userEntity.firstName,
                         userEntity.lastName,
                         userEntity.email,
-                        userEntity.roles // Use role from response
+                        userEntity.roles ?: "STUDENT" // Use role from response, default to STUDENT if null
                     )
                     userEntity.userId?.let { PreferenceUtils.saveUserId(context, it) }
                     userEntity.username?.let { PreferenceUtils.saveUserUsername(context, it) } // Save username if available
@@ -216,7 +225,10 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                                 name = "$firstName $lastName", // Use the name we sent for update
                                 email = updatedUser.email,
                                 username = updatedUser.username, // Use updated username
-                                profileImageUrl = updatedUser.profilePicture
+                                profileImageUrl = updatedUser.profilePicture,
+                                phoneNumber = null, // Phone number not updated in backend
+                                bio = null, // Bio not updated in backend
+                                role = updatedUser.roles ?: "STUDENT" // Get role from response
                             )
 
                             // Update preferences with latest data from the response
@@ -225,7 +237,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                                 updatedUser.firstName,
                                 updatedUser.lastName,
                                 updatedUser.email,
-                                updatedUser.roles // Use role from response
+                                updatedUser.roles ?: "STUDENT" // Use role from response, default to STUDENT if null
                             )
                             updatedUser.userId?.let { PreferenceUtils.saveUserId(context, it) }
                             updatedUser.username?.let { PreferenceUtils.saveUserUsername(context, it) } // Save username from response
@@ -276,6 +288,128 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         if (_profileState.value?.isUpdateSuccessful == true) {
             _profileState.value = _profileState.value?.copy(isUpdateSuccessful = false)
             Log.d(TAG, "Update status cleared.")
+        }
+    }
+
+    /**
+     * Update user profile with simplified parameters and callback.
+     * @param name Full name of the user
+     * @param email Email address
+     * @param phoneNumber Phone number
+     * @param bio User bio
+     * @param onComplete Callback for update result
+     */
+    fun updateUserProfile(
+        name: String,
+        email: String,
+        phoneNumber: String,
+        bio: String,
+        onComplete: (Boolean) -> Unit
+    ) {
+        Log.d(TAG, "Simplified updateUserProfile called: name=$name, email=$email")
+        val currentState = _profileState.value ?: ProfileState()
+        // Set loading state, clear previous error and success flag
+        _profileState.value = currentState.copy(isLoading = true, error = null, isUpdateSuccessful = false)
+        Log.d(TAG, "State set to loading=true for update.")
+
+        viewModelScope.launch {
+            try {
+                val context = getApplication<Application>()
+                val userId = PreferenceUtils.getUserId(context)
+                val userRole = PreferenceUtils.getUserRole(context)
+                val username = PreferenceUtils.getUserUsername(context) ?: ""
+
+                if (userId != null) {
+                    Log.d(TAG, "Updating user ID: $userId")
+
+                    // Split name into first and last name
+                    val nameParts = name.split(" ", limit = 2)
+                    val firstName = nameParts.getOrNull(0) ?: ""
+                    val lastName = nameParts.getOrNull(1) ?: ""
+
+                    // Prepare ApiUser object for the backend call
+                    val apiUser = ApiUser(
+                        userId = userId,
+                        email = email,
+                        passwordHash = "", // Password not updated here
+                        firstName = firstName,
+                        lastName = lastName,
+                        profilePicture = currentState.user?.profileImageUrl, // Keep existing image URL
+                        contactDetails = phoneNumber, // Use phone number as contact details
+                        roles = userRole, // Get role from prefs
+                        username = username // Include username from preferences
+                    )
+
+                    Log.d(TAG, "Calling NetworkUtils.updateUser for userId: $userId with user: $apiUser")
+                    val result = com.mobile.utils.NetworkUtils.updateUser(apiUser)
+                    Log.d(TAG, "NetworkUtils.updateUser finished. Result success: ${result.isSuccess}")
+
+                    result.fold(
+                        onSuccess = { updatedUser ->
+                            Log.d(TAG, "Update success. Updating state and preferences.")
+                            val profileUser = User(
+                                id = updatedUser.userId ?: userId,
+                                name = name, // Use the name we sent for update
+                                email = updatedUser.email,
+                                username = updatedUser.username, // Use updated username
+                                profileImageUrl = updatedUser.profilePicture,
+                                phoneNumber = phoneNumber, // Set the phone number we sent
+                                bio = bio, // Set the bio we sent
+                                role = updatedUser.roles ?: "STUDENT" // Get role from response
+                            )
+
+                            // Update preferences with latest data from the response
+                            PreferenceUtils.saveUserDetails(
+                                context,
+                                updatedUser.firstName,
+                                updatedUser.lastName,
+                                updatedUser.email,
+                                updatedUser.roles ?: "STUDENT" // Use role from response, default to STUDENT if null
+                            )
+                            updatedUser.userId?.let { PreferenceUtils.saveUserId(context, it) }
+                            updatedUser.username?.let { PreferenceUtils.saveUserUsername(context, it) } // Save username from response
+                            // Save phone number as contact details
+                            PreferenceUtils.saveUserContactDetails(context, phoneNumber)
+
+                            // Update state: loading finished, user data updated, set success flag
+                            // Preserve stats from the previous state
+                            _profileState.postValue(currentState.copy(
+                                isLoading = false,
+                                user = profileUser,
+                                error = null,
+                                isUpdateSuccessful = true // Signal success
+                            ))
+                            Log.d(TAG, "State updated after update success: ${_profileState.value}")
+                            onComplete(true)
+                        },
+                        onFailure = { exception ->
+                            Log.e(TAG, "Update failed: ${exception.message}", exception)
+                            _profileState.postValue(currentState.copy(
+                                isLoading = false,
+                                error = "Update failed: ${exception.message}" // Keep current data but show error
+                            ))
+                            Log.d(TAG, "State updated after update failure: ${_profileState.value}")
+                            onComplete(false)
+                        }
+                    )
+                } else {
+                    Log.e(TAG, "User ID not found in preferences, cannot update.")
+                    _profileState.postValue(currentState.copy(
+                        isLoading = false,
+                        error = "User ID not found. Please log in again."
+                    ))
+                    Log.d(TAG, "State updated after user ID error: ${_profileState.value}")
+                    onComplete(false)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Exception during profile update: ${e.message}", e)
+                _profileState.postValue(currentState.copy(
+                    isLoading = false,
+                    error = "Update error: ${e.message}"
+                ))
+                Log.d(TAG, "State updated after update exception: ${_profileState.value}")
+                onComplete(false)
+            }
         }
     }
 }

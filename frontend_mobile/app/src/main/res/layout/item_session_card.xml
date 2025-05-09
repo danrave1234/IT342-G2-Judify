@@ -52,15 +52,30 @@
             android:maxLines="1"
             android:ellipsize="end" />
 
-        <TextView
-            android:id="@+id/sessionType"
+        <LinearLayout
+            android:id="@+id/sessionTypeContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Session Type"
-            android:textSize="12sp"
-            android:textColor="@color/primary_blue"
-            android:maxLines="1"
-            android:ellipsize="end" />
+            android:orientation="horizontal"
+            android:layout_marginTop="4dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Type:"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="?android:textColorSecondary" />
+
+            <TextView
+                android:id="@+id/sessionType"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:text=""
+                android:textColor="@android:color/black"
+                android:textSize="14sp" />
+        </LinearLayout>
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -86,12 +101,41 @@
                 android:layout_height="1dp"
                 android:layout_weight="1" />
 
-            <ImageView
-                android:id="@+id/sessionActionButton"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:src="@drawable/ic_more"
-                android:tint="?android:textColorSecondary" />
+            <LinearLayout
+                android:id="@+id/actionButtonsContainer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <ImageButton
+                    android:id="@+id/approveButton"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_check"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:tint="@android:color/holo_green_dark"
+                    android:visibility="gone"
+                    android:contentDescription="Approve session" />
+
+                <ImageButton
+                    android:id="@+id/rejectButton"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_close"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:tint="@android:color/holo_red_dark"
+                    android:layout_marginStart="8dp"
+                    android:visibility="gone"
+                    android:contentDescription="Reject session" />
+
+                <ImageButton
+                    android:id="@+id/sessionActionButton"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_more"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:tint="?android:textColorSecondary" />
+            </LinearLayout>
         </LinearLayout>
     </LinearLayout>
 </androidx.cardview.widget.CardView>

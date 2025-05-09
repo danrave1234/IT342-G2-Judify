@@ -13,5 +13,10 @@ data class Booking(
     val subject: String? = null,
     val sessionType: String? = null,
     val notes: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val locationName: String? = null,
+    val locationData: String? = null,
+    val meetingLink: String? = null,
     val createdAt: Date
 ) 

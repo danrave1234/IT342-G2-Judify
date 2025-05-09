@@ -1,5 +1,6 @@
 package com.mobile.ui.profile
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
@@ -17,11 +18,20 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.Observer // <-- Added Observer import
+import androidx.lifecycle.lifecycleScope // <-- Added lifecycleScope import
 import com.mobile.R
 import com.mobile.ui.base.BaseFragment
 import com.mobile.ui.login.LoginActivity
+import com.mobile.ui.register.RegisterActivity // <-- Fixed package for RegisterActivity
 import com.mobile.utils.PreferenceUtils
 import de.hdodenhof.circleimageview.CircleImageView
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.card.MaterialCardView
+import com.mobile.ui.dashboard.StudentDashboardActivity
+import com.mobile.ui.dashboard.TutorDashboardActivity
+import com.mobile.utils.NetworkUtils
+import com.mobile.utils.UiUtils
+import kotlinx.coroutines.launch
 
 /**
  * Fragment for displaying user profile
@@ -29,26 +39,37 @@ import de.hdodenhof.circleimageview.CircleImageView
 class ProfileFragment : BaseFragment() {
     private val TAG = "ProfileFragment" // Add TAG
 
+    // Constants
+    private val REQUEST_EDIT_PROFILE = 100
+
     // UI components
     private lateinit var profileImage: CircleImageView
     private lateinit var userNameText: TextView
     private lateinit var userEmailText: TextView
+    private lateinit var userTypeText: TextView
     private lateinit var editProfileButton: Button
     private lateinit var sessionsCountText: TextView
     private lateinit var reviewsCountText: TextView
     private lateinit var messagesCountText: TextView
-    private lateinit var paymentMethodsOption: LinearLayout
-    private lateinit var notificationsOption: LinearLayout
-    private lateinit var themeModeOption: LinearLayout
     private lateinit var themeModeText: TextView
-    private lateinit var privacySettingsOption: LinearLayout
-    private lateinit var logoutOption: LinearLayout
     private lateinit var progressBar: ProgressBar
+    private lateinit var errorCard: View
     private lateinit var errorText: TextView
+    private lateinit var retryButton: Button
+    private lateinit var accountSettingsCard: MaterialCardView
+    private lateinit var paymentMethodsButton: LinearLayout
+    private lateinit var notificationsButton: LinearLayout
+    private lateinit var securityButton: LinearLayout
+    private lateinit var privacyButton: LinearLayout
+    private lateinit var logoutButton: LinearLayout
+    private lateinit var loginContainer: LinearLayout
+    private lateinit var loginButton: MaterialButton
+    private lateinit var registerButton: MaterialButton
 
     // ViewModel
     private lateinit var viewModel: ProfileViewModel
     private var profileStateObserver: Observer<ProfileState>? = null // Observer instance variable
+    private var userType: String = ""
 
     override fun getLayoutResourceId(): Int {
         return R.layout.fragment_profile
@@ -88,18 +109,30 @@ class ProfileFragment : BaseFragment() {
         profileImage = view.findViewById(R.id.profileImage)
         userNameText = view.findViewById(R.id.userNameText)
         userEmailText = view.findViewById(R.id.userEmailText)
+        userTypeText = view.findViewById(R.id.userTypeText)
         editProfileButton = view.findViewById(R.id.editProfileButton)
         sessionsCountText = view.findViewById(R.id.sessionsCountText)
         reviewsCountText = view.findViewById(R.id.reviewsCountText)
         messagesCountText = view.findViewById(R.id.messagesCountText)
-        paymentMethodsOption = view.findViewById(R.id.paymentMethodsOption)
-        notificationsOption = view.findViewById(R.id.notificationsOption)
-        themeModeOption = view.findViewById(R.id.themeModeOption)
         themeModeText = view.findViewById(R.id.themeModeText)
-        privacySettingsOption = view.findViewById(R.id.privacySettingsOption)
-        logoutOption = view.findViewById(R.id.logoutOption)
         progressBar = view.findViewById(R.id.progressBar)
+        errorCard = view.findViewById(R.id.errorCard)
         errorText = view.findViewById(R.id.errorText)
+        retryButton = view.findViewById(R.id.retryButton)
+        accountSettingsCard = view.findViewById(R.id.accountSettingsCard)
+        paymentMethodsButton = view.findViewById(R.id.paymentMethodsButton)
+        notificationsButton = view.findViewById(R.id.notificationsButton)
+        securityButton = view.findViewById(R.id.securityButton)
+        privacyButton = view.findViewById(R.id.privacyButton)
+        logoutButton = view.findViewById(R.id.logoutButton)
+        loginContainer = view.findViewById(R.id.loginContainer)
+        loginButton = view.findViewById(R.id.loginButton)
+        registerButton = view.findViewById(R.id.registerButton)
+
+        // Set up retry button click listener
+        retryButton.setOnClickListener {
+            loadProfileData()
+        }
     }
 
     private fun setupListeners() {
@@ -113,24 +146,36 @@ class ProfileFragment : BaseFragment() {
                 .commit()
         }
 
-        paymentMethodsOption.setOnClickListener {
-            Toast.makeText(requireContext(), "Payment Methods coming soon", Toast.LENGTH_SHORT).show()
+        paymentMethodsButton.setOnClickListener {
+            UiUtils.showInfoSnackbar(requireView(), "Payment Methods coming soon")
         }
 
-        notificationsOption.setOnClickListener {
-            Toast.makeText(requireContext(), "Notifications coming soon", Toast.LENGTH_SHORT).show()
+        notificationsButton.setOnClickListener {
+            UiUtils.showInfoSnackbar(requireView(), "Notifications coming soon")
         }
 
-        themeModeOption.setOnClickListener {
-            showThemeSelectionDialog()
+        securityButton.setOnClickListener {
+            UiUtils.showInfoSnackbar(requireView(), "Security settings coming soon")
         }
 
-        privacySettingsOption.setOnClickListener {
-            Toast.makeText(requireContext(), "Privacy Settings coming soon", Toast.LENGTH_SHORT).show()
+        privacyButton.setOnClickListener {
+            UiUtils.showInfoSnackbar(requireView(), "Privacy Settings coming soon")
         }
 
-        logoutOption.setOnClickListener {
-            showLogoutConfirmationDialog()
+        logoutButton.setOnClickListener {
+            logout()
+        }
+
+        loginButton.setOnClickListener {
+            val intent = Intent(requireContext(), LoginActivity::class.java)
+            startActivity(intent)
+            requireActivity().finish()
+        }
+
+        registerButton.setOnClickListener {
+            val intent = Intent(requireContext(), RegisterActivity::class.java)
+            startActivity(intent)
+            requireActivity().finish()
         }
     }
 
@@ -212,23 +257,24 @@ class ProfileFragment : BaseFragment() {
             when {
                 state.isLoading -> {
                     progressBar.visibility = View.VISIBLE
-                    errorText.visibility = View.GONE
+                    errorCard.visibility = View.GONE
                     Log.d(TAG, "State is Loading")
                 }
                 state.error != null -> {
                     progressBar.visibility = View.GONE
-                    errorText.visibility = View.VISIBLE
+                    errorCard.visibility = View.VISIBLE
                     errorText.text = state.error
                     Log.e(TAG, "State has Error: ${state.error}")
                 }
                 state.user != null -> {
                     progressBar.visibility = View.GONE
-                    errorText.visibility = View.GONE
+                    errorCard.visibility = View.GONE
                     Log.d(TAG, "State has User: ${state.user.name}")
 
                     // Update UI with user data
                     userNameText.text = state.user.name
                     userEmailText.text = state.user.email
+                    userTypeText.text = if (state.user.role == "tutor") "Tutor" else "Student"
 
                     // Update profile image
                     if (state.user.profileImageUrl != null && state.user.profileImageUrl.isNotEmpty()) {
@@ -248,7 +294,7 @@ class ProfileFragment : BaseFragment() {
                     // Check if the update was successful
                     if (state.isUpdateSuccessful) {
                         Log.d(TAG, "Update was successful, showing toast and clearing status.")
-                        Toast.makeText(requireContext(), "Profile updated successfully", Toast.LENGTH_SHORT).show()
+                        UiUtils.showSuccessSnackbar(requireView(), "Profile updated successfully")
                         // Reset the flag in the ViewModel
                         viewModel.clearUpdateStatus()
                     }
@@ -256,7 +302,7 @@ class ProfileFragment : BaseFragment() {
                 else -> {
                     // Handle case where state is not loading, no error, but user is null
                     progressBar.visibility = View.GONE
-                    errorText.visibility = View.VISIBLE
+                    errorCard.visibility = View.VISIBLE
                     errorText.text = "Could not load profile data."
                     Log.w(TAG, "State is not loading, no error, but user is null.")
                 }
@@ -265,20 +311,61 @@ class ProfileFragment : BaseFragment() {
         viewModel.profileState.observe(viewLifecycleOwner, profileStateObserver!!)
     }
 
-
     private fun loadProfileData() {
-        // Get user email from UserPreferences
+        val userId = PreferenceUtils.getUserId(requireContext())
+        val userRole = PreferenceUtils.getUserRole(requireContext())
         val email = PreferenceUtils.getUserEmail(requireContext())
-        if (email != null) {
-            Log.d(TAG, "Loading profile data for email: $email")
-            viewModel.loadUserProfile(email)
+
+        if (userId != null) {
+            // User is logged in
+            loginContainer.visibility = View.GONE
+            accountSettingsCard.visibility = View.VISIBLE
+            logoutButton.visibility = View.VISIBLE
+
+            // Set user type
+            userType = userRole ?: "student"
+
+            // Use the ViewModel to load profile data
+            if (email != null) {
+                Log.d(TAG, "Loading profile data for email: $email")
+                viewModel.loadUserProfile(email)
+            } else {
+                Log.e(TAG, "User email is null, cannot load profile")
+                errorCard.visibility = View.VISIBLE
+                errorText.text = "User email not found. Please log in again."
+            }
         } else {
-            Log.e(TAG, "User email not found in preferences. Cannot load profile.")
-            // No user is logged in, navigate to login screen
-            val intent = Intent(requireContext(), LoginActivity::class.java)
-            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            startActivity(intent)
-            requireActivity().finish()
+            // User is not logged in
+            loginContainer.visibility = View.VISIBLE
+            accountSettingsCard.visibility = View.GONE
+            logoutButton.visibility = View.GONE
+            userNameText.text = "Guest User"
+            userEmailText.text = "Please log in to view your profile"
+            userTypeText.text = ""
         }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        
+        if (requestCode == REQUEST_EDIT_PROFILE && resultCode == Activity.RESULT_OK) {
+            // Reload profile using the ViewModel
+            val email = PreferenceUtils.getUserEmail(requireContext())
+            if (email != null) {
+                viewModel.loadUserProfile(email)
+            }
+            
+            UiUtils.showSuccessSnackbar(requireView(), "Profile updated successfully")
+            
+            // Notify the parent activity to refresh navigation drawer
+            val activity = requireActivity()
+            if (activity is StudentDashboardActivity || activity is TutorDashboardActivity) {
+                activity.recreate()
+            }
+        }
+    }
+
+    companion object {
+        private const val REQUEST_EDIT_PROFILE = 100
     }
 }

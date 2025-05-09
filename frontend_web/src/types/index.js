@@ -75,7 +75,10 @@ export class TutoringSession {
   status; // SCHEDULED, ONGOING, COMPLETED, CANCELLED
   price;
   notes;
-  locationData;  // For in-person sessions
+  latitude;      // Latitude for in-person sessions
+  longitude;     // Longitude for in-person sessions
+  locationName;  // Location name for in-person sessions
+  locationData;  // For backward compatibility
   meetingLink;   // For online sessions
   createdAt;
   updatedAt;
