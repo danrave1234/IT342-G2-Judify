@@ -9,7 +9,7 @@ import axios from 'axios';
 
 // Create the base API instance with proper configuration
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080/api',
+  baseURL: import.meta.env.VITE_API_URL || 'https://judify-795422705086.asia-east1.run.app/api',
   headers: {
     'Content-Type': 'application/json',
   },
