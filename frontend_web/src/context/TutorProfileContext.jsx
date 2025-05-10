@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { tutorProfileApi, userApi } from '../api/api';
+import API from '../api/api';
 import { useUser } from './UserContext';
 import { toast } from 'react-toastify';
 
@@ -244,16 +245,65 @@ export const TutorProfileProvider = ({ children }) => {
     }
   };
 
-  const getTutorProfile = async (profileId) => {
+  const getTutorProfile = async (tutorId) => {
+    console.log(`Getting tutor profile for ID: ${tutorId}`);
     setLoading(true);
     setError(null);
 
     try {
-      const response = await tutorProfileApi.getProfileById(profileId);
-      return { success: true, profile: response.data };
+      // First try to get tutor profile by userId
+      console.log(`Trying to get profile by userId: ${tutorId}`);
+      try {
+        const response = await tutorProfileApi.getProfileByUserId(tutorId);
+        if (response?.data) {
+          console.log(`Successfully found tutor profile using userId: ${tutorId}`);
+          return { success: true, profile: response.data };
+        }
+      } catch (userIdError) {
+        console.log(`No profile found by userId ${tutorId}, trying as profileId: ${userIdError.message}`);
+      }
+
+      // If that fails, try to get tutor by profileId
+      console.log(`Trying to get profile by profileId: ${tutorId}`);
+      try {
+        const response = await tutorProfileApi.getProfileById(tutorId);
+        if (response?.data) {
+          console.log(`Successfully found tutor profile using profileId: ${tutorId}`);
+          return { success: true, profile: response.data };
+        }
+      } catch (profileIdError) {
+        console.log(`Error getting profile by profileId ${tutorId}: ${profileIdError.message}`);
+      }
+
+      // As a last resort, try to get basic user information
+      console.log(`Trying to get basic user data for ID: ${tutorId}`);
+      try {
+        const userResponse = await API.get(`/api/users/${tutorId}`);
+        if (userResponse?.data) {
+          // Create a minimal profile from user data
+          const userData = userResponse.data;
+          const profile = {
+            userId: userData.userId,
+            firstName: userData.firstName,
+            lastName: userData.lastName,
+            profilePicture: userData.profilePicture,
+            subjects: ['General Tutoring'],
+            hourlyRate: 30,
+            rating: 'New',
+            totalReviews: 0,
+            biography: 'Tutor profile details not available'
+          };
+          return { success: true, profile };
+        }
+      } catch (userError) {
+        console.log(`Failed to get user data for ID ${tutorId}: ${userError.message}`);
+      }
+
+      // If nothing worked, throw an error
+      throw new Error(`Could not find tutor profile or user with ID: ${tutorId}`);
     } catch (err) {
-      const message = err.response?.data?.message || 'Failed to get tutor profile';
-      console.error(`Error getting tutor profile ${profileId}:`, message, err);
+      const message = err.message || 'Failed to get tutor profile';
+      console.error(`Error getting tutor profile ${tutorId}: ${message}`);
       setError(message);
       return { success: false, message };
     } finally {

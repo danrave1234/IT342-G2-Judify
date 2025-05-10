@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useUser } from '../../context/UserContext';
 import { useSession } from '../../context/SessionContext';
 import { SESSION_STATUS } from '../../types';
-import { tutorProfileApi } from '../../api/api'; // Assuming API object is default export
+import { tutorProfileApi, tutorAvailabilityApi } from '../../api/api'; // Import tutorAvailabilityApi
 import API from '../../api/api'; // Import the default export
 import { toast } from 'react-toastify';
 import { format, startOfDay, addMonths } from 'date-fns';
@@ -44,60 +44,162 @@ const BookSession = () => {
     setError('');
     setAvailableDates([]); // Reset dates on re-fetch
 
-    const currentTutorId = tutorIdParam; // Use the param directly
+    const tutorUserId = tutorIdParam; // Treat parameter as userId by default
+    console.log('Attempting to fetch tutor data with User ID:', tutorUserId);
 
     try {
-      let tutorData;
-      console.log('Attempting to fetch tutor data with ID:', currentTutorId);
+      let tutorData = null;
+      let tutorResponse = null;
 
-      // Use tutorProfileApi for profile fetching
+      // Try to get tutor profile by userId first
       try {
-        const tutorResponse = await tutorProfileApi.getProfileById(currentTutorId);
-        tutorData = tutorResponse.data;
-        console.log('Successfully fetched tutor profile by profileId:', currentTutorId);
-      } catch (error) {
-        console.log(`Error fetching by profileId (${currentTutorId}), trying userId:`, error.message);
-        try {
-          const tutorResponse = await tutorProfileApi.getProfileByUserId(currentTutorId);
+        tutorResponse = await tutorProfileApi.getProfileByUserId(tutorUserId);
+        if (tutorResponse.data) {
           tutorData = tutorResponse.data;
-          console.log('Successfully fetched tutor profile by userId:', currentTutorId);
-        } catch (userIdError) {
-          console.error(`Error fetching tutor profile by userId (${currentTutorId}):`, userIdError);
-          throw new Error('Tutor profile not found for ID: ' + currentTutorId);
+          console.log('Successfully fetched tutor profile by userId:', tutorUserId);
+        }
+      } catch (userIdError) {
+        console.log(`No tutor profile found with userId ${tutorUserId}:`, userIdError.message);
+      }
+
+      // If not found, treat parameter as profileId as a fallback 
+      if (!tutorData) {
+        try {
+          console.log('Trying to fetch profile by profileId as fallback:', tutorUserId);
+          tutorResponse = await tutorProfileApi.getProfileById(tutorUserId);
+          if (tutorResponse.data) {
+            tutorData = tutorResponse.data;
+            console.log('Successfully fetched tutor profile by profileId:', tutorUserId);
+          }
+        } catch (profileError) {
+          console.error('Error fetching by profileId:', profileError.message);
+        }
+      }
+
+      // If still no data, try to use any user info we can find
+      if (!tutorData) {
+        try {
+          // Try to get basic user data
+          console.log('Trying to get basic user info as last resort');
+          const userResponse = await API.get(`/users/${tutorUserId}`);
+          if (userResponse.data) {
+            // Create a minimal tutor data object from user data
+            tutorData = {
+              userId: userResponse.data.userId,
+              firstName: userResponse.data.firstName,
+              lastName: userResponse.data.lastName,
+              profilePicture: userResponse.data.profilePicture,
+              hourlyRate: 35, // Default hourly rate
+              subjects: ['General Tutoring'], // Default subject
+            };
+            console.log('Created minimal tutor data from user info');
+          }
+        } catch (userError) {
+          console.error('Failed to get basic user info:', userError.message);
         }
       }
 
       if (!tutorData) {
-        throw new Error('Incomplete tutor data retrieved.');
+        throw new Error('Could not find tutor information. Please try again later.');
       }
+
       console.log('Retrieved tutor data:', tutorData);
 
-      // Store the tutor's profile ID which is needed for API calls
-      const tutorProfileId = tutorData.profileId || currentTutorId;
+      // Store both IDs
+      const tutorProfileId = tutorData.profileId || tutorData.id;
+      const userId = tutorData.userId || tutorUserId;
 
       setTutor({
-        id: tutorData.userId, // Keep userId for reference
-        profileId: tutorProfileId, // Important: This is the actual tutorId used by the backend
-        name: `${tutorData.firstName} ${tutorData.lastName}`,
+        id: userId,              // User ID for reference
+        userId: userId,          // Ensure userId is stored for booking
+        profileId: tutorProfileId, // Profile ID for availability and viewing
+        name: `${tutorData.firstName || ''} ${tutorData.lastName || ''}`.trim(),
         profilePicture: tutorData.profilePicture,
         rate: tutorData.hourlyRate || 35,
         subjects: tutorData.subjects || ['General Tutoring'],
       });
 
-      // Fetch availability using the tutor's profile ID
+      // Fetch availability using userId instead of profileId
       let availabilityData = [];
       try {
-        console.log('Fetching tutor availability with profileId:', tutorProfileId);
-        // Use the default exported API instance for availability
-        const availabilityResponse = await API.get(`/tutor-availability/findByTutor/${tutorProfileId}`);
-        if (availabilityResponse.data && Array.isArray(availabilityResponse.data)) {
-          availabilityData = availabilityResponse.data;
-          console.log('Successfully fetched tutor availability:', availabilityData);
-          setRawTutorAvailability(availabilityData); // Store raw data
-        } else {
-          console.warn('No availability data returned or invalid format');
-          setRawTutorAvailability([]); // Ensure it's an empty array if no data
+        console.log(`Fetching tutor availability with userId: ${userId}`);
+        
+        try {
+          // Use the tutorAvailabilityApi with isUserId=true flag to indicate we're using userId
+          console.log(`Attempting to call tutorAvailabilityApi.getAvailabilities(${userId}, true)`);
+          const availabilityResponse = await tutorAvailabilityApi.getAvailabilities(userId, true);
+          
+          if (availabilityResponse?.data && Array.isArray(availabilityResponse.data)) {
+            availabilityData = availabilityResponse.data;
+            console.log('Successfully fetched tutor availability using userId:', availabilityData);
+          } else {
+            console.log('No availability data found with userId or invalid response format:', availabilityResponse);
+          }
+        } catch (error) {
+          console.error(`Error fetching availability with userId: ${error.message}`);
+          console.log('Full error object:', error);
+          
+          // Try direct API calls as fallbacks
+          try {
+            console.log('Trying direct API call to /api/tutor-availability/findByUser/' + userId);
+            const response = await API.get(`/api/tutor-availability/findByUser/${userId}`);
+            if (response?.data && Array.isArray(response.data)) {
+              availabilityData = response.data;
+              console.log('Direct API call succeeded:', availabilityData);
+            }
+          } catch (directError) {
+            console.log('Direct API call failed:', directError.message);
+            
+            // Try one more endpoint format
+            try {
+              console.log('Trying endpoint: /tutors/' + userId + '/availability');
+              const legacyResponse = await API.get(`/tutors/${userId}/availability`);
+              if (legacyResponse?.data && Array.isArray(legacyResponse.data)) {
+                availabilityData = legacyResponse.data;
+                console.log('Legacy endpoint succeeded:', availabilityData);
+              }
+            } catch (legacyError) {
+              console.log('Legacy endpoint failed:', legacyError.message);
+              
+              // Fallback to using profileId if userId failed and profileId exists
+              if (tutorProfileId && tutorProfileId !== userId) {
+                console.log('Falling back to profileId for availability:', tutorProfileId);
+                try {
+                  const profileAvailabilityResponse = await tutorAvailabilityApi.getAvailabilities(tutorProfileId, false);
+                  if (profileAvailabilityResponse?.data && Array.isArray(profileAvailabilityResponse.data)) {
+                    availabilityData = profileAvailabilityResponse.data;
+                    console.log('Successfully fetched tutor availability using profileId fallback:', availabilityData);
+                  }
+                } catch (profileError) {
+                  console.warn('Profile availability endpoint also failed:', profileError.message);
+                }
+              }
+            }
+          }
         }
+        
+        // If still no data, try one more approach - using the API directly with both formats
+        if (availabilityData.length === 0) {
+          console.log('All standard endpoint attempts failed. Trying direct API endpoints as last resort');
+          
+          try {
+            // This endpoint pattern appears in the TutorAvailabilityController.java
+            const rawResponse = await fetch(`http://localhost:8080/api/tutor-availability/findByUser/${userId}`);
+            if (rawResponse.ok) {
+              const data = await rawResponse.json();
+              if (Array.isArray(data)) {
+                availabilityData = data;
+                console.log('Raw fetch succeeded with /findByUser endpoint:', data);
+              }
+            } else {
+              console.log('Raw fetch failed with status:', rawResponse.status);
+            }
+          } catch (rawError) {
+            console.error('Raw fetch error:', rawError);
+          }
+        }
+        
+        setRawTutorAvailability(availabilityData || []); // Store raw data
       } catch (availError) {
         console.error('Error fetching tutor availability:', availError);
         setError('Could not load tutor availability.');
@@ -311,10 +413,10 @@ const BookSession = () => {
       toast.error('User not found. Please log in again.');
       return;
     }
-    // Ensure tutor profile ID is available
-    if (!tutor || !tutor.profileId) {
-      setError('Tutor profile information is missing.');
-      toast.error('Tutor profile information is missing.');
+    // Ensure tutor user ID is available - this is critical for booking
+    if (!tutor || !tutor.userId) {
+      setError('Tutor user ID is missing. Cannot process booking.');
+      toast.error('Tutor user ID is missing. Cannot process booking.');
       return;
     }
 
@@ -338,7 +440,7 @@ const BookSession = () => {
       console.log('End time ISO:', endTimeISO);
 
       const sessionData = {
-        tutorId: tutor.profileId, // Use tutor's profile ID, not user ID
+        tutorId: tutor.userId, // Use tutor's userId for business transactions
         studentId: user.userId,
         subject: sessionInfo.subject,
         notes: sessionInfo.notes,
@@ -355,7 +457,7 @@ const BookSession = () => {
         paymentStatus: 'UNPAID' // Mark as UNPAID initially
       };
 
-      console.log("Submitting session data with tutor profile ID:", sessionData);
+      console.log("Submitting session data with tutor user ID:", tutor.userId);
 
       const result = await createSession(sessionData);
 
@@ -364,38 +466,17 @@ const BookSession = () => {
 
         // Create conversation for the session
         try {
-          const { conversationApi, tutorProfileApi } = await import('../../api/api');
+          const { conversationApi } = await import('../../api/api');
           
-          // First, get the userId from tutorId
-          try {
-            const tutorUserIdResponse = await tutorProfileApi.getUserIdFromTutorId(tutor.profileId);
-            const tutorUserId = tutorUserIdResponse.data;
-            
-            console.log(`Converting tutorId ${tutor.profileId} to userId ${tutorUserId}`);
-            
-            // Create conversation with proper user IDs
-            await conversationApi.createConversation({
-              tutorId: tutorUserId, // Use tutorUserId instead of profileId
-              studentId: user.userId,
-              sessionId: result.session.sessionId || result.session.id,
-              lastMessageTime: new Date().toISOString()
-            });
-            
-            console.log('Conversation created for session with proper userId');
-          } catch (convError) {
-            console.error('Error converting tutorId to userId:', convError);
-            
-            // Fallback to using tutorId directly if conversion fails
-            console.log('Falling back to using tutorId directly for conversation creation');
-            await conversationApi.createConversation({
-              tutorId: tutor.profileId,
-              studentId: user.userId,
-              sessionId: result.session.sessionId || result.session.id,
-              lastMessageTime: new Date().toISOString()
-            });
-            
-            console.log('Conversation created for session using tutorId (fallback method)');
-          }
+          // Create conversation using userId directly
+          await conversationApi.createConversation({
+            tutorId: tutor.userId, // Use userId directly for conversation
+            studentId: user.userId,
+            sessionId: result.session.sessionId || result.session.id,
+            lastMessageTime: new Date().toISOString()
+          });
+          
+          console.log('Conversation created for session with tutor userId:', tutor.userId);
         } catch (convError) {
           console.error('Error creating conversation:', convError);
           // Don't block the flow if conversation creation fails

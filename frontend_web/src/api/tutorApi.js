@@ -4,11 +4,40 @@ import api from './baseApi';
 export const tutorProfileApi = {
   getProfiles: (params) => api.get('/tutor-profiles', { params }),
   
+  // Get profile by ID with fallbacks
+  getProfileById: (profileId) => {
+    console.log(`Trying to fetch tutor profile by profileId: ${profileId}`);
+    
+    // Try multiple endpoints in sequence
+    return api.get(`/tutor-profiles/${profileId}`)
+      .catch(error => {
+        console.log(`First endpoint failed with status ${error?.response?.status}, trying alternative endpoint`);
+        return api.get(`/tutors/${profileId}`);
+      })
+      .catch(error => {
+        console.log(`Second endpoint failed with status ${error?.response?.status}, trying third endpoint`);
+        return api.get(`/api/tutors/${profileId}`);
+      });
+  },
+  
   // Get profile by ID
   getProfile: (profileId) => api.get(`/tutor-profiles/${profileId}`),
   
   // Find profile by user ID
-  getProfileByUserId: (userId) => api.get(`/tutor-profiles/findByUserId/${userId}`),
+  getProfileByUserId: (userId) => {
+    console.log(`Trying to fetch tutor profile for userId: ${userId}`);
+    
+    // Try multiple endpoints in sequence
+    return api.get(`/tutor-profiles/findByUserId/${userId}`)
+      .catch(error => {
+        console.log(`First endpoint failed with status ${error?.response?.status}, trying alternative endpoint`);
+        return api.get(`/tutors/findByUserId/${userId}`);
+      })
+      .catch(error => {
+        console.log(`Second endpoint failed with status ${error?.response?.status}, trying third endpoint`);
+        return api.get(`/api/tutors/findByUserId/${userId}`);
+      });
+  },
   
   // Create a new tutor profile
   createProfile: (profileData) => api.post('/tutor-profiles', profileData),

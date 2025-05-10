@@ -2,26 +2,45 @@ import api from './baseApi';
 
 // Tutor Availability API endpoints
 export const tutorAvailabilityApi = {
-  getAvailabilities: (tutorId) => {
-    // tutorId should be the tutor's profile ID, not the user ID
+  getAvailabilities: (tutorId, isUserId = false) => {
+    // tutorId can be either userId or profileId based on isUserId flag
     if (!tutorId) {
       console.warn('No tutorId provided for getAvailabilities');
       // Return an empty array to prevent errors
       return Promise.resolve({ data: [] });
     }
 
-    // Log the request being made
-    console.log(`Fetching availabilities for tutor profile ID: ${tutorId}`);
+    // Log the request being made with proper context
+    console.log(`Fetching availabilities for tutor ${isUserId ? 'user' : 'profile'} ID: ${tutorId}`);
+
+    // Determine the correct endpoint based on whether we have a userId or profileId
+    const endpoint = isUserId 
+      ? `/tutor-availability/findByUser/${tutorId}` 
+      : `/tutor-availability/findByTutor/${tutorId}`;
 
     // Make the request and return
-    return api.get(`/tutor-availability/findByTutor/${tutorId}`)
+    return api.get(endpoint)
       .then(response => {
         console.log('Availability API response successful:', response);
         return response;
       })
       .catch(error => {
-        console.error('Error fetching availabilities:', error);
-        throw error;
+        console.error(`Error fetching availabilities for ${isUserId ? 'user' : 'profile'} ID ${tutorId}:`, error);
+        
+        // Try the alternative endpoints in sequence
+        if (isUserId) {
+          // If using userId failed, try these alternative endpoints
+          console.log(`Attempting direct API call to /api${endpoint}`);
+          return api.get(`/api${endpoint}`)
+            .catch(err => {
+              console.log(`API endpoint failed, trying fallback to legacy endpoint`);
+              return api.get(`/tutors/${tutorId}/availability`);
+            });
+        } else {
+          // If using profileId fails, try to fetch by tutorId directly as fallback
+          console.log(`Attempting fallback request to /tutors/${tutorId}/availability`);
+          return api.get(`/tutors/${tutorId}/availability`);
+        }
       });
   },
   createAvailability: (availabilityData) => {

@@ -222,22 +222,34 @@ const FindTutors = () => {
   };
 
   const handleViewProfileClick = (tutor) => {
-    const tutorId = tutor.profileId || tutor.id;
+    // First try to use profileId for viewing
+    let idToUse = tutor.profileId;
+    
+    // If profileId doesn't exist, use the userId instead
+    if (!idToUse) {
+      idToUse = tutor.userId || tutor.user?.userId;
+      console.log(`No profileId found, using userId: ${idToUse} for profile view`);
+    }
 
-    if (tutorId) {
-      console.log(`Navigating to tutor profile: ${tutorId}`);
+    if (idToUse) {
+      console.log(`Navigating to tutor profile with ID: ${idToUse}`);
 
-      // Store tutor info in localStorage before navigation
+      // Store both IDs in localStorage before navigation
       try {
-        localStorage.setItem('lastViewedTutor', JSON.stringify(tutor));
-        console.log('Stored tutor data in localStorage:', tutor);
+        const tutorInfo = {
+          ...tutor,
+          profileId: tutor.profileId, // Store profileId if available
+          userId: tutor.userId || tutor.user?.userId // Ensure userId is stored
+        };
+        localStorage.setItem('lastViewedTutor', JSON.stringify(tutorInfo));
+        console.log('Stored tutor data with complete ID information in localStorage:', tutorInfo);
       } catch (e) {
         console.warn('Failed to store tutor info in localStorage:', e);
       }
 
-      navigate(`/tutor-profile/${tutorId}`);
+      navigate(`/tutor-profile/${idToUse}`);
     } else {
-      toast.error('Unable to view profile: Tutor ID not found');
+      toast.error('Unable to view profile: No valid tutor ID found');
     }
   };
 
@@ -250,19 +262,22 @@ const FindTutors = () => {
       fullName: `${tutor.firstName || tutor.user?.firstName} ${tutor.lastName || tutor.user?.lastName}`
     });
 
-    if (!tutorId) {
-      toast.error('Cannot book session: Missing tutor ID');
+    // Use userId instead of profileId
+    const idToUse = tutor.userId;
+    
+    if (!idToUse) {
+      toast.error('Cannot book session: Missing user ID');
       return;
     }
-
-    // Prefer profileId if available, otherwise use userId
-    const idToUse = tutor.profileId || tutor.userId;
-    console.log(`Navigating to book session with ${tutor.profileId ? 'profileId' : 'userId'}: ${idToUse}`);
+    
+    console.log(`Navigating to book session with userId: ${idToUse}`);
 
     // Store some basic tutor info in localStorage to help with error recovery
     try {
       const tutorInfo = {
         id: idToUse,
+        userId: tutor.userId, // Ensure userId is always stored
+        profileId: tutor.profileId, // Keep profileId for reference
         name: `${tutor.firstName || tutor.user?.firstName} ${tutor.lastName || tutor.user?.lastName}`,
         profilePicture: tutor.profilePicture || tutor.user?.profilePicture || 'https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png?20150327203541',
         subjects: tutor.subjects || []
@@ -446,7 +461,7 @@ const FindTutors = () => {
                   View Profile
                 </button>
                 <button
-                  onClick={() => handleBookSessionClick(tutor.profileId || tutor.userId, tutor)} 
+                  onClick={() => handleBookSessionClick(tutor.userId, tutor)} 
                   className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-3 rounded transition duration-200"
                 >
                   Book
@@ -573,7 +588,7 @@ const FindTutors = () => {
                       View Profile
                     </button>
                     <button
-                      onClick={() => handleBookSessionClick(tutor.profileId || tutor.userId, tutor)} 
+                      onClick={() => handleBookSessionClick(tutor.userId, tutor)} 
                       className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-3 rounded transition duration-200"
                     >
                       Book

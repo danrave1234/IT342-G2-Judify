@@ -481,7 +481,7 @@ const Dashboard = () => {
                     className="mt-auto w-full bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-3 rounded transition duration-200"
                     onClick={(e) => {
                       e.stopPropagation();
-                      window.location.href = `/student/book/${tutor.profileId || tutor.userId}`;
+                      window.location.href = `/student/book/${tutor.userId || tutor.user?.userId}`;
                     }}
                   >
                     Book Session
