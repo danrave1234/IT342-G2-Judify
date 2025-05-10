@@ -94,7 +94,7 @@
             android:maxLines="2"
             android:textColor="@color/text_secondary"
             android:textSize="14sp"
-            app:layout_constraintEnd_toStartOf="@+id/unreadIndicator"
+            app:layout_constraintEnd_toStartOf="@+id/unreadIndicatorContainer"
             app:layout_constraintStart_toStartOf="@+id/nameText"
             app:layout_constraintTop_toBottomOf="@+id/nameText"
             tools:text="Hey, I was wondering if you could help me with the math assignment..." />

@@ -27,6 +27,9 @@ class SessionAdapter : ListAdapter<TutoringSession, SessionAdapter.SessionViewHo
 
     private var onVideoCallStarted: ((TutoringSession) -> Unit)? = null
     private var onSessionStarted: ((TutoringSession) -> Unit)? = null
+    
+    // List to store sessions
+    private val sessionsList = mutableListOf<TutoringSession>()
 
     // Set listeners for actions
     fun setOnVideoCallStartedListener(listener: (TutoringSession) -> Unit) {
@@ -35,6 +38,19 @@ class SessionAdapter : ListAdapter<TutoringSession, SessionAdapter.SessionViewHo
 
     fun setOnSessionStartedListener(listener: (TutoringSession) -> Unit) {
         onSessionStarted = listener
+    }
+    
+    /**
+     * Update the sessions list and refresh the view
+     * @param sessions New list of sessions to display
+     */
+    fun updateSessions(sessions: List<TutoringSession>) {
+        // Clear existing sessions
+        sessionsList.clear()
+        // Add all new sessions
+        sessionsList.addAll(sessions)
+        // Submit the list to the adapter
+        submitList(sessionsList.toList())
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): SessionViewHolder {

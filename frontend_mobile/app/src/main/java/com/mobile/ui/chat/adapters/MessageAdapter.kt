@@ -308,29 +308,44 @@ class MessageAdapter(
             android.util.Log.d("MessageAdapter", "User role: $userRole")
             android.util.Log.d("MessageAdapter", "Message: ${message.content}, sessionId: ${message.sessionId}")
 
-            // Always make buttons visible regardless of role
-            android.util.Log.d("MessageAdapter", "Always showing tutor action buttons")
-            tutorActionButtonsLayout.visibility = View.VISIBLE
+            // Check if the session has already been approved or rejected based on message content
+            val isApproved = filteredContent.contains("Status: APPROVED", ignoreCase = true) ||
+                            filteredContent.contains("has been approved", ignoreCase = true)
             
-            // Update button text for consistency
-            approveButton.text = "ACCEPT"
-            rejectButton.text = "DECLINE"
+            val isCancelled = filteredContent.contains("Status: CANCELLED", ignoreCase = true) ||
+                             filteredContent.contains("Status: REJECTED", ignoreCase = true) ||
+                             filteredContent.contains("has been cancelled", ignoreCase = true) ||
+                             filteredContent.contains("has been rejected", ignoreCase = true)
 
-            // Set up buttons with sessionId
-            message.sessionId?.let { sessionId ->
-                android.util.Log.d("MessageAdapter", "Setting up button click listeners for sessionId: $sessionId")
+            // Hide buttons if session is already approved or cancelled/rejected
+            if (isApproved || isCancelled) {
+                android.util.Log.d("MessageAdapter", "Session already ${if (isApproved) "approved" else "cancelled/rejected"}, hiding buttons")
+                tutorActionButtonsLayout.visibility = View.GONE
+            } else {
+                // Always make buttons visible for pending sessions
+                android.util.Log.d("MessageAdapter", "Session is pending, showing tutor action buttons")
+                tutorActionButtonsLayout.visibility = View.VISIBLE
+                
+                // Update button text for consistency
+                approveButton.text = "ACCEPT"
+                rejectButton.text = "DECLINE"
 
-                approveButton.setOnClickListener {
-                    android.util.Log.d("MessageAdapter", "Approve button clicked for sessionId: $sessionId")
-                    onSessionApprove?.invoke(sessionId)
+                // Set up buttons with sessionId
+                message.sessionId?.let { sessionId ->
+                    android.util.Log.d("MessageAdapter", "Setting up button click listeners for sessionId: $sessionId")
+
+                    approveButton.setOnClickListener {
+                        android.util.Log.d("MessageAdapter", "Approve button clicked for sessionId: $sessionId")
+                        onSessionApprove?.invoke(sessionId)
+                    }
+
+                    rejectButton.setOnClickListener {
+                        android.util.Log.d("MessageAdapter", "Reject button clicked for sessionId: $sessionId")
+                        onSessionReject?.invoke(sessionId)
+                    }
+                } ?: run {
+                    android.util.Log.d("MessageAdapter", "No sessionId available for this message")
                 }
-
-                rejectButton.setOnClickListener {
-                    android.util.Log.d("MessageAdapter", "Reject button clicked for sessionId: $sessionId")
-                    onSessionReject?.invoke(sessionId)
-                }
-            } ?: run {
-                android.util.Log.d("MessageAdapter", "No sessionId available for this message")
             }
         }
     }
@@ -468,23 +483,40 @@ class MessageAdapter(
 
             timeText.text = formatTime(message.timestamp)
 
-            // Log that we're showing the tutor approval buttons
-            android.util.Log.d("MessageAdapter", "Showing approve/reject buttons for sessionId: $sessionId")
+            // Check if the session has already been approved or rejected based on message content
+            val isApproved = cleanedContent.contains("Status: APPROVED", ignoreCase = true) ||
+                            cleanedContent.contains("has been approved", ignoreCase = true)
+            
+            val isRejected = cleanedContent.contains("Status: CANCELLED", ignoreCase = true) ||
+                            cleanedContent.contains("Status: REJECTED", ignoreCase = true) ||
+                            cleanedContent.contains("has been cancelled", ignoreCase = true) ||
+                            cleanedContent.contains("has been rejected", ignoreCase = true)
 
-            // Make sure buttons are visible
-            approveButton.visibility = View.VISIBLE
-            rejectButton.visibility = View.VISIBLE
+            // Check session status from message content
+            if (isApproved || isRejected) {
+                // Session already approved or rejected, hide the buttons
+                android.util.Log.d("MessageAdapter", "Session already ${if (isApproved) "approved" else "rejected"}, hiding action buttons")
+                approveButton.visibility = View.GONE
+                rejectButton.visibility = View.GONE
+            } else {
+                // Log that we're showing the tutor approval buttons
+                android.util.Log.d("MessageAdapter", "Showing approve/reject buttons for sessionId: $sessionId")
 
-            // Change button text to be clearer
-            approveButton.text = "ACCEPT"
-            rejectButton.text = "DECLINE"
+                // Make sure buttons are visible
+                approveButton.visibility = View.VISIBLE
+                rejectButton.visibility = View.VISIBLE
 
-            // Ensure the buttons have proper styling
-            try {
-                approveButton.setBackgroundColor(android.graphics.Color.parseColor("#4CAF50")) // Green
-                rejectButton.setBackgroundColor(android.graphics.Color.parseColor("#F44336")) // Red
-            } catch (e: Exception) {
-                android.util.Log.e("MessageAdapter", "Error setting button colors: ${e.message}")
+                // Change button text to be clearer
+                approveButton.text = "ACCEPT"
+                rejectButton.text = "DECLINE"
+
+                // Ensure the buttons have proper styling
+                try {
+                    approveButton.setBackgroundColor(android.graphics.Color.parseColor("#4CAF50")) // Green
+                    rejectButton.setBackgroundColor(android.graphics.Color.parseColor("#F44336")) // Red
+                } catch (e: Exception) {
+                    android.util.Log.e("MessageAdapter", "Error setting button colors: ${e.message}")
+                }
             }
 
             // Set up buttons with sessionId

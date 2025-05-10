@@ -42,7 +42,7 @@ object NetworkUtils {
     private const val DEVELOPMENT_BACKEND_URL = "http://192.168.86.107:8080" // Android emulator uses 10.0.2.2 to access host's localhost
 
     // Set this to false for production, true for development
-    private const val IS_DEVELOPMENT_MODE = true
+    private const val IS_DEVELOPMENT_MODE = false
 
     // Determine which URL to use based on the mode
     private val DEPLOYED_BACKEND_URL: String = 
@@ -3905,8 +3905,17 @@ object NetworkUtils {
     suspend fun updateSessionStatus(sessionId: Long, newStatus: String): Result<TutoringSession> {
         return withContext(Dispatchers.IO) {
             try {
-                Log.d(TAG, "Updating session status: sessionId=$sessionId, newStatus=$newStatus")
-                val url = URL("$BASE_URL/tutoring-sessions/updateStatus/$sessionId")
+                // If status is APPROVED, use the acceptSession endpoint which properly sets tutorAccepted
+                val baseEndpoint = if (newStatus.equals("APPROVED", ignoreCase = true)) {
+                    "acceptSession"
+                } else if (newStatus.equals("CANCELLED", ignoreCase = true)) {
+                    "rejectSession"
+                } else {
+                    "updateStatus"
+                }
+                
+                Log.d(TAG, "Updating session status: sessionId=$sessionId, newStatus=$newStatus using endpoint=$baseEndpoint")
+                val url = URL("$BASE_URL/tutoring-sessions/$baseEndpoint/$sessionId")
                 val connection = createPutConnection(url)
                 
                 // Set additional headers to ensure proper processing
@@ -3916,12 +3925,14 @@ object NetworkUtils {
                 
                 Log.d(TAG, "Sending status update request to $url")
 
-                // Set the new status as the request body
-                val requestBody = newStatus
-                val writer = OutputStreamWriter(connection.outputStream)
-                writer.write(requestBody)
-                writer.flush()
-                writer.close()
+                // Only send body data if using the updateStatus endpoint
+                if (baseEndpoint == "updateStatus") {
+                    // Set the new status as the request body - without quotes
+                    val writer = OutputStreamWriter(connection.outputStream)
+                    writer.write(newStatus)
+                    writer.flush()
+                    writer.close()
+                }
                 
                 Log.d(TAG, "Status update request sent, getting response")
                 

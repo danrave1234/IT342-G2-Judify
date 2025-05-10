@@ -1,6 +1,7 @@
 package com.mobile.ui.chat
 
 import android.content.ContentValues.TAG
+import android.graphics.Typeface
 import android.os.Bundle
 import android.util.Log
 import android.view.Gravity
@@ -12,6 +13,7 @@ import android.widget.TextView
 import android.widget.Toast
 import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -291,6 +293,19 @@ class MessageActivity : AppCompatActivity() {
                         lastMessageId = sortedMessages.first().id
                     }
 
+                    // For session approval messages, check if session status was updated
+                    if (sessionDetails != null) {
+                        // If this update was after a session approval/rejection, make sure display reflects it
+                        Log.d("MessageActivity", "Current session status: ${sessionDetails?.status}")
+                        
+                        // Force update the session UI to ensure buttons are hidden if needed
+                        if (sessionDetails?.status?.equals("APPROVED", ignoreCase = true) == true ||
+                            sessionDetails?.status?.equals("CANCELLED", ignoreCase = true) == true) {
+                            Log.d("MessageActivity", "Session is ${sessionDetails?.status}, ensuring UI is updated")
+                            updateSessionDetailsUI()
+                        }
+                    }
+
                     // Update the UI
                     updateMessageList(sortedMessages)
 
@@ -558,241 +573,202 @@ class MessageActivity : AppCompatActivity() {
     }
 
     /**
+     * Format a date string from ISO format to a more readable format
+     */
+    private fun formatDate(dateString: String): String {
+        try {
+            val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+            val outputFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+            val date = inputFormat.parse(dateString) ?: return dateString
+            return outputFormat.format(date)
+        } catch (e: Exception) {
+            Log.e("MessageActivity", "Error formatting date: ${e.message}", e)
+            return dateString
+        }
+    }
+
+    /**
+     * Format a time string from ISO format to a more readable format
+     */
+    private fun formatTime(timeString: String): String {
+        try {
+            val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+            val outputFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+            val time = inputFormat.parse(timeString) ?: return timeString
+            return outputFormat.format(time)
+        } catch (e: Exception) {
+            Log.e("MessageActivity", "Error formatting time: ${e.message}", e)
+            return timeString
+        }
+    }
+
+    /**
      * Update the UI with session details
      */
     private fun updateSessionDetailsUI() {
-        val session = sessionDetails ?: return
-
         try {
-            // Get the root view of the included layout
+            val session = sessionDetails ?: return
+            Log.d("MessageActivity", "Updating session details UI for session: ${session.id}, status: ${session.status}")
+            
+            // Get references to all the views in the session details card
             val sessionDetailsView = binding.sessionDetailsInclude.root
-
-            // Find views in the included layout
-            val sessionSubjectText = sessionDetailsView.findViewById<android.widget.TextView>(R.id.sessionSubjectText)
-            val sessionDateText = sessionDetailsView.findViewById<android.widget.TextView>(R.id.sessionDateText)
-            val sessionTimeText = sessionDetailsView.findViewById<android.widget.TextView>(R.id.sessionTimeText)
-            val sessionTypeText = sessionDetailsView.findViewById<android.widget.TextView>(R.id.sessionTypeText)
-            val sessionLocationLayout = sessionDetailsView.findViewById<android.widget.LinearLayout>(R.id.sessionLocationLayout)
-            val sessionLocationText = sessionDetailsView.findViewById<android.widget.TextView>(R.id.sessionLocationText)
-            val sessionPriceText = sessionDetailsView.findViewById<android.widget.TextView>(R.id.sessionPriceText)
-            val sessionStatusText = sessionDetailsView.findViewById<android.widget.TextView>(R.id.sessionStatusText)
-            val sessionNotesLayout = sessionDetailsView.findViewById<android.widget.LinearLayout>(R.id.sessionNotesLayout)
-            val sessionNotesText = sessionDetailsView.findViewById<android.widget.TextView>(R.id.sessionNotesText)
-            val tutorActionButtonsLayout = sessionDetailsView.findViewById<android.widget.LinearLayout>(R.id.tutorActionButtonsLayout)
-            val approveButton = sessionDetailsView.findViewById<com.google.android.material.button.MaterialButton>(R.id.approveButton)
-            val rejectButton = sessionDetailsView.findViewById<com.google.android.material.button.MaterialButton>(R.id.rejectButton)
-
-            // Set session details
-            sessionSubjectText.text = session.subject
-
-            // Format and set date
-            val dateText = formatDateForDisplay(session.startTime)
-            sessionDateText.text = dateText
-
-            // Format and set time
-            val timeText = formatTimeForDisplay(session.startTime, session.endTime)
-            sessionTimeText.text = timeText
-
-            // Set session type
-            sessionTypeText.text = session.sessionType
-
-            // Set location if available
-            if (session.sessionType == "In-Person" && session.notes?.contains("location:") == true) {
-                sessionLocationLayout.visibility = View.VISIBLE
-                val locationText = session.notes.substringAfter("location:").trim()
-                sessionLocationText.text = locationText
-            } else {
-                sessionLocationLayout.visibility = View.GONE
-            }
-
-            // Set price from session data or fetch tutor rate for calculation
-            if (session.price != null) {
-                sessionPriceText.text = "$${String.format("%.2f", session.price)}"
-            } else {
-                // Calculate session duration in hours
-                val startTime = try {
-                    SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).parse(session.startTime)
-                } catch (e: Exception) {
-                    SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).parse(session.startTime)
-                }
-                
-                val endTime = try {
-                    SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).parse(session.endTime)
-                } catch (e: Exception) {
-                    SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).parse(session.endTime)
-                }
-                
-                // Calculate duration in hours (default to 1 if calculation fails)
-                val durationHours = if (startTime != null && endTime != null) {
-                    val durationMillis = endTime.time - startTime.time
-                    durationMillis / (1000.0 * 60 * 60)
-                } else {
-                    1.0
-                }
-                
-                // Fetch tutor's hourly rate in background
-                lifecycleScope.launch {
-                    try {
-                        val tutorResult = NetworkUtils.findTutorById(session.tutorId)
-                        if (tutorResult.isSuccess) {
-                            val tutor = tutorResult.getOrNull()
-                            if (tutor != null) {
-                                val hourlyRate = tutor.hourlyRate
-                                // Calculate and display the price
-                                val calculatedPrice = hourlyRate * durationHours
-                                sessionPriceText.text = "$${String.format("%.2f", calculatedPrice)}"
-                            } else {
-                                sessionPriceText.text = "Price not available"
-                            }
-                        } else {
-                            sessionPriceText.text = "Price not available"
-                        }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error fetching tutor rate: ${e.message}", e)
-                        sessionPriceText.text = "Price not available"
-                    }
-                }
-            }
-
-            // Set status
-            sessionStatusText.text = session.status
-
-            // Set status color based on status
-            when (session.status.uppercase()) {
-                "PENDING" -> sessionStatusText.setTextColor(resources.getColor(R.color.warning, null))
-                "SCHEDULED" -> sessionStatusText.setTextColor(resources.getColor(R.color.primary_blue, null))
-                "COMPLETED" -> sessionStatusText.setTextColor(resources.getColor(R.color.success, null))
-                "CANCELLED" -> sessionStatusText.setTextColor(resources.getColor(R.color.error, null))
-                else -> sessionStatusText.setTextColor(resources.getColor(R.color.text_primary, null))
-            }
-
-            // Set notes
-            if (session.notes.isNullOrEmpty()) {
-                sessionNotesLayout.visibility = View.GONE
-            } else {
-                sessionNotesLayout.visibility = View.VISIBLE
-                sessionNotesText.text = session.notes
-            }
-
-            // Show/hide tutor action buttons based on role and session status
-            val isTutor = userRole == "TUTOR"
-            val isPending = session.status.uppercase() == "PENDING"
-
-            // Check if session is about to start or has started
-            val isAboutToStart = com.mobile.utils.SessionUtils.isSessionAboutToStart(session)
-            val hasStarted = com.mobile.utils.SessionUtils.hasSessionStarted(session)
-
-            // Log the conditions for debugging
-            Log.d("MessageActivity", "User role: $userRole, isTutor: $isTutor, session status: ${session.status}, isPending: $isPending")
-            Log.d("MessageActivity", "Session is about to start: $isAboutToStart, has started: $hasStarted")
-
-            // Show notification if session is about to start or has started
-            if (session.status.uppercase() == "SCHEDULED" && (isAboutToStart || hasStarted)) {
-                // Add a notification at the top of the session details
-                val notificationText = if (hasStarted) {
-                    "This session has started! 🎓"
-                } else {
-                    "This session is starting soon! ⏰"
-                }
-
+            sessionDetailsView.post {
                 try {
-                    // Find the main container LinearLayout (the first child of the card)
-                    val mainContainer = (sessionDetailsView as ViewGroup).getChildAt(0) as? LinearLayout
-
-                    if (mainContainer != null) {
-                        // Check if we already added a notification view
-                        var notificationView: TextView? = null
-                        for (i in 0 until mainContainer.childCount) {
-                            val child = mainContainer.getChildAt(i)
-                            if (child is TextView && child.getTag() == "session_notification") {
-                                notificationView = child
-                                break
+                    // Find views using the correct IDs from layout_session_details.xml
+                    val sessionSubjectText = sessionDetailsView.findViewById<TextView>(R.id.sessionSubjectText)
+                    val sessionDateText = sessionDetailsView.findViewById<TextView>(R.id.sessionDateText)
+                    val sessionTimeText = sessionDetailsView.findViewById<TextView>(R.id.sessionTimeText)
+                    val sessionTypeText = sessionDetailsView.findViewById<TextView>(R.id.sessionTypeText)
+                    val sessionStatusText = sessionDetailsView.findViewById<TextView>(R.id.sessionStatusText)
+                    val sessionNotesLayout = sessionDetailsView.findViewById<LinearLayout>(R.id.sessionNotesLayout)
+                    val sessionNotesText = sessionDetailsView.findViewById<TextView>(R.id.sessionNotesText)
+                    val tutorActionButtonsLayout = sessionDetailsView.findViewById<LinearLayout>(R.id.tutorActionButtonsLayout)
+                    val approveButton = sessionDetailsView.findViewById<Button>(R.id.approveButton)
+                    val rejectButton = sessionDetailsView.findViewById<Button>(R.id.rejectButton)
+                    
+                    // Set the text fields with session data
+                    sessionSubjectText?.text = session.subject
+                    sessionDateText?.text = formatDate(session.startTime)
+                    sessionTimeText?.text = "${formatTime(session.startTime)} - ${formatTime(session.endTime)}"
+                    sessionTypeText?.text = session.sessionType
+                    sessionStatusText?.text = session.status
+                    
+                    // Handle notes
+                    if (session.notes.isNullOrEmpty()) {
+                        sessionNotesLayout?.visibility = View.GONE
+                    } else {
+                        sessionNotesLayout?.visibility = View.VISIBLE
+                        sessionNotesText?.text = session.notes
+                    }
+                    
+                    // Make status more prominent, especially for APPROVED state
+                    when (session.status.uppercase()) {
+                        "APPROVED" -> {
+                            sessionStatusText?.setTextColor(ContextCompat.getColor(this, R.color.success))
+                            sessionStatusText?.setTypeface(null, Typeface.BOLD)
+                            
+                            // Ensure approve/reject buttons are gone when approved
+                            tutorActionButtonsLayout?.visibility = View.GONE
+                            
+                            // Add a success marker
+                            val mainContainer = (sessionDetailsView as ViewGroup).getChildAt(0) as? LinearLayout
+                            if (mainContainer != null) {
+                                var approvedNotification: TextView? = null
+                                for (i in 0 until mainContainer.childCount) {
+                                    val child = mainContainer.getChildAt(i)
+                                    if (child is TextView && child.getTag() == "approved_notification") {
+                                        approvedNotification = child
+                                        break
+                                    }
+                                }
+                                
+                                if (approvedNotification == null) {
+                                    approvedNotification = TextView(this)
+                                    approvedNotification.setTag("approved_notification")
+                                    approvedNotification.setPadding(20, 20, 20, 20)
+                                    approvedNotification.setTextColor(ContextCompat.getColor(this, android.R.color.white))
+                                    approvedNotification.setGravity(Gravity.CENTER)
+                                    approvedNotification.setTextSize(16f)
+                                    approvedNotification.text = "Session has been approved!"
+                                    approvedNotification.setBackgroundColor(ContextCompat.getColor(this, R.color.success))
+                                    
+                                    val params = LinearLayout.LayoutParams(
+                                        LinearLayout.LayoutParams.MATCH_PARENT,
+                                        LinearLayout.LayoutParams.WRAP_CONTENT
+                                    )
+                                    params.setMargins(0, 0, 0, 16)
+                                    approvedNotification.layoutParams = params
+                                    
+                                    mainContainer.addView(approvedNotification, 0)
+                                }
                             }
                         }
+                        else -> {
+                            sessionStatusText?.setTextColor(ContextCompat.getColor(this, 
+                                when (session.status.uppercase()) {
+                                    "PENDING" -> R.color.warning
+                                    "CANCELLED" -> R.color.error
+                                    else -> R.color.text_primary
+                                }
+                            ))
+                            sessionStatusText?.setTypeface(null, Typeface.NORMAL)
+                        }
+                    }
+                    
+                    // Determine if the current user is the tutor
+                    val isTutor = userRole == "ROLE_TUTOR" || userRole == "ROLE_ADMIN"
+                    
+                    // Determine if the session is pending
+                    val isPending = session.status.equals("PENDING", ignoreCase = true)
+                    
+                    // Check if the session has already been approved or cancelled/rejected
+                    val isApproved = session.status.equals("APPROVED", ignoreCase = true)
+                    val isCancelled = session.status.equals("CANCELLED", ignoreCase = true) || 
+                                     session.status.equals("REJECTED", ignoreCase = true)
+                    
+                    // Check if the session has started
+                    val hasStarted = try {
+                        val formatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+                        val sessionStartTime = formatter.parse(session.startTime)
+                        val currentTime = Date()
+                        sessionStartTime != null && !currentTime.before(sessionStartTime)
+                    } catch (e: Exception) {
+                        Log.e("MessageActivity", "Error parsing session time: ${e.message}", e)
+                        false
+                    }
 
-                        // Create a new notification TextView if needed
-                        if (notificationView == null) {
-                            notificationView = TextView(this)
-                            notificationView.setTag("session_notification")
-                            notificationView.setPadding(20, 20, 20, 20)
-                            notificationView.setTextColor(resources.getColor(android.R.color.white, null))
-                            notificationView.setGravity(Gravity.CENTER)
-                            notificationView.setTextSize(16f)
+                    // Always hide buttons for non-pending sessions
+                    if (!isPending || isApproved || isCancelled) {
+                        Log.d("MessageActivity", "Hiding tutor action buttons - session is not pending or already processed")
+                        tutorActionButtonsLayout?.visibility = View.GONE
+                    }
+                    // Show buttons only for pending sessions where user is the tutor
+                    else if (isTutor && isPending) {
+                        Log.d("MessageActivity", "Showing tutor action buttons")
+                        tutorActionButtonsLayout?.visibility = View.VISIBLE
 
-                            // Create layout params
-                            val params = LinearLayout.LayoutParams(
-                                LinearLayout.LayoutParams.MATCH_PARENT,
-                                LinearLayout.LayoutParams.WRAP_CONTENT
-                            )
-                            params.setMargins(0, 0, 0, 16)
-                            notificationView.setLayoutParams(params)
+                        // Make the tutor action buttons more noticeable
+                        try {
+                            // Add specific styling for the buttons
+                            approveButton?.setBackgroundColor(ContextCompat.getColor(this, R.color.success))
+                            approveButton?.text = "APPROVE SESSION"
+                            approveButton?.textSize = 16f
+                            approveButton?.setPadding(20, 20, 20, 20)
 
-                            // Add to the top of the main container
-                            mainContainer.addView(notificationView, 0)
+                            rejectButton?.setBackgroundColor(ContextCompat.getColor(this, R.color.error))
+                            rejectButton?.text = "REJECT SESSION"
+                            rejectButton?.textSize = 16f
+                            rejectButton?.setPadding(20, 20, 20, 20)
+                        } catch (e: Exception) {
+                            Log.e("MessageActivity", "Error styling buttons: ${e.message}", e)
                         }
 
-                        // Set the notification text and background color
-                        notificationView.setText(notificationText)
-                        notificationView.setBackgroundColor(
-                            if (hasStarted) resources.getColor(R.color.success, null)
-                            else resources.getColor(R.color.warning, null)
-                        )
-                        notificationView.setVisibility(View.VISIBLE)
+                        // Set up approve button
+                        approveButton?.setOnClickListener {
+                            Log.d("MessageActivity", "Approve button clicked for session: ${session.id}")
+                            approveSession(session.id)
+                        }
+
+                        // Set up reject button
+                        rejectButton?.setOnClickListener {
+                            Log.d("MessageActivity", "Reject button clicked for session: ${session.id}")
+                            rejectSession(session.id)
+                        }
+                    } else {
+                        Log.d("MessageActivity", "Hiding tutor action buttons - not a tutor or session not pending")
+                        tutorActionButtonsLayout?.visibility = View.GONE
                     }
+
+                    // Show the session details card
+                    sessionDetailsView.visibility = View.VISIBLE
+
+                    Log.d("MessageActivity", "Session details UI updated successfully")
                 } catch (e: Exception) {
-                    Log.e("MessageActivity", "Error showing session notification: ${e.message}", e)
+                    Log.e("MessageActivity", "Error updating session details UI inner: ${e.message}", e)
                 }
-
-                // Show a toast notification
-                Toast.makeText(this, notificationText, Toast.LENGTH_LONG).show()
             }
-
-            if (isTutor && isPending) {
-                Log.d("MessageActivity", "Showing tutor action buttons")
-                tutorActionButtonsLayout.visibility = View.VISIBLE
-
-                // Make the tutor action buttons more noticeable
-                sessionDetailsView.post {
-                    try {
-                        // Add specific styling for the buttons
-                        approveButton.setBackgroundColor(resources.getColor(R.color.success, null))
-                        approveButton.text = "APPROVE SESSION"
-                        approveButton.textSize = 16f
-                        approveButton.setPadding(20, 20, 20, 20)
-
-                        rejectButton.setBackgroundColor(resources.getColor(R.color.error, null))
-                        rejectButton.text = "REJECT SESSION"
-                        rejectButton.textSize = 16f
-                        rejectButton.setPadding(20, 20, 20, 20)
-
-                        // No need to show a toast notification
-                    } catch (e: Exception) {
-                        Log.e("MessageActivity", "Error styling buttons: ${e.message}", e)
-                    }
-                }
-
-                // Set up approve button
-                approveButton.setOnClickListener {
-                    Log.d("MessageActivity", "Approve button clicked for session: ${session.id}")
-                    approveSession(session.id)
-                }
-
-                // Set up reject button
-                rejectButton.setOnClickListener {
-                    Log.d("MessageActivity", "Reject button clicked for session: ${session.id}")
-                    rejectSession(session.id)
-                }
-            } else {
-                Log.d("MessageActivity", "Hiding tutor action buttons - not a tutor or session not pending")
-                tutorActionButtonsLayout.visibility = View.GONE
-            }
-
-            // Show the session details card
-            sessionDetailsView.visibility = View.VISIBLE
-
-            Log.d("MessageActivity", "Session details UI updated successfully")
         } catch (e: Exception) {
-            Log.e("MessageActivity", "Error updating session details UI: ${e.message}", e)
+            Log.e("MessageActivity", "Error updating session details UI outer: ${e.message}", e)
         }
     }
 
@@ -904,7 +880,8 @@ class MessageActivity : AppCompatActivity() {
                             // Try fallback approach - direct status update through NetworkUtils
                             CoroutineScope(Dispatchers.IO).launch {
                                 try {
-                                    Log.d("MessageActivity", "Trying direct status update as fallback")
+                                    Log.d("MessageActivity", "Trying direct acceptSession call as fallback")
+                                    // This will now use the acceptSession endpoint which sets tutorAccepted=true
                                     val fallbackResult = NetworkUtils.updateSessionStatus(sessionId, "APPROVED")
                                     
                                     withContext(Dispatchers.Main) {
@@ -1041,42 +1018,6 @@ class MessageActivity : AppCompatActivity() {
                     // No need to show a toast notification
                 }
             }
-        }
-    }
-
-    /**
-     * Format a date string for display
-     */
-    private fun formatDateForDisplay(dateString: String): String {
-        try {
-            val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
-            val outputFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
-            val date = inputFormat.parse(dateString) ?: return dateString
-            return outputFormat.format(date)
-        } catch (e: Exception) {
-            Log.e("MessageActivity", "Error formatting date: ${e.message}", e)
-            return dateString
-        }
-    }
-
-    /**
-     * Format a time string for display
-     */
-    private fun formatTimeForDisplay(startTimeString: String, endTimeString: String): String {
-        try {
-            val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
-            val outputFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
-
-            val startDate = inputFormat.parse(startTimeString) ?: return "$startTimeString - $endTimeString"
-            val endDate = inputFormat.parse(endTimeString) ?: return "$startTimeString - $endTimeString"
-
-            val formattedStartTime = outputFormat.format(startDate)
-            val formattedEndTime = outputFormat.format(endDate)
-
-            return "$formattedStartTime - $formattedEndTime"
-        } catch (e: Exception) {
-            Log.e("MessageActivity", "Error formatting time: ${e.message}", e)
-            return "$startTimeString - $endTimeString"
         }
     }
 

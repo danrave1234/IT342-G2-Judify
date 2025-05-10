@@ -201,6 +201,8 @@ public class TutoringSessionService {
                 return "has been cancelled.";
             case "ONGOING":
                 return "has started.";
+            case "APPROVED":
+                return "has been approved.";
             default:
                 return null; // No notification for other status changes
         }

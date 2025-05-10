@@ -74,7 +74,7 @@ object SessionUtils {
     suspend fun acceptSession(sessionId: Long): Result<NetworkUtils.TutoringSession> {
         return withContext(Dispatchers.IO) {
             try {
-                val url = URL("$BACKEND_URL/api/tutoring-sessions/updateStatus/$sessionId")
+                val url = URL("$BACKEND_URL/api/tutoring-sessions/acceptSession/$sessionId")
                 Log.d(TAG, "Accepting session - making API request to URL: $url")
                 val connection = url.openConnection() as HttpURLConnection
                 connection.requestMethod = "PUT"
@@ -89,11 +89,8 @@ object SessionUtils {
                 
                 Log.d(TAG, "Connected to server to accept session $sessionId")
                 
-                // Write the updated status to the output stream
-                val outputStream = connection.outputStream
-                outputStream.write("\"APPROVED\"".toByteArray())
-                outputStream.flush()
-                outputStream.close()
+                // No need to send any data in the request body for acceptSession endpoint
+                // The endpoint handles setting tutorAccepted=true and proper status
 
                 val responseCode = connection.responseCode
                 Log.d(TAG, "Accept session response code: $responseCode")
@@ -169,7 +166,7 @@ object SessionUtils {
     suspend fun rejectSession(sessionId: Long): Result<NetworkUtils.TutoringSession> {
         return withContext(Dispatchers.IO) {
             try {
-                val url = URL("$BACKEND_URL/api/tutoring-sessions/updateStatus/$sessionId")
+                val url = URL("$BACKEND_URL/api/tutoring-sessions/rejectSession/$sessionId")
                 Log.d(TAG, "Rejecting session - making API request to URL: $url")
                 val connection = url.openConnection() as HttpURLConnection
                 connection.requestMethod = "PUT"
@@ -184,11 +181,8 @@ object SessionUtils {
                 
                 Log.d(TAG, "Connected to server to reject session $sessionId")
                 
-                // Write the updated status to the output stream
-                val outputStream = connection.outputStream
-                outputStream.write("\"CANCELLED\"".toByteArray())
-                outputStream.flush()
-                outputStream.close()
+                // No need to send any data in the request body for rejectSession endpoint
+                // The endpoint handles setting the status to CANCELLED
 
                 val responseCode = connection.responseCode
                 Log.d(TAG, "Reject session response code: $responseCode")
