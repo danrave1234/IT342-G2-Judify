@@ -2,6 +2,7 @@ package edu.cit.Judify.TutoringSession;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,6 +35,9 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
+import edu.cit.Judify.TutorProfile.TutorProfileEntity;
 
 @RestController
 @RequestMapping("/api/tutoring-sessions")
@@ -150,25 +154,25 @@ public class TutoringSessionController {
             Long processedTutorId = null;
             
             try {
-                // From API 30, we need to actually try using the tutorId value (which might be a tutorProfileId)
-                // to get a userId from the TutorProfile service
-                processedTutorId = tutorProfileService.getUserIdFromTutorId(initialTutorId);
-                System.out.println("Successfully mapped tutorProfileId " + initialTutorId + 
-                                  " to userId " + processedTutorId + " BEFORE any operations");
-                // Modify the DTO to use the processed ID for all subsequent operations
-                sessionDTO.setUserId(processedTutorId);
-            } catch (Exception e) {
-                // If this fails, it could mean either:
-                // 1. The ID is already a valid userId (which is what we want)
-                // 2. The ID is invalid
-                // Let's check if it's a valid userId
+                // First check if this ID exists as a userId already
                 boolean isUserIdValid = userRepository.existsById(initialTutorId);
                 if (isUserIdValid) {
                     System.out.println("tutorId " + initialTutorId + " is already a valid userId, using directly");
+                    processedTutorId = initialTutorId;
                 } else {
-                    System.out.println("Failed to pre-process tutorId: " + e.getMessage());
-                    return ResponseEntity.badRequest().body(null);
+                    // Only if it's not a valid userId, try to convert it from tutorProfileId
+                    System.out.println("tutorId " + initialTutorId + " is not a userId, trying to convert from tutorProfileId...");
+                    processedTutorId = tutorProfileService.getUserIdFromTutorId(initialTutorId);
+                    System.out.println("Successfully mapped tutorProfileId " + initialTutorId + 
+                                  " to userId " + processedTutorId + " BEFORE any operations");
                 }
+                
+                // Always update the DTO to use the processed ID for all subsequent operations
+                sessionDTO.setUserId(processedTutorId);
+            } catch (Exception e) {
+                // If this fails, it could mean either the ID is invalid
+                System.out.println("Failed to pre-process tutorId: " + e.getMessage());
+                return ResponseEntity.badRequest().body(null);
             }
 
             // Set initial status to PENDING for negotiation
@@ -234,11 +238,16 @@ public class TutoringSessionController {
             }
             
             // Create the conversation through the service, which will check for existing conversations
-            ConversationEntity savedConversation;
+            ConversationEntity savedConversation = null;
             try {
-                // Always use our explicitly verified user entities
-                savedConversation = conversationService.findOrCreateStudentTutorConversation(studentUser, tutorUser);
-                System.out.println("Created/found conversation ID: " + savedConversation.getConversationId() +
+                // Create a new conversation for each tutoring session instead of finding existing ones
+                // This fixes the unique constraint violation error
+                ConversationEntity newConversation = new ConversationEntity();
+                newConversation.setStudent(studentUser);
+                newConversation.setTutor(tutorUser);
+                savedConversation = conversationService.createConversation(newConversation);
+                
+                System.out.println("Created new conversation ID: " + savedConversation.getConversationId() +
                                   " between student=" + savedConversation.getStudent().getUserId() +
                                   " and tutor=" + savedConversation.getTutor().getUserId());
                 
@@ -796,5 +805,62 @@ public class TutoringSessionController {
             return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(null);
         }
+    }
+
+    /**
+     * Create a tutoring session directly with tutorId in the request.
+     * This is an alternative endpoint to help with frontend integration.
+     */
+    @PostMapping("/createWithTutor")
+    public ResponseEntity<?> createSessionWithTutor(
+            @RequestBody edu.cit.Judify.TutoringSession.DTO.TutoringSessionDTO sessionDTO,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        
+        System.out.println("Creating session with tutorId directly: " + sessionDTO);
+        
+        try {
+            // Validate the tutor ID exists in the request
+            Long tutorId = sessionDTO.getUserId(); // Use userId as tutorId from frontend
+            if (tutorId == null) {
+                return ResponseEntity.badRequest().body("tutorId (as userId) is required");
+            }
+            
+            // First check if this ID is already a valid user ID
+            boolean isUserIdValid = userRepository.existsById(tutorId);
+            if (isUserIdValid) {
+                System.out.println("tutorId " + tutorId + " is a valid userId, using directly");
+                // No need to convert, just proceed
+            } else {
+                // Only if it's not a valid userId, try to convert from tutorProfileId
+                System.out.println("tutorId " + tutorId + " is not a userId, trying to convert from profile ID");
+                
+                // Get the tutor profile to find the associated userId
+                Optional<TutorProfileEntity> tutorProfileOpt = tutorProfileService.findByUserId(tutorId);
+                if (tutorProfileOpt.isEmpty()) {
+                    return ResponseEntity.badRequest().body("Tutor profile not found with ID: " + tutorId);
+                }
+                
+                // Extract the tutor user ID
+                TutorProfileEntity tutorProfile = tutorProfileOpt.get();
+                Long tutorUserId = tutorProfile.getUser().getUserId();
+                
+                // Set the userId field for backend processing
+                sessionDTO.setUserId(tutorUserId);
+                System.out.println("Converted tutorProfileId " + tutorId + " to userId " + tutorUserId);
+            }
+            
+            // Proceed with the regular session creation logic
+            return createSessionInternal(sessionDTO, userDetails);
+        } catch (Exception e) {
+            System.out.println("Error creating session with tutorId: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.badRequest().body("Error creating session: " + e.getMessage());
+        }
+    }
+    
+    // A helper method to handle the actual session creation
+    private ResponseEntity<?> createSessionInternal(TutoringSessionDTO sessionDTO, UserDetails userDetails) {
+        // Call the existing createSession method implementation
+        return createSession(sessionDTO, userDetails);
     }
 } 

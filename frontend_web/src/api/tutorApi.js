@@ -68,6 +68,17 @@ export const tutorProfileApi = {
         console.log('Second endpoint failed, trying third alternative endpoint');
         // Try another alternative
         return api.get(`/tutorProfiles/getUserId/${tutorId}`);
+      })
+      .catch(error => {
+        console.log('All getUserId endpoints failed, falling back to direct profile lookup');
+        // As a last resort, try to get the full profile and extract the userId
+        return api.get(`/tutor-profiles/${tutorId}`)
+          .then(response => {
+            if (response?.data?.userId) {
+              return { data: response.data.userId };
+            }
+            throw new Error('Could not extract userId from profile');
+          });
       });
   },
   

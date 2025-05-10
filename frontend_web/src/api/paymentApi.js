@@ -27,5 +27,32 @@ export const paymentApi = {
         // Fall back to the old endpoint if the first one fails
         return api.get('/payments', { params });
       });
+  },
+  
+  // Stripe-specific methods
+  createPaymentIntent: (sessionData) => {
+    console.log('Creating payment intent for session:', sessionData);
+    return api.post('/payments/create-payment-intent', sessionData);
+  },
+  
+  // Method to confirm payment after Stripe checkout
+  confirmPayment: (sessionId, paymentIntentId) => {
+    console.log(`Confirming payment for session ${sessionId} with paymentIntentId ${paymentIntentId}`);
+    return api.post(`/payments/confirm-payment`, { 
+      sessionId, 
+      paymentIntentId 
+    });
+  },
+  
+  // Get payment status
+  getPaymentStatus: (sessionId) => {
+    console.log(`Checking payment status for session ${sessionId}`);
+    return api.get(`/payments/status/${sessionId}`);
+  },
+  
+  // Process refund
+  processRefund: (transactionId, reason) => {
+    console.log(`Processing refund for transaction ${transactionId}`);
+    return api.post(`/payments/processRefund/${transactionId}`, { reason });
   }
 }; 

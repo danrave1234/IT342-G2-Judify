@@ -116,27 +116,21 @@ const Sessions = () => {
       }
       
       const user = JSON.parse(userData);
-      console.log('Getting tutor profile for user:', user.userId);
+      const userId = user.userId;
+      
+      if (!userId) {
+        console.error('User ID not found in localStorage data');
+        setAvailabilities([]);
+        setLoading(false);
+        return;
+      }
+      
+      console.log('Getting availability for userId:', userId);
       
       try {
-        // First get the tutor profile to get the profile ID
-        const { tutorProfileApi } = await import('../../api/api');
-        const profileResponse = await tutorProfileApi.getProfileByUserId(user.userId);
-        
-        if (!profileResponse.data || !profileResponse.data.profileId) {
-          console.error('No tutor profile found or missing profileId');
-          toast.error('Please complete your tutor profile first');
-          setAvailabilities([]);
-          setLoading(false);
-          return;
-        }
-        
-        const tutorProfileId = profileResponse.data.profileId;
-        console.log('Fetching availabilities using tutor profile ID:', tutorProfileId);
-        
-        // Use the API to get real availability data with the profile ID
-        const response = await tutorAvailabilityApi.getAvailabilities(tutorProfileId);
-        console.log('Availability API response:', response);
+        // Use userId directly for fetching availabilities instead of profileId
+        const response = await tutorAvailabilityApi.getAvailabilities(userId, true);
+        console.log('Availability API response using userId:', response);
         
         if (response && response.data) {
           // Handle both array and single object responses
@@ -200,28 +194,16 @@ const Sessions = () => {
         return;
       }
       
-      // First get the tutor profile to get the profile ID
-      const { tutorProfileApi } = await import('../../api/api');
-      const profileResponse = await tutorProfileApi.getProfileByUserId(userId);
-      
-      if (!profileResponse.data || !profileResponse.data.profileId) {
-        toast.error('Please complete your tutor profile first');
-        setSubmitting(false);
-        return;
-      }
-      
-      const tutorProfileId = profileResponse.data.profileId;
-      
-      // Add tutorId to availability data
-      const availabilityWithTutorId = {
+      // Add userId directly to availability data instead of using profileId
+      const availabilityData = {
         ...availabilityForm,
-        tutorId: tutorProfileId // Use the profile ID, not the user ID
+        userId: userId // Use userId directly
       };
       
-      console.log('Submitting availability data with tutor profile ID:', availabilityWithTutorId);
+      console.log('Submitting availability data with userId:', availabilityData);
       
       // Call the backend API
-      const response = await tutorAvailabilityApi.createAvailability(availabilityWithTutorId);
+      const response = await tutorAvailabilityApi.createAvailability(availabilityData);
       console.log('Availability creation response:', response);
       
       if (response && response.data) {

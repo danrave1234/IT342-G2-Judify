@@ -118,8 +118,8 @@ const Availability = () => {
         // Get the tutor's profile to get the profileId needed for availability API calls
         const response = await tutorProfileApi.getProfileByUserId(user.userId);
 
-        if (!response.data || !response.data.profileId) {
-          console.error('No tutor profile found or missing profileId');
+        if (!response.data) {
+          console.error('No tutor profile found');
           setError('Please complete your tutor profile first.');
           setLoading(false);
           setLoadingProfile(false); // Set loadingProfile to false
@@ -130,8 +130,9 @@ const Availability = () => {
         setTutorProfile(response.data);
         console.log('Fetched tutor profile:', response.data);
 
-        // Now fetch the availabilities using the profile ID
-        fetchAvailabilities(response.data.profileId);
+        // Now fetch the availabilities using the user's userId directly
+        // instead of relying on profileId
+        fetchAvailabilities(user.userId);
 
         // Check calendar connection
         checkCalendarConnection();
@@ -192,8 +193,15 @@ const Availability = () => {
 
     setLoading(true);
     try {
-      console.log(`Fetching availabilities for tutorId: ${tutorProfileId}`);
-      const response = await tutorAvailabilityApi.getAvailabilities(tutorProfileId);
+      // Use userId instead of profileId if available
+      const idToUse = user?.userId || tutorProfileId;
+      const useUserId = !!user?.userId;
+
+      console.log(`Fetching availabilities for tutor ${useUserId ? 'user' : 'profile'} ID: ${idToUse}`);
+      
+      // Pass isUserId=true if using userId
+      const response = await tutorAvailabilityApi.getAvailabilities(idToUse, useUserId);
+      
       // Make sure dayOfWeek is always uppercase when loaded from the backend
       const normalizedAvailabilities = response.data.map(avail => ({
         ...avail,
@@ -220,8 +228,8 @@ const Availability = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!tutorProfile || !tutorProfile.profileId) {
-      toast.error('Tutor profile not found');
+    if (!user || !user.userId) {
+      toast.error('User data not found. Please log in again.');
       return;
     }
 
@@ -239,10 +247,11 @@ const Availability = () => {
       dayOfWeek: newAvailability.dayOfWeek,
       startTime: newAvailability.startTime,
       endTime: newAvailability.endTime,
-      tutorId: tutorProfile.profileId  // Use the correct tutorId (profileId) from tutor profile
+      userId: user.userId  // Use userId directly instead of profileId
     };
 
     try {
+      console.log('Creating availability with userId:', user.userId);
       const response = await tutorAvailabilityApi.createAvailability(availabilityData);
       setAvailabilities([...availabilities, response.data]);
       toast.success('Availability added successfully');

@@ -1,6 +1,18 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { FaVideo, FaMapMarkerAlt, FaClock, FaCalendarAlt, FaSearch, FaComment } from 'react-icons/fa';
+import { 
+  FaVideo, 
+  FaMapMarkerAlt, 
+  FaClock, 
+  FaCalendarAlt, 
+  FaSearch, 
+  FaComment, 
+  FaCheck, 
+  FaTimes, 
+  FaThumbsUp,
+  FaCheckDouble,
+  FaCreditCard
+} from 'react-icons/fa';
 import { SESSION_STATUS } from '../../types';
 import axios from 'axios';
 import { conversationApi } from '../../api/api';
@@ -300,6 +312,31 @@ const Sessions = () => {
     }
   };
 
+  // Function to handle redirection to payment page
+  const handlePayment = (session) => {
+    navigate(`/student/sessions/${session.sessionId || session.id}`);
+  };
+
+  // Get status representation with icons
+  const getStatusWithIcon = (status) => {
+    switch(status) {
+      case SESSION_STATUS.SCHEDULED:
+        return <><FaCalendarAlt className="mr-1" /> {status}</>;
+      case SESSION_STATUS.CONFIRMED:
+        return <><FaCheck className="mr-1" /> {status}</>;
+      case SESSION_STATUS.COMPLETED:
+        return <><FaCheckDouble className="mr-1" /> {status}</>;
+      case SESSION_STATUS.CANCELLED:
+        return <><FaTimes className="mr-1" /> {status}</>;
+      case SESSION_STATUS.PENDING:
+        return <><FaClock className="mr-1" /> {status}</>;
+      case SESSION_STATUS.APPROVED:
+        return <><FaThumbsUp className="mr-1" /> {status}</>;
+      default:
+        return status;
+    }
+  };
+
   return (
     <div className="container mx-auto py-8 px-4">
       <h1 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">My Tutoring Sessions</h1>
@@ -395,7 +432,7 @@ const Sessions = () => {
                             <h3 className="font-medium text-gray-900 dark:text-white">{session.tutorName || 'Unnamed Tutor'}</h3>
                             <p className="text-sm text-gray-500 dark:text-gray-400">{session.subject || 'General Tutoring'}</p>
                             <span className={`inline-block mt-1 px-3 py-1 rounded-full text-xs font-medium ${getStatusClass(session.status)}`}>
-                              {session.status}
+                              {getStatusWithIcon(session.status)}
                             </span>
                           </div>
                         </div>
@@ -442,16 +479,32 @@ const Sessions = () => {
                           </div>
                         )}
                         
-                        <div className="flex justify-end">
-                          <button 
-                            className="flex items-center text-primary-600 hover:text-primary-700 text-sm font-medium"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleSessionClick(session);
-                            }}
+                        <div className="mt-6 flex flex-wrap gap-2">
+                          <Link 
+                            to={`/student/sessions/${session.sessionId || session.id}`}
+                            className="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-dark-600 text-xs font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-dark-700 hover:bg-gray-50 dark:hover:bg-dark-600 focus:outline-none"
                           >
-                            <FaComment className="mr-1" />
-                            Message Tutor
+                            <FaSearch className="mr-1.5" />
+                            View Details
+                          </Link>
+                          
+                          {/* Show payment button for approved sessions */}
+                          {(session.status === 'APPROVED' || (session.tutorAccepted && session.status !== 'COMPLETED')) && (
+                            <button
+                              onClick={() => handlePayment(session)}
+                              className="inline-flex items-center px-3 py-1.5 border border-green-600 text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none"
+                            >
+                              <FaCreditCard className="mr-1.5" />
+                              Pay Now
+                            </button>
+                          )}
+                          
+                          <button
+                            onClick={() => handleSessionClick(session)}
+                            className="inline-flex items-center px-3 py-1.5 border border-primary-600 dark:border-primary-500 text-xs font-medium rounded-md text-primary-600 dark:text-primary-500 bg-white dark:bg-dark-700 hover:bg-primary-50 dark:hover:bg-primary-900/10 focus:outline-none"
+                          >
+                            <FaComment className="mr-1.5" />
+                            Message
                           </button>
                         </div>
                       </div>

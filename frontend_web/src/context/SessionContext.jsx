@@ -48,25 +48,24 @@ export const SessionProvider = ({ children }) => {
               tutorId: sessionData.tutorId  // Keep original tutorId for reference
             };
           }
-        } catch (convError) {
-          console.error('Error converting tutorId to userId:', convError);
-          // Continue with original sessionData if conversion fails
+        } catch (error) {
+          console.error(`Error converting tutorId to userId:`, error);
+          // Instead of failing, try direct submission with tutorId
+          console.log('Falling back to direct submission with tutorId');
         }
       }
       
-      // Fallback to original method if conversion fails or tutorId not available
+      // Direct submission attempt - either no tutorId or conversion failed
+      console.log('Attempting direct session creation');
       const response = await tutoringSessionApi.createSession(sessionData);
       toast.success('Session scheduled successfully');
-      return { 
-        success: true, 
-        session: response.data, 
-        tutorId: sessionData.tutorId 
-      };
-    } catch (err) {
-      const message = err.response?.data?.message || 'Failed to schedule session';
-      setError(message);
-      toast.error(message);
-      return { success: false, message };
+      return { success: true, session: response.data };
+      
+    } catch (error) {
+      console.error('Error creating session:', error);
+      setError(error.message || 'Failed to create session');
+      toast.error('Failed to schedule session. Please try again.');
+      return { success: false, error };
     } finally {
       setLoading(false);
     }

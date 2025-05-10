@@ -44,14 +44,23 @@ export const tutorAvailabilityApi = {
       });
   },
   createAvailability: (availabilityData) => {
-    // Ensure we have a tutorId in the data (should be profile ID, not user ID)
-    if (!availabilityData.tutorId) {
-      console.error('Missing tutorId in availability data');
-      return Promise.reject(new Error('Missing tutorId in availability data'));
+    // Check for either tutorId or userId in the data
+    if (!availabilityData.tutorId && !availabilityData.userId) {
+      console.error('Missing tutorId or userId in availability data');
+      return Promise.reject(new Error('Missing tutorId or userId in availability data'));
     }
     
-    console.log('Creating availability with tutor profile ID:', availabilityData.tutorId);
-    return api.post('/tutor-availability/createAvailability', availabilityData);
+    // Map userId to tutorId if needed for backward compatibility
+    const dataToSend = { ...availabilityData };
+    
+    // If userId is provided but tutorId is not, use userId as tutorId
+    if (availabilityData.userId && !availabilityData.tutorId) {
+      console.log(`Using userId ${availabilityData.userId} as tutorId for createAvailability`);
+      dataToSend.tutorId = availabilityData.userId;
+    }
+    
+    console.log('Creating availability with data:', dataToSend);
+    return api.post('/tutor-availability/createAvailability', dataToSend);
   },
   updateAvailability: (availabilityId, availabilityData) => {
     return api.put(`/tutor-availability/updateAvailability/${availabilityId}`, availabilityData);

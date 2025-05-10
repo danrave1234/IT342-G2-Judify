@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useSession } from '../../context/SessionContext';
-import { reviewApi } from '../../api/api';
+import { reviewApi, paymentApi } from '../../api/api';
 import { SESSION_STATUS } from '../../types';
+import StripeWrapper from '../../components/payment/StripeWrapper';
+import SessionPayment from '../../components/payment/SessionPayment';
 
 const SessionDetails = () => {
   const { sessionId } = useParams();
@@ -11,6 +13,9 @@ const SessionDetails = () => {
   const [session, setSession] = useState(null);
   const [review, setReview] = useState(null);
   const [submittingReview, setSubmittingReview] = useState(false);
+  const [showPayment, setShowPayment] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState('PENDING');
+  const [paymentLoading, setPaymentLoading] = useState(false);
   const [reviewForm, setReviewForm] = useState({
     rating: 5,
     comment: '',
@@ -24,6 +29,24 @@ const SessionDetails = () => {
     const result = await getSessionById(sessionId);
     if (result.success) {
       setSession(result.session);
+      
+      // Check if tutor has accepted the session
+      if (result.session.tutorAccepted || 
+          result.session.status === 'APPROVED' || 
+          result.session.status === 'CONFIRMED') {
+        // Check payment status
+        try {
+          setPaymentLoading(true);
+          const paymentResponse = await paymentApi.getPaymentStatus(sessionId);
+          if (paymentResponse.data?.status) {
+            setPaymentStatus(paymentResponse.data.status);
+          }
+        } catch (error) {
+          console.error('Error fetching payment status:', error);
+        } finally {
+          setPaymentLoading(false);
+        }
+      }
 
       // Check if session has a review
       try {
@@ -79,8 +102,20 @@ const SessionDetails = () => {
       setSubmittingReview(false);
     }
   };
+  
+  const handlePaymentSuccess = async (paymentIntent) => {
+    // Update local state
+    setPaymentStatus('COMPLETED');
+    
+    // Refresh session details to get updated status
+    await fetchSessionDetails();
+  };
+  
+  const handlePaymentError = (error) => {
+    console.error('Payment error:', error);
+  };
 
-  if (loading || !session) {
+  if (loading || !session || paymentLoading) {
     return (
       <div className="flex items-center justify-center min-h-[80vh]">
         <div className="w-16 h-16 border-t-4 border-primary-600 border-solid rounded-full animate-spin"></div>
@@ -92,6 +127,9 @@ const SessionDetails = () => {
   const isPast = [SESSION_STATUS.COMPLETED, SESSION_STATUS.CANCELLED].includes(session.status);
   const canSubmitReview = session.status === SESSION_STATUS.COMPLETED && !review;
   const canCancel = session.status === SESSION_STATUS.SCHEDULED;
+  const canPay = (session.tutorAccepted || session.status === 'APPROVED') && 
+                 paymentStatus !== 'COMPLETED' && 
+                 !isPast;
 
   const sessionDate = new Date(session.startTime);
   const endTime = new Date(session.endTime);
@@ -238,8 +276,30 @@ const SessionDetails = () => {
               Message Tutor
             </Link>
           )}
+          
+          {canPay && (
+            <button
+              onClick={() => setShowPayment(!showPayment)}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
+            >
+              {showPayment ? 'Hide Payment Form' : 'Pay Now'}
+            </button>
+          )}
         </div>
       </div>
+      
+      {/* Payment Section */}
+      {showPayment && canPay && (
+        <div className="mb-8">
+          <StripeWrapper>
+            <SessionPayment 
+              session={session} 
+              onPaymentSuccess={handlePaymentSuccess}
+              onPaymentError={handlePaymentError}
+            />
+          </StripeWrapper>
+        </div>
+      )}
 
       {/* Review Section */}
       {canSubmitReview && (
@@ -248,38 +308,34 @@ const SessionDetails = () => {
           <form onSubmit={handleSubmitReview}>
             <div className="mb-4">
               <label className="block text-gray-700 dark:text-gray-300 mb-2">Rating</label>
-              <div className="flex gap-2">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    type="button"
-                    onClick={() => setReviewForm(prev => ({ ...prev, rating: star }))}
-                    className="text-3xl focus:outline-none"
-                  >
-                    <span className={star <= reviewForm.rating ? 'text-yellow-500' : 'text-gray-300 dark:text-gray-600'}>
-                      ★
-                    </span>
-                  </button>
-                ))}
-              </div>
+              <select
+                name="rating"
+                value={reviewForm.rating}
+                onChange={handleReviewChange}
+                className="w-full p-2 border border-gray-300 dark:border-dark-600 rounded-lg focus:ring-primary-500 focus:border-primary-500 dark:bg-dark-700 dark:text-white"
+              >
+                <option value="5">5 - Excellent</option>
+                <option value="4">4 - Very Good</option>
+                <option value="3">3 - Good</option>
+                <option value="2">2 - Fair</option>
+                <option value="1">1 - Poor</option>
+              </select>
             </div>
             <div className="mb-4">
-              <label htmlFor="comment" className="block text-gray-700 dark:text-gray-300 mb-2">Comment</label>
+              <label className="block text-gray-700 dark:text-gray-300 mb-2">Comment</label>
               <textarea
-                id="comment"
                 name="comment"
-                rows="4"
                 value={reviewForm.comment}
                 onChange={handleReviewChange}
+                rows="4"
+                className="w-full p-2 border border-gray-300 dark:border-dark-600 rounded-lg focus:ring-primary-500 focus:border-primary-500 dark:bg-dark-700 dark:text-white"
                 placeholder="Share your experience with this tutor..."
-                className="input"
-                required
               ></textarea>
             </div>
             <button
               type="submit"
               disabled={submittingReview}
-              className="btn-primary"
+              className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg transition-colors disabled:bg-gray-400"
             >
               {submittingReview ? 'Submitting...' : 'Submit Review'}
             </button>
