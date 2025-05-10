@@ -4,19 +4,19 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:paddingStart="80dp"
-    android:paddingEnd="8dp"
-    android:paddingTop="4dp"
-    android:paddingBottom="4dp">
+    android:paddingStart="60dp"
+    android:paddingEnd="6dp"
+    android:paddingTop="3dp"
+    android:paddingBottom="2dp">
 
     <!-- Message Bubble with Session Action -->
     <androidx.cardview.widget.CardView
         android:id="@+id/messageCard"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:maxWidth="260dp"
+        android:maxWidth="220dp"
         app:cardBackgroundColor="@color/primary_blue"
-        app:cardCornerRadius="12dp"
+        app:cardCornerRadius="10dp"
         app:cardElevation="1dp"
         app:contentPadding="0dp"
         app:layout_constrainedWidth="true"
@@ -25,30 +25,30 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:strokeColor="#2196F3"
-        app:strokeWidth="2dp">
+        app:strokeWidth="1dp">
 
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="12dp">
+            android:padding="8dp">
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Session Update"
                 android:textColor="@color/white"
-                android:textSize="16sp"
+                android:textSize="14sp"
                 android:textStyle="bold"
-                android:layout_marginBottom="8dp" />
+                android:layout_marginBottom="4dp" />
 
             <TextView
                 android:id="@+id/messageText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textColor="@color/white"
-                android:textSize="14sp"
-                android:lineSpacingExtra="3dp"
+                android:textSize="12sp"
+                android:lineSpacingExtra="2dp"
                 tools:text="Session request accepted. The tutoring session has been scheduled." />
 
         </LinearLayout>
@@ -59,10 +59,10 @@
         android:id="@+id/timeText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:layout_marginEnd="8dp"
+        android:layout_marginTop="2dp"
+        android:layout_marginEnd="6dp"
         android:textColor="@color/text_secondary"
-        android:textSize="12sp"
+        android:textSize="10sp"
         app:layout_constraintEnd_toEndOf="@+id/messageCard"
         app:layout_constraintTop_toBottomOf="@+id/messageCard"
         tools:text="10:30 AM" />

@@ -49,6 +49,7 @@ class TutorDashboardActivity : AppCompatActivity() {
     private val availabilityList = mutableListOf<NetworkUtils.TutorAvailability>()
     private var currentTutorId: Long = 0
     private var currentTutorHourlyRate: Double = 0.0
+    private var currentTutorUserId: Long? = null
 
     override fun onDestroy() {
         try {
@@ -650,20 +651,29 @@ class TutorDashboardActivity : AppCompatActivity() {
                                     // Set rating
                                     binding.ratingValue.text = tutorProfile.rating.toString()
 
-                                    // Store tutor ID for later use
+                                    // Store tutor profileId for later use
                                     currentTutorId = tutorProfile.id
-
+                                    
+                                    // Store tutor userId for APIs that require it
+                                    currentTutorUserId = tutorProfile.userId
+                                    
                                     // Store hourly rate for session cards
                                     currentTutorHourlyRate = tutorProfile.hourlyRate
 
                                     // Load subjects
                                     loadSubjects(tutorProfile.subjects)
 
-                                    // Get tutoring sessions
-                                    loadSessions(tutorProfile.id)
+                                    // Get tutoring sessions - use userId instead of profileId for sessions
+                                    tutorProfile.userId?.let { userId ->
+                                        loadSessions(userId)  // Use userId instead of tutor profile ID
+                                    } ?: run {
+                                        // Fallback if userId is null (shouldn't happen based on our fix)
+                                        Log.e(TAG, "tutorProfile.userId is null, falling back to profileId for session loading")
+                                        loadSessions(tutorProfile.id)
+                                    }
 
-                                    // Load availability
-                                    loadAvailability(tutorProfile.id)
+                                    // Load availability - use tutorId (profile ID) for availability APIs
+                                    loadAvailability(tutorProfile.id)  // Use tutorId (profile ID) for availability
                                 } else {
                                     // Handle null tutor profile
                                     Log.e(TAG, "Tutor profile is null for userId: ${user.userId}, tutorProfileResult isSuccess: ${tutorProfileResult.isSuccess}")
@@ -718,11 +728,14 @@ class TutorDashboardActivity : AppCompatActivity() {
                 binding.availabilityRecyclerView.visibility = View.GONE
 
                 // First attempt
+                Log.d(TAG, "Fetching availability using tutorId (profile ID): $tutorId")
                 var result = NetworkUtils.getTutorAvailability(tutorId)
 
                 // If first attempt fails, try again with retry mechanism
                 if (result.isFailure) {
-                    Log.e(TAG, "First attempt to load availability failed, retrying...")
+                    val errorMsg = result.exceptionOrNull()?.message ?: "Unknown error"
+                    Log.e(TAG, "First attempt to load availability failed: $errorMsg, retrying...")
+                    
                     // Short delay before retry
                     delay(1000)
                     result = NetworkUtils.getTutorAvailability(tutorId)
@@ -730,6 +743,8 @@ class TutorDashboardActivity : AppCompatActivity() {
 
                 if (result.isSuccess) {
                     val availabilitySlots = result.getOrNull() ?: emptyList()
+                    Log.d(TAG, "Successfully loaded ${availabilitySlots.size} availability slots. " +
+                              "First slot tutorId value (should be profile ID): ${if (availabilitySlots.isNotEmpty()) availabilitySlots[0].tutorId else "N/A"}")
 
                     // Update the list and adapter
                     availabilityList.clear()
@@ -747,7 +762,8 @@ class TutorDashboardActivity : AppCompatActivity() {
                     }
                 } else {
                     // Handle error without using fallback data
-                    Log.e(TAG, "Error loading availability")
+                    val errorMsg = result.exceptionOrNull()?.message ?: "Unknown error"
+                    Log.e(TAG, "Error loading availability: $errorMsg")
 
                     // Clear any existing data
                     availabilityList.clear()
@@ -759,7 +775,7 @@ class TutorDashboardActivity : AppCompatActivity() {
                     binding.availabilityRecyclerView.visibility = View.GONE
 
                     // Show a toast indicating the error
-                    UiUtils.showErrorSnackbar(findViewById(android.R.id.content), "Unable to load availability. Please check your connection.")
+                    UiUtils.showErrorSnackbar(findViewById(android.R.id.content), "Unable to load availability: $errorMsg")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading availability: ${e.message}", e)
@@ -774,7 +790,7 @@ class TutorDashboardActivity : AppCompatActivity() {
                 binding.availabilityRecyclerView.visibility = View.GONE
 
                 // Show a toast indicating the error
-                UiUtils.showErrorSnackbar(findViewById(android.R.id.content), "Unable to load availability. Please check your connection.")
+                UiUtils.showErrorSnackbar(findViewById(android.R.id.content), "Unable to load availability: ${e.message}")
             }
         }
     }
@@ -790,7 +806,9 @@ class TutorDashboardActivity : AppCompatActivity() {
             try {
                 // Use the 24-hour time values directly passed to this method
                 Log.d(TAG, "Creating availability with 24-hour times: start=$startTime, end=$endTime")
-
+                
+                // Use the tutor profile ID (not userId) for availability APIs
+                Log.d(TAG, "Using tutorId (profile ID: $currentTutorId) for creating availability - this is correct")
                 val result = NetworkUtils.createTutorAvailability(
                     tutorId = currentTutorId,
                     dayOfWeek = dayOfWeek,
@@ -799,11 +817,14 @@ class TutorDashboardActivity : AppCompatActivity() {
                 )
 
                 if (result.isSuccess) {
-                    // Reload availability data
+                    // Reload availability data using tutorId
+                    Log.d(TAG, "Successfully created availability slot, reloading data with tutorId: $currentTutorId")
                     loadAvailability(currentTutorId)
                     UiUtils.showSuccessSnackbar(findViewById(android.R.id.content), "Availability added successfully")
                 } else {
-                    showError("Error creating availability slot")
+                    val errorMsg = result.exceptionOrNull()?.message ?: "Unknown error"
+                    Log.e(TAG, "Failed to create availability slot: $errorMsg")
+                    showError("Error creating availability slot: $errorMsg")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error creating availability slot: ${e.message}", e)
@@ -817,7 +838,9 @@ class TutorDashboardActivity : AppCompatActivity() {
             try {
                 // Use the 24-hour time values directly passed to this method
                 Log.d(TAG, "Updating availability with 24-hour times: start=$startTime, end=$endTime")
-
+                
+                // Use the tutor profile ID (not userId) for availability APIs
+                Log.d(TAG, "Using tutorId (profile ID: $currentTutorId) for updating availability - this is correct")
                 val result = NetworkUtils.updateTutorAvailability(
                     id = id,
                     tutorId = currentTutorId,
@@ -827,11 +850,14 @@ class TutorDashboardActivity : AppCompatActivity() {
                 )
 
                 if (result.isSuccess) {
-                    // Reload availability data
+                    // Reload availability data using tutorId
+                    Log.d(TAG, "Successfully updated availability slot, reloading data with tutorId: $currentTutorId")
                     loadAvailability(currentTutorId)
                     UiUtils.showSuccessSnackbar(findViewById(android.R.id.content), "Availability updated successfully")
                 } else {
-                    showError("Error updating availability slot")
+                    val errorMsg = result.exceptionOrNull()?.message ?: "Unknown error"
+                    Log.e(TAG, "Failed to update availability slot: $errorMsg")
+                    showError("Error updating availability slot: $errorMsg")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error updating availability slot: ${e.message}", e)
@@ -846,7 +872,8 @@ class TutorDashboardActivity : AppCompatActivity() {
                 val result = NetworkUtils.deleteTutorAvailability(id)
 
                 if (result.isSuccess) {
-                    // Reload availability data
+                    // Reload availability data using tutorId (profile ID)
+                    Log.d(TAG, "Reloading availability with tutorId (profile ID): $currentTutorId after deletion")
                     loadAvailability(currentTutorId)
                     UiUtils.showSuccessSnackbar(findViewById(android.R.id.content), "Availability deleted successfully")
                 } else {
@@ -867,6 +894,9 @@ class TutorDashboardActivity : AppCompatActivity() {
                 binding.upcomingSessionsCount.text = "..."
 
                 // Get all sessions for this tutor directly from the API endpoint
+                // Note: This method should be called with the USER ID, not the profile ID
+                // The backend expects a user ID for /api/tutoring-sessions/findByUser endpoint
+                Log.d(TAG, "Fetching sessions using userId: $tutorId")
                 val allSessionsResult = NetworkUtils.getTutorSessions(tutorId.toString())
 
                 if (allSessionsResult.isSuccess) {

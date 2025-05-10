@@ -116,8 +116,23 @@ class MessageRepository {
                     Log.d("MessageRepository", "Processing ${networkMessages.size} messages")
 
                     networkMessages.map { networkMessage ->
+                        // Get original content
+                        var content = networkMessage.content
+                        
+                        // For session details messages, filter out Tutor Profile ID
+                        if (content.contains("Subject:") && 
+                            (content.contains("Date:") || content.contains("Time:")) && 
+                            content.contains("Status:")) {
+                            
+                            // Filter out Tutor Profile ID information with improved regex
+                            content = content.replace(Regex("(?i)tutor\\s*profile\\s*i[d|:]+.*?(\\n|$)"), "")
+                                           .replace(Regex("\\n\\s*\\n"), "\n") // Remove empty lines
+                                           .trim()
+                            
+                            Log.d("MessageRepository", "Filtered tutor profile ID from message")
+                        }
+                        
                         // Analyze message content to determine message type and extract session ID if present
-                        val content = networkMessage.content
                         val messageType: Message.MessageType
                         var sessionId: Long? = null
 
@@ -127,12 +142,40 @@ class MessageRepository {
                             content.contains("Status:")) {
                             messageType = Message.MessageType.SESSION_DETAILS
 
-                            // Try to extract session ID from the message content
-                            val sessionIdRegex = "Session ID: (\\d+)".toRegex()
+                            // Try various patterns to extract session ID from the message content
+                            var extractedSessionId: Long? = null
+                            
+                            // Pattern 1: "Session ID: 123"
+                            val sessionIdRegex = "Session ID:\\s*(\\d+)".toRegex()
                             val matchResult = sessionIdRegex.find(content)
-                            sessionId = matchResult?.groupValues?.get(1)?.toLongOrNull()
-
-                            Log.d("MessageRepository", "Detected SESSION_DETAILS message with sessionId: $sessionId")
+                            if (matchResult != null) {
+                                extractedSessionId = matchResult.groupValues[1].toLongOrNull()
+                                Log.d("MessageRepository", "Found sessionId with pattern 1: $extractedSessionId")
+                            }
+                            
+                            // Pattern 2: "#123" or "session #123"
+                            if (extractedSessionId == null) {
+                                val hashIdRegex = "[Ss]ession\\s*#?(\\d+)".toRegex()
+                                val hashMatch = hashIdRegex.find(content)
+                                if (hashMatch != null) {
+                                    extractedSessionId = hashMatch.groupValues[1].toLongOrNull()
+                                    Log.d("MessageRepository", "Found sessionId with pattern 2: $extractedSessionId")
+                                }
+                            }
+                            
+                            // Pattern 3: Look for IDs in the form of "ID: 123"
+                            if (extractedSessionId == null) {
+                                val idRegex = "ID:\\s*(\\d+)".toRegex()
+                                val idMatch = idRegex.find(content)
+                                if (idMatch != null) {
+                                    extractedSessionId = idMatch.groupValues[1].toLongOrNull()
+                                    Log.d("MessageRepository", "Found sessionId with pattern 3: $extractedSessionId")
+                                }
+                            }
+                            
+                            // Set the session ID if any pattern matched
+                            sessionId = extractedSessionId
+                            Log.d("MessageRepository", "Final sessionId for SESSION_DETAILS message: $sessionId")
                         }
                         // Check if this is a session action message
                         else if (content.contains("approved") || content.contains("rejected") || 
@@ -141,7 +184,7 @@ class MessageRepository {
                             messageType = Message.MessageType.SESSION_ACTION
 
                             // Try to extract session ID from the message content
-                            val sessionIdRegex = "Session ID: (\\d+)".toRegex()
+                            val sessionIdRegex = "[Ss]ession\\s*(?:#|ID:)?\\s*(\\d+)".toRegex()
                             val matchResult = sessionIdRegex.find(content)
                             sessionId = matchResult?.groupValues?.get(1)?.toLongOrNull()
 
@@ -158,7 +201,7 @@ class MessageRepository {
                             senderId = networkMessage.senderId,
                             // Use a placeholder for receiverId since the NetworkUtils.Message doesn't include it
                             receiverId = 0, // Will be updated later if needed
-                            content = networkMessage.content,
+                            content = content, // Use the potentially filtered content
                             timestamp = parseTimestamp(networkMessage.timestamp) ?: System.currentTimeMillis(),
                             readStatus = networkMessage.isRead,
                             messageType = messageType,

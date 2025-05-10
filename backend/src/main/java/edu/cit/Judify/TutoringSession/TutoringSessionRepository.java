@@ -45,4 +45,7 @@ public interface TutoringSessionRepository extends JpaRepository<TutoringSession
             @Param("startTime") Date startTime,
             @Param("endTime") Date endTime,
             @Param("status") String status);
+
+    // Retrieve sessions where user is either a tutor or student
+    List<TutoringSessionEntity> findByTutorOrStudentOrderByStartTimeDesc(UserEntity tutor, UserEntity student);
 } 

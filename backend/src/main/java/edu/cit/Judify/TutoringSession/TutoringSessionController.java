@@ -314,8 +314,26 @@ public class TutoringSessionController {
     public ResponseEntity<List<TutoringSessionDTO>> getUserSessions(
             @Parameter(description = "User ID") @PathVariable("userId") Long userId) {
         // Find the user by ID
+        UserEntity user = new UserEntity();
+        user.setUserId(userId);
+
+        // Get all sessions where the user is either a tutor or student
+        return ResponseEntity.ok(sessionService.getAllUserSessions(user)
+                .stream()
+                .map(sessionDTOMapper::toDTO)
+                .collect(Collectors.toList()));
+    }
+
+    @Operation(summary = "Get sessions where user is tutor", description = "Returns all tutoring sessions where a specific user is the tutor")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Successfully retrieved the tutor's sessions")
+    })
+    @GetMapping("/findByTutor/{tutorUserId}")
+    public ResponseEntity<List<TutoringSessionDTO>> getTutorSessions(
+            @Parameter(description = "Tutor User ID") @PathVariable("tutorUserId") Long tutorUserId) {
+        // Find the user by ID
         UserEntity tutor = new UserEntity();
-        tutor.setUserId(userId);
+        tutor.setUserId(tutorUserId);
 
         return ResponseEntity.ok(sessionService.getTutorSessions(tutor)
                 .stream()

@@ -362,7 +362,9 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="16dp"
                 app:cardCornerRadius="12dp"
-                app:cardElevation="2dp"
+                app:cardElevation="4dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="#E0E0E0"
                 app:cardBackgroundColor="?attr/colorSurface">
 
                 <LinearLayout
@@ -371,14 +373,29 @@
                     android:orientation="vertical"
                     android:padding="16dp">
 
-                    <TextView
-                        android:layout_width="wrap_content"
+                    <LinearLayout
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Select Subject"
-                        android:textColor="@color/primary_blue"
-                        android:textStyle="bold"
-                        android:textSize="16sp"
-                        android:layout_marginBottom="12dp" />
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="12dp">
+
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:src="@drawable/ic_subject"
+                            app:tint="@color/primary_blue"
+                            android:layout_marginEnd="8dp"/>
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Select Subject"
+                            android:textColor="@color/primary_blue"
+                            android:textStyle="bold"
+                            android:textSize="16sp" />
+                    </LinearLayout>
 
                     <TextView
                         android:id="@+id/noSubjectsTextView"
@@ -396,14 +413,13 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:clipToPadding="false"
-                        android:orientation="horizontal"
-                        android:paddingStart="4dp"
-                        android:paddingEnd="4dp"
-                        android:paddingTop="4dp"
-                        android:paddingBottom="4dp"
-                        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+                        android:paddingHorizontal="8dp"
+                        android:paddingVertical="8dp"
+                        android:overScrollMode="never"
+                        app:layoutManager="androidx.recyclerview.widget.GridLayoutManager"
+                        app:spanCount="3"
                         tools:listitem="@layout/item_booking_subject"
-                        tools:itemCount="3" />
+                        tools:itemCount="6" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
@@ -805,7 +821,7 @@
                             android:id="@+id/summaryCardBlueTotalText3"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="$0.00"
+                            android:text=""
                             android:textColor="@color/white"
                             android:textSize="18sp"
                             android:textStyle="bold" />

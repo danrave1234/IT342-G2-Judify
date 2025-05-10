@@ -74,35 +74,88 @@ object SessionUtils {
     suspend fun acceptSession(sessionId: Long): Result<NetworkUtils.TutoringSession> {
         return withContext(Dispatchers.IO) {
             try {
-                val url = URL("$BACKEND_URL/api/tutoring-sessions/acceptSession/$sessionId")
-                Log.d(TAG, "Accepting session from URL: $url")
+                val url = URL("$BACKEND_URL/api/tutoring-sessions/updateStatus/$sessionId")
+                Log.d(TAG, "Accepting session - making API request to URL: $url")
                 val connection = url.openConnection() as HttpURLConnection
                 connection.requestMethod = "PUT"
                 connection.setRequestProperty("Content-Type", "application/json")
                 connection.setRequestProperty("Accept", "application/json")
                 connection.doOutput = true
+                connection.connectTimeout = 15000 // 15 seconds timeout
+                connection.readTimeout = 15000 // 15 seconds read timeout
 
-                NetworkUtils.processResponse(connection) { response ->
-                    val jsonObject = JSONObject(response)
+                // Explicitly connect to make sure we can trace network errors
+                connection.connect()
+                
+                Log.d(TAG, "Connected to server to accept session $sessionId")
+                
+                // Write the updated status to the output stream
+                val outputStream = connection.outputStream
+                outputStream.write("\"APPROVED\"".toByteArray())
+                outputStream.flush()
+                outputStream.close()
 
-                    NetworkUtils.TutoringSession(
-                        id = jsonObject.getLong("sessionId"),
-                        tutorId = jsonObject.getLong("tutorId"),
-                        studentId = jsonObject.getString("studentId"),
-                        startTime = jsonObject.getString("startTime"),
-                        endTime = jsonObject.getString("endTime"),
-                        status = jsonObject.getString("status"),
-                        subject = jsonObject.getString("subject"),
-                        sessionType = jsonObject.optString("sessionType", "Online"),
-                        notes = if (jsonObject.has("notes") && !jsonObject.isNull("notes")) jsonObject.getString("notes") else null,
-                        tutorName = jsonObject.optString("tutorName", ""),
-                        studentName = jsonObject.optString("studentName", ""),
-                        conversationId = if (jsonObject.has("conversationId") && !jsonObject.isNull("conversationId")) jsonObject.getLong("conversationId") else null,
-                        price = if (jsonObject.has("price") && !jsonObject.isNull("price")) jsonObject.getDouble("price") else null
-                    )
+                val responseCode = connection.responseCode
+                Log.d(TAG, "Accept session response code: $responseCode")
+
+                if (responseCode in 200..299) {
+                    val response = connection.inputStream.bufferedReader().use { it.readText() }
+                    Log.d(TAG, "Accept session raw response: $response")
+                    
+                    try {
+                        val jsonObject = JSONObject(response)
+                        
+                        // Parse the session details from the response
+                        val session = NetworkUtils.TutoringSession(
+                            id = jsonObject.optLong("sessionId", jsonObject.optLong("id")),
+                            tutorId = jsonObject.optLong("tutorId", jsonObject.optLong("userId")),
+                            studentId = jsonObject.optString("studentId"),
+                            startTime = jsonObject.optString("startTime"),
+                            endTime = jsonObject.optString("endTime"),
+                            status = jsonObject.optString("status"),
+                            subject = jsonObject.optString("subject"),
+                            sessionType = jsonObject.optString("sessionType", "Online"),
+                            notes = if (jsonObject.has("notes") && !jsonObject.isNull("notes")) jsonObject.getString("notes") else null,
+                            tutorName = jsonObject.optString("tutorName", ""),
+                            studentName = jsonObject.optString("studentName", ""),
+                            conversationId = if (jsonObject.has("conversationId") && !jsonObject.isNull("conversationId")) jsonObject.getLong("conversationId") else null,
+                            price = if (jsonObject.has("price") && !jsonObject.isNull("price")) jsonObject.getDouble("price") else null,
+                            latitude = if (jsonObject.has("latitude") && !jsonObject.isNull("latitude")) jsonObject.getDouble("latitude") else null,
+                            longitude = if (jsonObject.has("longitude") && !jsonObject.isNull("longitude")) jsonObject.getDouble("longitude") else null,
+                            locationName = jsonObject.optString("locationName", null),
+                            locationData = jsonObject.optString("locationData", null)
+                        )
+                        
+                        Log.d(TAG, "Session accepted successfully: ID=${session.id}, status=${session.status}")
+                        
+                        // Also update session status in NetworkUtils to ensure consistency
+                        try {
+                            NetworkUtils.updateSessionStatus(session.id, session.status)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error updating session status cache: ${e.message}")
+                            // Continue anyway since we already have the correct data
+                        }
+                        
+                        Result.success(session)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error parsing accept session response: ${e.message}", e)
+                        Result.failure(e)
+                    }
+                } else {
+                    val errorBody = connection.errorStream?.bufferedReader()?.use { it.readText() } ?: "Unknown error"
+                    Log.e(TAG, "Error accepting session, HTTP $responseCode: $errorBody")
+                    Result.failure(Exception("HTTP Error: $responseCode - $errorBody"))
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error accepting session: ${e.message}", e)
+                Log.e(TAG, "Exception accepting session: ${e.message}", e)
+                // Log detailed exception information for network errors
+                if (e is java.net.SocketTimeoutException) {
+                    Log.e(TAG, "Network timeout when accepting session")
+                } else if (e is java.net.UnknownHostException) {
+                    Log.e(TAG, "Unknown host - check network connection")
+                } else if (e is java.io.IOException) {
+                    Log.e(TAG, "IO Exception: ${e.message}")
+                }
                 Result.failure(e)
             }
         }
@@ -116,35 +169,88 @@ object SessionUtils {
     suspend fun rejectSession(sessionId: Long): Result<NetworkUtils.TutoringSession> {
         return withContext(Dispatchers.IO) {
             try {
-                val url = URL("$BACKEND_URL/api/tutoring-sessions/rejectSession/$sessionId")
-                Log.d(TAG, "Rejecting session from URL: $url")
+                val url = URL("$BACKEND_URL/api/tutoring-sessions/updateStatus/$sessionId")
+                Log.d(TAG, "Rejecting session - making API request to URL: $url")
                 val connection = url.openConnection() as HttpURLConnection
                 connection.requestMethod = "PUT"
                 connection.setRequestProperty("Content-Type", "application/json")
                 connection.setRequestProperty("Accept", "application/json")
                 connection.doOutput = true
+                connection.connectTimeout = 15000 // 15 seconds timeout
+                connection.readTimeout = 15000 // 15 seconds read timeout
 
-                NetworkUtils.processResponse(connection) { response ->
-                    val jsonObject = JSONObject(response)
+                // Explicitly connect to make sure we can trace network errors
+                connection.connect()
+                
+                Log.d(TAG, "Connected to server to reject session $sessionId")
+                
+                // Write the updated status to the output stream
+                val outputStream = connection.outputStream
+                outputStream.write("\"CANCELLED\"".toByteArray())
+                outputStream.flush()
+                outputStream.close()
 
-                    NetworkUtils.TutoringSession(
-                        id = jsonObject.getLong("sessionId"),
-                        tutorId = jsonObject.getLong("tutorId"),
-                        studentId = jsonObject.getString("studentId"),
-                        startTime = jsonObject.getString("startTime"),
-                        endTime = jsonObject.getString("endTime"),
-                        status = jsonObject.getString("status"),
-                        subject = jsonObject.getString("subject"),
-                        sessionType = jsonObject.optString("sessionType", "Online"),
-                        notes = if (jsonObject.has("notes") && !jsonObject.isNull("notes")) jsonObject.getString("notes") else null,
-                        tutorName = jsonObject.optString("tutorName", ""),
-                        studentName = jsonObject.optString("studentName", ""),
-                        conversationId = if (jsonObject.has("conversationId") && !jsonObject.isNull("conversationId")) jsonObject.getLong("conversationId") else null,
-                        price = if (jsonObject.has("price") && !jsonObject.isNull("price")) jsonObject.getDouble("price") else null
-                    )
+                val responseCode = connection.responseCode
+                Log.d(TAG, "Reject session response code: $responseCode")
+
+                if (responseCode in 200..299) {
+                    val response = connection.inputStream.bufferedReader().use { it.readText() }
+                    Log.d(TAG, "Reject session raw response: $response")
+                    
+                    try {
+                        val jsonObject = JSONObject(response)
+                        
+                        // Parse the session details from the response
+                        val session = NetworkUtils.TutoringSession(
+                            id = jsonObject.optLong("sessionId", jsonObject.optLong("id")),
+                            tutorId = jsonObject.optLong("tutorId", jsonObject.optLong("userId")),
+                            studentId = jsonObject.optString("studentId"),
+                            startTime = jsonObject.optString("startTime"),
+                            endTime = jsonObject.optString("endTime"),
+                            status = jsonObject.optString("status"),
+                            subject = jsonObject.optString("subject"),
+                            sessionType = jsonObject.optString("sessionType", "Online"),
+                            notes = if (jsonObject.has("notes") && !jsonObject.isNull("notes")) jsonObject.getString("notes") else null,
+                            tutorName = jsonObject.optString("tutorName", ""),
+                            studentName = jsonObject.optString("studentName", ""),
+                            conversationId = if (jsonObject.has("conversationId") && !jsonObject.isNull("conversationId")) jsonObject.getLong("conversationId") else null,
+                            price = if (jsonObject.has("price") && !jsonObject.isNull("price")) jsonObject.getDouble("price") else null,
+                            latitude = if (jsonObject.has("latitude") && !jsonObject.isNull("latitude")) jsonObject.getDouble("latitude") else null,
+                            longitude = if (jsonObject.has("longitude") && !jsonObject.isNull("longitude")) jsonObject.getDouble("longitude") else null,
+                            locationName = jsonObject.optString("locationName", null),
+                            locationData = jsonObject.optString("locationData", null)
+                        )
+                        
+                        Log.d(TAG, "Session rejected successfully: ID=${session.id}, status=${session.status}")
+                        
+                        // Also update session status in NetworkUtils to ensure consistency
+                        try {
+                            NetworkUtils.updateSessionStatus(session.id, session.status)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error updating session status cache: ${e.message}")
+                            // Continue anyway since we already have the correct data
+                        }
+                        
+                        Result.success(session)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error parsing reject session response: ${e.message}", e)
+                        Result.failure(e)
+                    }
+                } else {
+                    val errorBody = connection.errorStream?.bufferedReader()?.use { it.readText() } ?: "Unknown error"
+                    Log.e(TAG, "Error rejecting session, HTTP $responseCode: $errorBody")
+                    Result.failure(Exception("HTTP Error: $responseCode - $errorBody"))
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error rejecting session: ${e.message}", e)
+                Log.e(TAG, "Exception rejecting session: ${e.message}", e)
+                // Log detailed exception information for network errors
+                if (e is java.net.SocketTimeoutException) {
+                    Log.e(TAG, "Network timeout when rejecting session")
+                } else if (e is java.net.UnknownHostException) {
+                    Log.e(TAG, "Unknown host - check network connection")
+                } else if (e is java.io.IOException) {
+                    Log.e(TAG, "IO Exception: ${e.message}")
+                }
                 Result.failure(e)
             }
         }
@@ -252,19 +358,15 @@ object SessionUtils {
                             Log.e(TAG, "No userId found in tutor profile data")
                             // Add to notes that we couldn't convert the ID
                             finalNotes = if (notes.isNotEmpty()) {
-                                "$notes\n\nTutor Profile ID: $tutorId (could not be converted to userId)"
+                                notes
                             } else {
-                                "Tutor Profile ID: $tutorId (could not be converted to userId)"
+                                ""
                             }
                         }
                     } else {
                         Log.d(TAG, "Proceeding with original tutorId: $tutorId")
-                        // Add to notes that we couldn't convert the ID
-                        finalNotes = if (notes.isNotEmpty()) {
-                            "$notes\n\nTutor Profile ID: $tutorId (could not be converted to userId)"
-                        } else {
-                            "Tutor Profile ID: $tutorId (could not be converted to userId)"
-                        }
+                        // Keep original notes without adding tutorId information
+                        finalNotes = notes
                     }
                 } else {
                     val tutorUserId = tutorUserIdResult.getOrNull()
@@ -272,12 +374,8 @@ object SessionUtils {
                         Log.d(TAG, "Successfully converted tutorId=$tutorId to userId=$tutorUserId")
                         // Use the userId instead of the profile ID
                         finalTutorId = tutorUserId
-                        // Add some metadata to the notes to indicate the original tutorId for reference
-                        finalNotes = if (notes.isNotEmpty()) {
-                            "$notes\n\nTutor Profile ID: $tutorId"
-                        } else {
-                            "Tutor Profile ID: $tutorId"
-                        }
+                        // Keep the original notes without adding the tutorId reference
+                        finalNotes = notes
                     }
                 }
 

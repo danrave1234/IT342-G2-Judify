@@ -217,34 +217,38 @@ class MessageAdapter(
         fun bind(message: Message) {
             // Parse the message content to extract session details
             val content = message.content
+            
+            // Filter out any "Tutor Profile ID" information that might be in the message
+            val filteredContent = content.replace(Regex("Tutor Profile ID:.*?(\\n|$)"), "")
+                                        .trim()
 
             // Check if this is a face-to-face session with location
-            if (content.contains("Session Type: Face to Face", ignoreCase = true) || 
-                content.contains("Session Type: In-Person", ignoreCase = true)) {
+            if (filteredContent.contains("Session Type: Face to Face", ignoreCase = true) || 
+                filteredContent.contains("Session Type: In-Person", ignoreCase = true)) {
 
                 // Try to extract location information
                 val locationPattern = "location:\\s*([^\\n]+)".toRegex(RegexOption.IGNORE_CASE)
-                val locationMatch = locationPattern.find(content)
+                val locationMatch = locationPattern.find(filteredContent)
 
                 if (locationMatch != null) {
                     // Extract the location
                     val location = locationMatch.groupValues[1].trim()
 
                     // Create a modified content with the location highlighted
-                    val modifiedContent = if (!content.contains("Meeting Location:", ignoreCase = true)) {
+                    val modifiedContent = if (!filteredContent.contains("Meeting Location:", ignoreCase = true)) {
                         // Add the location information if it's not already in the formatted message
                         val meetingLocationText = "\nMeeting Location: $location"
-                        content + meetingLocationText
+                        filteredContent + meetingLocationText
                     } else {
-                        content
+                        filteredContent
                     }
 
                     messageText.text = modifiedContent
                 } else {
-                    messageText.text = content
+                    messageText.text = filteredContent
                 }
             } else {
-                messageText.text = content
+                messageText.text = filteredContent
             }
 
             timeText.text = formatTime(message.timestamp)
@@ -261,34 +265,38 @@ class MessageAdapter(
         fun bind(message: Message) {
             // Parse the message content to extract session details
             val content = message.content
+            
+            // Filter out any "Tutor Profile ID" information that might be in the message
+            val filteredContent = content.replace(Regex("Tutor Profile ID:.*?(\\n|$)"), "")
+                                        .trim()
 
             // Check if this is a face-to-face session with location
-            if (content.contains("Session Type: Face to Face", ignoreCase = true) || 
-                content.contains("Session Type: In-Person", ignoreCase = true)) {
+            if (filteredContent.contains("Session Type: Face to Face", ignoreCase = true) || 
+                filteredContent.contains("Session Type: In-Person", ignoreCase = true)) {
 
                 // Try to extract location information
                 val locationPattern = "location:\\s*([^\\n]+)".toRegex(RegexOption.IGNORE_CASE)
-                val locationMatch = locationPattern.find(content)
+                val locationMatch = locationPattern.find(filteredContent)
 
                 if (locationMatch != null) {
                     // Extract the location
                     val location = locationMatch.groupValues[1].trim()
 
                     // Create a modified content with the location highlighted
-                    val modifiedContent = if (!content.contains("Meeting Location:", ignoreCase = true)) {
+                    val modifiedContent = if (!filteredContent.contains("Meeting Location:", ignoreCase = true)) {
                         // Add the location information if it's not already in the formatted message
                         val meetingLocationText = "\nMeeting Location: $location"
-                        content + meetingLocationText
+                        filteredContent + meetingLocationText
                     } else {
-                        content
+                        filteredContent
                     }
 
                     messageText.text = modifiedContent
                 } else {
-                    messageText.text = content
+                    messageText.text = filteredContent
                 }
             } else {
-                messageText.text = content
+                messageText.text = filteredContent
             }
 
             timeText.text = formatTime(message.timestamp)
@@ -303,6 +311,10 @@ class MessageAdapter(
             // Always make buttons visible regardless of role
             android.util.Log.d("MessageAdapter", "Always showing tutor action buttons")
             tutorActionButtonsLayout.visibility = View.VISIBLE
+            
+            // Update button text for consistency
+            approveButton.text = "ACCEPT"
+            rejectButton.text = "DECLINE"
 
             // Set up buttons with sessionId
             message.sessionId?.let { sessionId ->
@@ -333,82 +345,186 @@ class MessageAdapter(
             // Parse the message content to extract session details
             val content = message.content
 
+            // Improved regex to filter out any mention of tutor profile ID, with any case and any characters in between
+            val filteredContent = content.replace(Regex("(?i)tutor\\s*profile\\s*i[d|:]+.*?(\\n|$)"), "")
+                                        .trim()
+            
+            // More aggressive cleanup - remove empty lines that might be left after filtering
+            val cleanedContent = filteredContent.replace(Regex("\\n\\s*\\n"), "\n")
+                                              .trim()
+
+            // Log the message details for debugging
+            android.util.Log.d("MessageAdapter", "Binding tutor session approval message: ${message.id}")
+            android.util.Log.d("MessageAdapter", "Original message content: $content")
+            android.util.Log.d("MessageAdapter", "Filtered message content: $cleanedContent")
+            android.util.Log.d("MessageAdapter", "Message sessionId property: ${message.sessionId}")
+
+            // IMPORTANT: Check if sessionId is correct from the backend database
+            // Try to extract the session ID directly from the message content
+            var sessionId = message.sessionId
+            var foundNewId = false
+            
+            // First check for "Session ID: X" pattern
+            val sessionIdPattern = "Session ID:\\s*(\\d+)".toRegex(RegexOption.IGNORE_CASE)
+            val sessionIdMatch = sessionIdPattern.find(content)
+            
+            if (sessionIdMatch != null) {
+                val extractedId = sessionIdMatch.groupValues[1].toLongOrNull()
+                if (extractedId != null && extractedId > 0) {
+                    sessionId = extractedId
+                    foundNewId = true
+                    android.util.Log.d("MessageAdapter", "Found Session ID in content: $sessionId")
+                }
+            }
+            
+            // If that fails, check for "Session #X" pattern
+            if (!foundNewId) {
+                val sessionHashPattern = "[Ss]ession\\s*#(\\d+)".toRegex()
+                val sessionHashMatch = sessionHashPattern.find(content)
+                
+                if (sessionHashMatch != null) {
+                    val extractedId = sessionHashMatch.groupValues[1].toLongOrNull()
+                    if (extractedId != null && extractedId > 0) {
+                        sessionId = extractedId
+                        foundNewId = true
+                        android.util.Log.d("MessageAdapter", "Found Session # in content: $sessionId")
+                    }
+                }
+            }
+            
+            // If that fails, look for any numeric ID after "ID:" 
+            if (!foundNewId) {
+                val idPattern = "ID:\\s*(\\d+)".toRegex(RegexOption.IGNORE_CASE)
+                val idMatch = idPattern.find(content)
+                
+                if (idMatch != null) {
+                    val extractedId = idMatch.groupValues[1].toLongOrNull()
+                    if (extractedId != null && extractedId > 0) {
+                        sessionId = extractedId
+                        foundNewId = true
+                        android.util.Log.d("MessageAdapter", "Found ID: in content: $sessionId")
+                    }
+                }
+            }
+            
+            // If all else fails, try to find any number after "session" 
+            if (!foundNewId) {
+                val generalSessionPattern = "[Ss]ession.*?(\\d+)".toRegex()
+                val generalMatch = generalSessionPattern.find(content)
+                
+                if (generalMatch != null) {
+                    val extractedId = generalMatch.groupValues[1].toLongOrNull()
+                    if (extractedId != null && extractedId > 0) {
+                        sessionId = extractedId
+                        foundNewId = true
+                        android.util.Log.d("MessageAdapter", "Found general session number in content: $sessionId")
+                    }
+                }
+            }
+            
+            // If we still couldn't find a session ID, try looking for the ID from the subject
+            if (!foundNewId) {
+                val subjectPattern = "Subject:.*?\\b(\\d+)\\b".toRegex()
+                val subjectMatch = subjectPattern.find(content)
+                
+                if (subjectMatch != null) {
+                    val extractedId = subjectMatch.groupValues[1].toLongOrNull()
+                    if (extractedId != null && extractedId > 0) {
+                        sessionId = extractedId
+                        foundNewId = true
+                        android.util.Log.d("MessageAdapter", "Found possible ID in subject: $sessionId")
+                    }
+                }
+            }
+            
             // Check if this is a face-to-face session with location
-            if (content.contains("Session Type: Face to Face", ignoreCase = true) || 
-                content.contains("Session Type: In-Person", ignoreCase = true)) {
+            if (cleanedContent.contains("Session Type: Face to Face", ignoreCase = true) || 
+                cleanedContent.contains("Session Type: In-Person", ignoreCase = true)) {
 
                 // Try to extract location information
                 val locationPattern = "location:\\s*([^\\n]+)".toRegex(RegexOption.IGNORE_CASE)
-                val locationMatch = locationPattern.find(content)
+                val locationMatch = locationPattern.find(cleanedContent)
 
                 if (locationMatch != null) {
                     // Extract the location
                     val location = locationMatch.groupValues[1].trim()
 
                     // Create a modified content with the location highlighted
-                    val modifiedContent = if (!content.contains("Meeting Location:", ignoreCase = true)) {
+                    val modifiedContent = if (!cleanedContent.contains("Meeting Location:", ignoreCase = true)) {
                         // Add the location information if it's not already in the formatted message
                         val meetingLocationText = "\nMeeting Location: $location"
-                        content + meetingLocationText
+                        cleanedContent + meetingLocationText
                     } else {
-                        content
+                        cleanedContent
                     }
 
                     sessionDetailsText.text = modifiedContent
                 } else {
-                    sessionDetailsText.text = content
+                    sessionDetailsText.text = cleanedContent
                 }
             } else {
-                sessionDetailsText.text = content
+                sessionDetailsText.text = cleanedContent
             }
 
             timeText.text = formatTime(message.timestamp)
 
             // Log that we're showing the tutor approval buttons
-            android.util.Log.d("MessageAdapter", "Binding tutor session approval view for message: ${message.content}")
-            android.util.Log.d("MessageAdapter", "Session ID: ${message.sessionId}")
-
-            // Get the current context
-            val context = itemView.context
-
-            // Check if the user is a tutor
-            val userRole = com.mobile.utils.PreferenceUtils.getUserRole(context)
-            android.util.Log.d("MessageAdapter", "User role: $userRole")
+            android.util.Log.d("MessageAdapter", "Showing approve/reject buttons for sessionId: $sessionId")
 
             // Make sure buttons are visible
             approveButton.visibility = View.VISIBLE
             rejectButton.visibility = View.VISIBLE
 
-            // Make buttons more noticeable
-            approveButton.textSize = 18f
-            rejectButton.textSize = 18f
+            // Change button text to be clearer
+            approveButton.text = "ACCEPT"
+            rejectButton.text = "DECLINE"
 
-            // Set button colors
-            approveButton.setBackgroundColor(context.resources.getColor(R.color.success, null))
-            rejectButton.setBackgroundColor(context.resources.getColor(R.color.error, null))
-
-            // Add padding to buttons
-            val paddingDp = 16
-            val density = context.resources.displayMetrics.density
-            val paddingPx = (paddingDp * density).toInt()
-            approveButton.setPadding(paddingPx, paddingPx, paddingPx, paddingPx)
-            rejectButton.setPadding(paddingPx, paddingPx, paddingPx, paddingPx)
-
-            // Add margin between buttons
-            val layoutParams = approveButton.layoutParams as? android.view.ViewGroup.MarginLayoutParams
-            layoutParams?.setMargins(0, 0, 0, paddingPx)
-            approveButton.layoutParams = layoutParams
+            // Ensure the buttons have proper styling
+            try {
+                approveButton.setBackgroundColor(android.graphics.Color.parseColor("#4CAF50")) // Green
+                rejectButton.setBackgroundColor(android.graphics.Color.parseColor("#F44336")) // Red
+            } catch (e: Exception) {
+                android.util.Log.e("MessageAdapter", "Error setting button colors: ${e.message}")
+            }
 
             // Set up buttons with sessionId
-            message.sessionId?.let { sessionId ->
+            val finalSessionId = sessionId
+            if (finalSessionId != null && finalSessionId > 0) {
+                android.util.Log.d("MessageAdapter", "Setting click listeners with sessionId: $finalSessionId")
+                
                 approveButton.setOnClickListener {
-                    android.util.Log.d("MessageAdapter", "TutorApproval: Approve button clicked for sessionId: $sessionId")
-                    onSessionApprove?.invoke(sessionId)
+                    android.util.Log.d("MessageAdapter", "Approve button clicked with sessionId: $finalSessionId")
+                    onSessionApprove?.invoke(finalSessionId)
                 }
 
                 rejectButton.setOnClickListener {
-                    android.util.Log.d("MessageAdapter", "TutorApproval: Reject button clicked for sessionId: $sessionId")
-                    onSessionReject?.invoke(sessionId)
+                    android.util.Log.d("MessageAdapter", "Reject button clicked with sessionId: $finalSessionId")
+                    onSessionReject?.invoke(finalSessionId)
+                }
+            } else {
+                android.util.Log.e("MessageAdapter", "No valid sessionId found for message: ${message.id}")
+                
+                // Disable buttons if no valid session ID
+                approveButton.isEnabled = false
+                rejectButton.isEnabled = false
+                
+                // Add click listeners that show error toast
+                approveButton.setOnClickListener {
+                    android.util.Log.e("MessageAdapter", "Approve button clicked but no sessionId available")
+                    // Try to get context to show a toast
+                    val context = itemView.context
+                    if (context != null) {
+                        android.widget.Toast.makeText(context, "Error: Invalid session ID", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
+                
+                rejectButton.setOnClickListener {
+                    android.util.Log.e("MessageAdapter", "Reject button clicked but no sessionId available")
+                    // Try to get context to show a toast
+                    val context = itemView.context
+                    if (context != null) {
+                        android.widget.Toast.makeText(context, "Error: Invalid session ID", android.widget.Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
         }

@@ -4,6 +4,7 @@ import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.content.Context
 import android.content.Intent
+import android.graphics.Rect
 import android.os.Bundle
 import android.util.Log
 import android.view.MenuItem
@@ -19,6 +20,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.recyclerview.widget.RecyclerView.ItemDecoration
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 import com.mobile.R
@@ -178,7 +180,17 @@ class BookingActivity : AppCompatActivity() {
 
         // Initialize subjects RecyclerView
         subjectsRecyclerView = findViewById(R.id.subjectsRecyclerView)
-        subjectsRecyclerView.layoutManager = GridLayoutManager(this, 3)
+        // Use layout manager from XML but set up additional properties
+        val layoutManager = subjectsRecyclerView.layoutManager as GridLayoutManager
+        // Set default span count to 3
+        layoutManager.spanCount = 3
+        // Add spacing between grid items
+        subjectsRecyclerView.addItemDecoration(object : ItemDecoration() {
+            override fun getItemOffsets(outRect: Rect, view: View, parent: RecyclerView, state: RecyclerView.State) {
+                val spacing = resources.getDimensionPixelSize(R.dimen.grid_spacing) // Define this in dimens.xml
+                outRect.set(spacing / 2, spacing / 2, spacing / 2, spacing / 2)
+            }
+        })
         subjectsRecyclerView.isNestedScrollingEnabled = false
         subjectAdapter = TutorSubjectAdapter(emptyList()) { subject ->
             selectedSubject = subject.subject
@@ -436,8 +448,8 @@ class BookingActivity : AppCompatActivity() {
                             // Adjust grid span count based on number of subjects
                             val spanCount = when {
                                 subjects.size <= 2 -> 2
-                                subjects.size <= 4 -> 2
-                                else -> 3
+                                subjects.size <= 6 -> 3
+                                else -> 4
                             }
                             (subjectsRecyclerView.layoutManager as GridLayoutManager).spanCount = spanCount
                             
@@ -487,8 +499,8 @@ class BookingActivity : AppCompatActivity() {
                                     // Adjust grid span count based on number of subjects
                                     val spanCount = when {
                                         subjectsFromProfile.size <= 2 -> 2
-                                        subjectsFromProfile.size <= 4 -> 2
-                                        else -> 3
+                                        subjectsFromProfile.size <= 6 -> 3
+                                        else -> 4
                                     }
                                     (subjectsRecyclerView.layoutManager as GridLayoutManager).spanCount = spanCount
                                     
@@ -762,7 +774,9 @@ class BookingActivity : AppCompatActivity() {
             // Update the light blue summary section only
             summaryCardBlueRateTextView3?.text = String.format("$%.2f/hr", hourlyRate)
             summaryCardBlueDurationTextView3?.text = durationText
-            summaryCardBlueTotalTextView3?.text = String.format("$%.2f", totalPrice)
+            
+            // Remove the total price display
+            summaryCardBlueTotalTextView3?.text = ""
 
             Log.d("BookingActivity", "Updated session summary: Rate=$hourlyRate, Duration=$selectedDuration, Total=$totalPrice")
         } catch (e: Exception) {
@@ -997,20 +1011,25 @@ class TutorSubjectAdapter(
                 ContextCompat.getColor(holder.itemView.context, R.color.white)
             )
             // Increase elevation for better visual feedback
-            holder.cardView.cardElevation = 4f
+            holder.cardView.cardElevation = 6f
+            // Add a slight scale-up effect for the selected item
+            holder.cardView.scaleX = 1.05f
+            holder.cardView.scaleY = 1.05f
         } else {
             // Unselected style
             holder.cardView.setCardBackgroundColor(
-                ContextCompat.getColor(holder.itemView.context, R.color.white)
+                ContextCompat.getColor(holder.itemView.context, android.R.color.white)
             )
             holder.subjectText.setTextColor(
                 ContextCompat.getColor(holder.itemView.context, R.color.text_primary)
             )
-            // Default elevation
+            // Reset scale and elevation
             holder.cardView.cardElevation = 2f
+            holder.cardView.scaleX = 1.0f
+            holder.cardView.scaleY = 1.0f
         }
 
-        // Set click listener
+        // Set click listener with animation
         holder.itemView.setOnClickListener {
             val previousSelected = selectedPosition
             selectedPosition = holder.adapterPosition
@@ -1022,6 +1041,20 @@ class TutorSubjectAdapter(
 
             // Update UI for newly selected item
             notifyItemChanged(selectedPosition)
+
+            // Add a small animation on click
+            holder.cardView.animate()
+                .scaleX(1.1f)
+                .scaleY(1.1f)
+                .setDuration(150)
+                .withEndAction {
+                    holder.cardView.animate()
+                        .scaleX(1.05f)
+                        .scaleY(1.05f)
+                        .setDuration(100)
+                        .start()
+                }
+                .start()
 
             // Notify callback
             onSubjectSelected(subject)

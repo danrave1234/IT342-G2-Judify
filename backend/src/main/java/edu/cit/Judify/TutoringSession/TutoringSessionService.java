@@ -109,6 +109,15 @@ public class TutoringSessionService {
         return sessionRepository.findByStudentOrderByStartTimeDesc(student);
     }
 
+    /**
+     * Get all sessions for a user regardless of whether they are a tutor or student
+     * @param user The user entity
+     * @return A list of all sessions where the user is either a tutor or student
+     */
+    public List<TutoringSessionEntity> getAllUserSessions(UserEntity user) {
+        return sessionRepository.findByTutorOrStudentOrderByStartTimeDesc(user, user);
+    }
+
     public List<TutoringSessionEntity> getSessionsByStatus(String status) {
         return sessionRepository.findByStatus(status);
     }

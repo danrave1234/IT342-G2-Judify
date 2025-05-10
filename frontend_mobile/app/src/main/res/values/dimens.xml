@@ -30,4 +30,5 @@
     <dimen name="message_bubble_padding">12dp</dimen>
     <dimen name="avatar_size">40dp</dimen>
     <dimen name="small_avatar_size">32dp</dimen>
+    <dimen name="grid_spacing">8dp</dimen>
 </resources>

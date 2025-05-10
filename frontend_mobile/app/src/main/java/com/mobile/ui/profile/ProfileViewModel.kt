@@ -195,7 +195,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
             try {
                 val context = getApplication<Application>()
                 val userId = PreferenceUtils.getUserId(context)
-                val userRole = PreferenceUtils.getUserRole(context)
+                val userRole = PreferenceUtils.getUserRole(context) ?: "STUDENT"
 
                 if (userId != null) {
                     Log.d(TAG, "Updating user ID: $userId")
@@ -316,7 +316,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
             try {
                 val context = getApplication<Application>()
                 val userId = PreferenceUtils.getUserId(context)
-                val userRole = PreferenceUtils.getUserRole(context)
+                val userRole = PreferenceUtils.getUserRole(context) ?: "STUDENT"
                 val username = PreferenceUtils.getUserUsername(context) ?: ""
 
                 if (userId != null) {
