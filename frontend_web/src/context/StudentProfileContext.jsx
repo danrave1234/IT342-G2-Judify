@@ -14,16 +14,20 @@ export const StudentProfileProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const [profileExists, setProfileExists] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(0);
+  const [profileLoaded, setProfileLoaded] = useState(false);
 
-  // Create a memoized loadProfile function that doesn't change on re-renders
   const loadProfile = useCallback(async (forceRefresh = false) => {
     if (!user || !user.userId) {
       console.warn("Cannot load profile: No user ID available");
       return { success: false, message: 'User ID is required', profile: null };
     }
 
-    // Don't refresh if we recently loaded the profile (within last 30 seconds),
-    // unless forceRefresh is true
+    // Check if user is a student - don't try to load student profile for tutors
+    if (user.role && (user.role.toUpperCase() === 'TUTOR')) {
+      console.warn("Cannot load student profile: User is a tutor");
+      return { success: false, message: 'User is not a student', profile: null };
+    }
+
     const now = Date.now();
     if (!forceRefresh && now - lastRefresh < 30000 && profile) {
       console.log('Using cached profile data');
@@ -41,25 +45,25 @@ export const StudentProfileProvider = ({ children }) => {
       console.log('Profile data loaded successfully:', profileData);
 
       setProfile(profileData);
-      setProfileExists(true);
+      setProfileExists(!!profileData);
       setLastRefresh(now);
+      setProfileLoaded(true);
 
       return { success: true, profile: profileData };
     } catch (err) {
       console.error('Error loading student profile:', err);
 
       if (err.response?.status === 404) {
-        // Profile doesn't exist yet - this is normal for new users
         console.log('No existing profile found - profile needs to be created');
         setProfileExists(false);
         setProfile(null);
+        setProfileLoaded(true);
         return { success: false, message: 'Profile not found', profile: null };
       }
 
       const message = err.response?.data?.message || 'Failed to load profile';
       setError(message);
 
-      // Don't show toast for 404 errors (expected for new users)
       if (err.response?.status !== 404) {
         toast.error(`Failed to load profile: ${message}`);
       }
@@ -68,19 +72,18 @@ export const StudentProfileProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [user, profile, lastRefresh]);
+  }, [user, lastRefresh]);
 
-  // Load profile when user changes
   useEffect(() => {
-    if (user && user.userId) {
+    if (user && user.userId && !profileLoaded) {
       loadProfile();
-    } else {
-      // Reset profile state when user is not logged in
+    } else if (!user) {
       setProfile(null);
       setProfileExists(false);
       setError(null);
+      setProfileLoaded(false);
     }
-  }, [user, loadProfile]);
+  }, [user, loadProfile, profileLoaded]);
 
   const updateProfile = async (profileData) => {
     if (!user || !user.userId) {
@@ -94,7 +97,6 @@ export const StudentProfileProvider = ({ children }) => {
     setError(null);
 
     try {
-      // Ensure userId is included in the profile data
       const completeProfileData = {
         ...profileData,
         userId: user.userId
@@ -113,7 +115,6 @@ export const StudentProfileProvider = ({ children }) => {
           setProfileExists(true);
         }
       } catch (err) {
-        // If update fails but we're not sure if profile exists, try to create
         if (!profileExists || err.response?.status === 404) {
           console.log('Update failed, trying to create new profile instead...');
           response = await studentProfileApi.createProfile(completeProfileData);
@@ -126,8 +127,8 @@ export const StudentProfileProvider = ({ children }) => {
       const updatedProfile = response.data;
       setProfile(updatedProfile);
       setLastRefresh(Date.now());
+      setProfileLoaded(true);
 
-      // Also update the user's profile picture in localStorage if it's included in the profile data
       if (profileData.profilePicture) {
         const storedUser = localStorage.getItem('user');
         if (storedUser) {

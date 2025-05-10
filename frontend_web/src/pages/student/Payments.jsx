@@ -15,10 +15,10 @@ const Payments = () => {
 
   const [activeTab, setActiveTab] = useState(tabParam === 'payment' ? 'payment' : 'history');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [cardNumber, setCardNumber] = useState('4242 4242 4242 4242');
-  const [expiryDate, setExpiryDate] = useState('12/25');
-  const [cvv, setCvv] = useState('123');
-  const [amount, setAmount] = useState(130);
+  const [cardNumber, setCardNumber] = useState('');
+  const [expiryDate, setExpiryDate] = useState('');
+  const [cvv, setCvv] = useState('');
+  const [amount, setAmount] = useState(0);
   const [paymentResult, setPaymentResult] = useState(null);
   const [pendingSession, setPendingSession] = useState(null);
 
@@ -60,11 +60,11 @@ const Payments = () => {
     e.preventDefault();
 
     try {
-      // Process the payment using the mock function
+      // Process the payment using the API
       const result = await processPayment({
         amount: parseFloat(amount),
         description: pendingSession ? `${pendingSession.subject} Tutoring Session` : 'Tutoring Session Payment',
-        tutorId: pendingSession?.tutorId || 2,
+        tutorId: pendingSession?.tutorId,
         sessionId: pendingSession?.sessionId
       });
 
@@ -295,17 +295,17 @@ const Payments = () => {
           ) : (
             <div className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Tutoring Session (2 hours)</span>
-                <span className="text-gray-900 dark:text-white">$120.00</span>
+                <span className="text-gray-600 dark:text-gray-400">No session selected</span>
+                <span className="text-gray-900 dark:text-white">$0.00</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-400">Platform Fee</span>
-                <span className="text-gray-900 dark:text-white">$10.00</span>
+                <span className="text-gray-900 dark:text-white">$0.00</span>
               </div>
               <div className="border-t border-gray-200 dark:border-dark-600 pt-2 mt-2">
                 <div className="flex justify-between font-medium">
                   <span className="text-gray-900 dark:text-white">Total</span>
-                  <span className="text-gray-900 dark:text-white">${amount.toFixed(2)}</span>
+                  <span className="text-gray-900 dark:text-white">${amount ? amount.toFixed(2) : '0.00'}</span>
                 </div>
               </div>
             </div>
@@ -342,15 +342,15 @@ const Payments = () => {
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div className="text-left">
               <p className="text-gray-500 dark:text-gray-400">Transaction ID</p>
-              <p className="font-medium text-gray-900 dark:text-white">#{paymentResult?.transactionReference || 'TRX-25789632'}</p>
+              <p className="font-medium text-gray-900 dark:text-white">#{paymentResult?.transactionReference || ''}</p>
             </div>
             <div className="text-left">
               <p className="text-gray-500 dark:text-gray-400">Date</p>
-              <p className="font-medium text-gray-900 dark:text-white">{formatDate(paymentResult?.createdAt) || 'March 15, 2025'}</p>
+              <p className="font-medium text-gray-900 dark:text-white">{formatDate(paymentResult?.createdAt) || ''}</p>
             </div>
             <div className="text-left">
               <p className="text-gray-500 dark:text-gray-400">Amount Paid</p>
-              <p className="font-medium text-gray-900 dark:text-white">{formatAmount(paymentResult?.amount) || '$75.00'}</p>
+              <p className="font-medium text-gray-900 dark:text-white">{formatAmount(paymentResult?.amount) || ''}</p>
             </div>
             <div className="text-left">
               <p className="text-gray-500 dark:text-gray-400">Payment Method</p>

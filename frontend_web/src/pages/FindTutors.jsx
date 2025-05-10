@@ -144,18 +144,15 @@ const FindTutors = () => {
                   </div>
                 </div>
 
-                <div className="mt-4">
-                  {tutor.profileId ? (
-                    <Link 
-                      to={`/tutors/${tutor.profileId}`} 
-                      className="text-primary-600 dark:text-primary-500 hover:text-primary-800 dark:hover:text-primary-400 font-medium text-sm"
-                    >
-                      View Profile
-                    </Link>
-                  ) : (
-                    <span className="text-gray-400 dark:text-gray-600 text-sm">Profile not available</span>
-                  )}
-                </div>
+                  <button
+                    className="mt-auto w-full bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-3 rounded transition duration-200"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      window.location.href = `/student/book/${tutor.userId || tutor.user?.userId}`;
+                    }}
+                  >
+                    Book Session
+                  </button>
               </div>
             ))
           ) : (

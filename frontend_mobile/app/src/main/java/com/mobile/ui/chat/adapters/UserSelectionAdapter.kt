@@ -8,9 +8,9 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.mobile.R
-import com.mobile.data.model.User
+import com.mobile.model.User
 
-class UserSelectionAdapter(private val onUserSelected: (User) -> Unit) : 
+class UserSelectionAdapter(private val onUserSelected: (User) -> Unit) :
     ListAdapter<User, UserSelectionAdapter.UserViewHolder>(UserDiffCallback()) {
     
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): UserViewHolder {

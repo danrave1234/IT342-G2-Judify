@@ -4,7 +4,7 @@ import java.util.Date;
 
 public class TutoringSessionDTO {
     private Long sessionId;
-    private Long tutorId;
+    private Long userId;
     private Long studentId;
     private Date startTime;
     private Date endTime;
@@ -12,11 +12,16 @@ public class TutoringSessionDTO {
     private String status; // PENDING, NEGOTIATING, SCHEDULED, ONGOING, COMPLETED, CANCELLED
     private Double price;
     private String notes;
-    private String locationData;    // For in-person sessions
+    private Double latitude;       // Latitude for in-person sessions
+    private Double longitude;      // Longitude for in-person sessions
+    private String locationName;   // Location name for in-person sessions
+    private String locationData;   // For backward compatibility
     private String meetingLink;     // For online sessions
+    private String sessionType;     // "online" or "in-person"
     private Date createdAt;
     private Date updatedAt;
     private String tutorName;       // Added tutorName field
+    private String studentName;     // Added studentName field
     private Boolean tutorAccepted;  // Whether the tutor has accepted the session
     private Boolean studentAccepted; // Whether the student has accepted the session
     private Long conversationId;    // ID of the conversation for negotiation
@@ -34,12 +39,12 @@ public class TutoringSessionDTO {
         this.sessionId = sessionId;
     }
 
-    public Long getTutorId() {
-        return tutorId;
+    public Long getUserId() {
+        return userId;
     }
 
-    public void setTutorId(Long tutorId) {
-        this.tutorId = tutorId;
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
 
     public Long getStudentId() {
@@ -98,6 +103,30 @@ public class TutoringSessionDTO {
         this.notes = notes;
     }
 
+    public Double getLatitude() {
+        return latitude;
+    }
+
+    public void setLatitude(Double latitude) {
+        this.latitude = latitude;
+    }
+
+    public Double getLongitude() {
+        return longitude;
+    }
+
+    public void setLongitude(Double longitude) {
+        this.longitude = longitude;
+    }
+
+    public String getLocationName() {
+        return locationName;
+    }
+
+    public void setLocationName(String locationName) {
+        this.locationName = locationName;
+    }
+
     public String getLocationData() {
         return locationData;
     }
@@ -112,6 +141,14 @@ public class TutoringSessionDTO {
 
     public void setMeetingLink(String meetingLink) {
         this.meetingLink = meetingLink;
+    }
+
+    public String getSessionType() {
+        return sessionType;
+    }
+
+    public void setSessionType(String sessionType) {
+        this.sessionType = sessionType;
     }
 
     public Date getCreatedAt() {
@@ -136,6 +173,14 @@ public class TutoringSessionDTO {
 
     public void setTutorName(String tutorName) {
         this.tutorName = tutorName;
+    }
+
+    public String getStudentName() {
+        return studentName;
+    }
+
+    public void setStudentName(String studentName) {
+        this.studentName = studentName;
     }
 
     public Boolean getTutorAccepted() {

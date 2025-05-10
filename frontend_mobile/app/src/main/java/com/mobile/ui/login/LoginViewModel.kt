@@ -6,8 +6,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
-import com.mobile.data.model.AuthResponse
-import com.mobile.data.repository.AuthRepository
+import com.mobile.model.AuthResponse
+import com.mobile.repository.AuthRepository
 import kotlinx.coroutines.launch
 
 class LoginViewModel(application: Application) : AndroidViewModel(application) {

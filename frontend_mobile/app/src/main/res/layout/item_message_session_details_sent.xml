@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingStart="60dp"
+    android:paddingEnd="6dp"
+    android:paddingTop="3dp"
+    android:paddingBottom="2dp">
+
+    <!-- Message Bubble with Session Details -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/messageCard"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:maxWidth="220dp"
+        app:cardBackgroundColor="@color/primary_blue"
+        app:cardCornerRadius="10dp"
+        app:cardElevation="1dp"
+        app:contentPadding="0dp"
+        app:layout_constrainedWidth="true"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="1.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:strokeColor="#FFEB3B"
+        app:strokeWidth="1dp">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="8dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Session Details"
+                android:textColor="@color/white"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="4dp" />
+
+            <TextView
+                android:id="@+id/messageText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/white"
+                android:textSize="12sp"
+                android:lineSpacingExtra="2dp"
+                tools:text="Subject: Mathematics\nDate: May 10, 2025\nTime: 10:00 AM - 11:00 AM\nStatus: Pending" />
+
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- Time -->
+    <TextView
+        android:id="@+id/timeText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:layout_marginEnd="6dp"
+        android:textColor="@color/text_secondary"
+        android:textSize="10sp"
+        app:layout_constraintEnd_toEndOf="@+id/messageCard"
+        app:layout_constraintTop_toBottomOf="@+id/messageCard"
+        tools:text="10:30 AM" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

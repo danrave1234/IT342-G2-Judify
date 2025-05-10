@@ -13,7 +13,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.mobile.R
 import com.mobile.databinding.ActivitySplashBinding
 import com.mobile.ui.login.LoginActivity
-import com.mobile.ui.dashboard.LearnerDashboardActivity
+import com.mobile.ui.dashboard.StudentDashboardActivity
 import com.mobile.ui.onboarding.OnBoarding
 import com.mobile.utils.PreferenceUtils
 
@@ -73,7 +73,7 @@ class SplashActivity : AppCompatActivity() {
             startActivity(Intent(this, LoginActivity::class.java))
         } else {
             // Logged in, go to dashboard
-            startActivity(Intent(this, LearnerDashboardActivity::class.java))
+            startActivity(Intent(this, StudentDashboardActivity::class.java))
         }
         
         // Apply a fade-out transition

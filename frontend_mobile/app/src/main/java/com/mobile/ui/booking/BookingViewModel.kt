@@ -7,14 +7,10 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
-import com.mobile.data.model.Booking
-import com.mobile.data.model.Schedule
-import com.mobile.data.model.CourseDTO
-import com.mobile.data.repository.BookingRepository
+import com.mobile.model.Schedule
+import com.mobile.repository.BookingRepository
 import com.mobile.utils.NetworkUtils
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.util.*
 
 class BookingViewModel(
     application: Application,
@@ -156,11 +152,15 @@ class BookingViewModel(
     }
 
     /**
-     * Generates time slots from tutor availability
+     * Generates time slots from tutor availability based on selected duration
      * @param availability List of tutor availability objects
+     * @param durationHours Duration of the session in hours (e.g., 1.0, 1.5, 2.0)
      * @return List of time slot strings in format "HH:MM - HH:MM"
      */
-    private fun generateTimeSlotsFromAvailability(availability: List<NetworkUtils.TutorAvailability>): List<String> {
+    private fun generateTimeSlotsFromAvailability(
+        availability: List<NetworkUtils.TutorAvailability>,
+        durationHours: Double = 1.0
+    ): List<String> {
         val timeSlots = mutableListOf<String>()
 
         // If no availability, return empty list
@@ -169,45 +169,49 @@ class BookingViewModel(
             return timeSlots
         }
 
-        Log.d("BookingViewModel", "Processing ${availability.size} availability slots: ${availability.map { "${it.dayOfWeek} ${it.startTime}-${it.endTime}" }}")
+        Log.d("BookingViewModel", "Processing ${availability.size} availability slots with duration $durationHours hours")
 
-        // For each availability period, generate time slots in 30-minute intervals
+        // Convert duration to minutes
+        val durationMinutes = (durationHours * 60).toInt()
+        
+        // Use 30-minute intervals for slot starting times
+        val intervalMinutes = 30
+        
+        // For each availability period, generate time slots
         for (avail in availability) {
             try {
-                // Log the raw time values for debugging
-                Log.d("BookingViewModel", "Processing availability: dayOfWeek=${avail.dayOfWeek}, startTime=${avail.startTime}, endTime=${avail.endTime}")
-
                 // Normalize the time format to handle various input formats
                 val (startHour, startMinute) = parseTimeToHourAndMinute(avail.startTime)
                 val (endHour, endMinute) = parseTimeToHourAndMinute(avail.endTime)
 
                 Log.d("BookingViewModel", "Parsed times: startHour=$startHour, startMinute=$startMinute, endHour=$endHour, endMinute=$endMinute")
 
-                // Generate time slots in 30-minute intervals
+                // Generate time slots at 30-minute intervals but with the specified duration
                 var currentHour = startHour
                 var currentMinute = startMinute
 
                 while (currentHour < endHour || (currentHour == endHour && currentMinute < endMinute)) {
-                    // Calculate end time of this slot (30 minutes later)
-                    var slotEndHour = currentHour
-                    var slotEndMinute = currentMinute + 30
+                    // Calculate end time based on the duration
+                    val startTimeInMinutes = currentHour * 60 + currentMinute
+                    val endTimeInMinutes = startTimeInMinutes + durationMinutes
+                    
+                    val slotEndHour = endTimeInMinutes / 60
+                    val slotEndMinute = endTimeInMinutes % 60
 
-                    // Handle minute overflow
-                    if (slotEndMinute >= 60) {
-                        slotEndHour += 1
-                        slotEndMinute -= 60
-                    }
+                    // Convert end time to hours for comparison
+                    val availEndTimeInMinutes = endHour * 60 + endMinute
 
                     // Only add the slot if it ends before or at the availability end time
-                    if (slotEndHour < endHour || (slotEndHour == endHour && slotEndMinute <= endMinute)) {
+                    if (endTimeInMinutes <= availEndTimeInMinutes) {
                         // Format in 24-hour time (HH:MM - HH:MM)
-                        val timeSlot = String.format("%02d:%02d - %02d:%02d", currentHour, currentMinute, slotEndHour, slotEndMinute)
+                        val timeSlot = String.format("%02d:%02d - %02d:%02d", 
+                            currentHour, currentMinute, slotEndHour, slotEndMinute)
                         timeSlots.add(timeSlot)
-                        Log.d("BookingViewModel", "Added time slot: $timeSlot")
+                        Log.d("BookingViewModel", "Added time slot: $timeSlot (duration: $durationHours hours)")
                     }
 
-                    // Move to next slot
-                    currentMinute += 30
+                    // Move to next slot starting time (30-minute intervals)
+                    currentMinute += intervalMinutes
                     if (currentMinute >= 60) {
                         currentHour += 1
                         currentMinute -= 60
@@ -219,7 +223,7 @@ class BookingViewModel(
             }
         }
 
-        Log.d("BookingViewModel", "Generated ${timeSlots.size} time slots: $timeSlots")
+        Log.d("BookingViewModel", "Generated ${timeSlots.size} time slots with duration $durationHours hours")
         return timeSlots
     }
 
@@ -370,8 +374,9 @@ class BookingViewModel(
      * Loads availability slots for a tutor on a specific day and date
      * @param dayOfWeek The day of week (e.g. "MONDAY")
      * @param specificDate The specific date in yyyy-MM-dd format
+     * @param durationHours Session duration in hours (default 1.0)
      */
-    fun loadTutorAvailability(dayOfWeek: String, specificDate: String? = null) {
+    fun loadTutorAvailability(dayOfWeek: String, specificDate: String? = null, durationHours: Double = 1.0) {
         _availabilityState.value = _availabilityState.value?.copy(isLoading = true)
 
         viewModelScope.launch {
@@ -390,8 +395,8 @@ class BookingViewModel(
 
                 result.fold(
                     onSuccess = { availability ->
-                        // Generate time slots from availability
-                        val timeSlots = generateTimeSlotsFromAvailability(availability)
+                        // Generate time slots from availability with the specified duration
+                        val timeSlots = generateTimeSlotsFromAvailability(availability, durationHours)
 
                         // Filter out time slots that overlap with approved sessions
                         if (!specificDate.isNullOrEmpty()) {
@@ -453,6 +458,10 @@ class BookingViewModel(
         subject: String,
         sessionType: String,
         notes: String,
+        location: String = "",
+        latitude: Double? = null,
+        longitude: Double? = null,
+        locationName: String? = null,
         callback: (Boolean) -> Unit
     ) {
         viewModelScope.launch {
@@ -463,10 +472,11 @@ class BookingViewModel(
                     error = null  // Clear any previous errors
                 )
 
-                // Get learner ID from SharedPreferences
-                val learnerId = sharedPreferences.getLong("user_id", -1).toString()
+                // Get student ID from PreferenceUtils
+                val userId = com.mobile.utils.PreferenceUtils.getUserId(getApplication())
+                val studentId = userId?.toString() ?: "-1"
 
-                if (learnerId == "-1") {
+                if (studentId == "-1") {
                     _bookingState.value = _bookingState.value?.copy(
                         isLoading = false,
                         error = "User not found. Please login again."
@@ -475,55 +485,58 @@ class BookingViewModel(
                     return@launch
                 }
 
-                // Create a tutoring session through the NetworkUtils API
-                NetworkUtils.createSession(
-                    learnerId,
-                    tutorId,
-                    startTime,
-                    endTime,
-                    subject,
-                    sessionType,
-                    "",  // Empty string for location since it's not being passed to this method
-                    notes
-                ).collect { result ->
-                    try {
-                        if (result.isSuccess) {
-                            Log.d(TAG, "Session created successfully")
+                // Create a tutoring session through the SessionUtils API instead of NetworkUtils
+                try {
+                    val result = com.mobile.utils.SessionUtils.createSession(
+                        studentId,
+                        tutorId,
+                        startTime,
+                        endTime,
+                        subject,
+                        sessionType,
+                        location,  // Pass the legacy location parameter for backward compatibility
+                        latitude,  // Pass the latitude parameter
+                        longitude, // Pass the longitude parameter
+                        locationName, // Pass the locationName parameter
+                        notes
+                    )
 
-                            _bookingState.value = _bookingState.value?.copy(
-                                isLoading = false,
-                                bookingComplete = true,  // Set booking completion to true
-                                error = null
-                            )
+                    if (result.isSuccess) {
+                        Log.d(TAG, "Session created successfully")
 
-                            // Call the callback with success
-                            callback(true)
+                        _bookingState.value = _bookingState.value?.copy(
+                            isLoading = false,
+                            bookingComplete = true,  // Set booking completion to true
+                            error = null
+                        )
 
-                        } else {
-                            val error = result.exceptionOrNull()
-                            Log.e(TAG, "Error creating session: ${error?.message}")
+                        // Call the callback with success
+                        callback(true)
 
-                            _bookingState.value = _bookingState.value?.copy(
-                                isLoading = false,
-                                bookingComplete = false,
-                                error = error?.message ?: "Unknown error creating session"
-                            )
-
-                            // Call the callback with failure
-                            callback(false)
-                        }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Exception in bookSession: ${e.message}", e)
+                    } else {
+                        val error = result.exceptionOrNull()
+                        Log.e(TAG, "Error creating session: ${error?.message}")
 
                         _bookingState.value = _bookingState.value?.copy(
                             isLoading = false,
                             bookingComplete = false,
-                            error = e.message ?: "Exception creating session"
+                            error = error?.message ?: "Unknown error creating session"
                         )
 
                         // Call the callback with failure
                         callback(false)
                     }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Exception in bookSession: ${e.message}", e)
+
+                    _bookingState.value = _bookingState.value?.copy(
+                        isLoading = false,
+                        bookingComplete = false,
+                        error = e.message ?: "Exception creating session"
+                    )
+
+                    // Call the callback with failure
+                    callback(false)
                 }
             } catch (e: Exception) {
                 Log.e("BookingViewModel", "Exception during booking: ${e.message}", e)
@@ -540,10 +553,11 @@ class BookingViewModel(
     fun bookSchedule(schedule: Schedule) {
         _loading.value = true
 
-        // Get user ID from SharedPreferences
-        val learnerId = sharedPreferences.getLong("user_id", -1).toString()
+        // Get user ID from PreferenceUtils
+        val userId = com.mobile.utils.PreferenceUtils.getUserId(getApplication())
+        val studentId = userId?.toString() ?: "-1"
 
-        if (learnerId == "-1") {
+        if (studentId == "-1") {
             _error.value = "User not found. Please login again."
             _loading.value = false
             return

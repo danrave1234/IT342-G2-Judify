@@ -59,14 +59,26 @@
                 android:windowSoftInputMode="adjustResize" />
 
         <activity
+                android:name=".ui.register.RegisterPage2Activity"
+                android:exported="false"
+                android:theme="@style/Theme.Judify"
+                android:windowSoftInputMode="adjustResize" />
+
+        <activity
                 android:name=".ui.register.TutorRegisterActivity"
+                android:exported="false"
+                android:theme="@style/Theme.Judify"
+                android:windowSoftInputMode="adjustResize" />
+
+        <activity
+                android:name=".ui.register.TutorRegisterPage2Activity"
                 android:exported="false"
                 android:theme="@style/Theme.Judify"
                 android:windowSoftInputMode="adjustResize" />
 
         <!-- Main Activities -->
         <activity
-                android:name=".ui.dashboard.LearnerDashboardActivity"
+                android:name=".ui.dashboard.StudentDashboardActivity"
                 android:exported="false"
                 android:theme="@style/Theme.Judify"
                 android:windowSoftInputMode="adjustResize"/>
@@ -87,14 +99,14 @@
                 android:name=".ui.booking.BookingActivity"
                 android:exported="false"
                 android:theme="@style/Theme.Judify"
-                android:parentActivityName=".ui.dashboard.LearnerDashboardActivity" />
+                android:parentActivityName=".ui.dashboard.StudentDashboardActivity" />
 
         <!-- Add the TutorSearchActivity -->
         <activity
                 android:name=".ui.search.TutorSearchActivity"
                 android:exported="false"
                 android:theme="@style/Theme.Judify"
-                android:parentActivityName=".ui.dashboard.LearnerDashboardActivity" />
+                android:parentActivityName=".ui.dashboard.StudentDashboardActivity" />
 
         <!-- Add the VideoCallActivity -->
         <activity

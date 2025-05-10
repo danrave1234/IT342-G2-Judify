@@ -32,6 +32,9 @@ public class PaymentTransactionEntity {
     private Double amount;
 
     @Column(nullable = false)
+    private String currency = "PHP"; // Default currency
+
+    @Column(nullable = false)
     private String status;
 
     @Column(nullable = false)
@@ -43,12 +46,31 @@ public class PaymentTransactionEntity {
     @Column(nullable = false)
     private String transactionReference;
 
+    // Stripe-specific fields
+    @Column
+    private String paymentIntentId; // Stripe PaymentIntent ID
+
+    @Column
+    private String paymentMethodId; // Stripe PaymentMethod ID
+    
+    @Column
+    private String clientSecret; // Client secret for frontend confirmation
+
+    @Column
+    private Boolean isRefunded = false;
+    
+    @Column
+    private String receiptUrl; // URL to payment receipt
+
     @Temporal(TemporalType.TIMESTAMP)
     @Column(nullable = false, updatable = false)
     private Date createdAt;
 
     @Temporal(TemporalType.TIMESTAMP)
     private Date updatedAt;
+
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date completedAt;
 
     // Constructors
     public PaymentTransactionEntity() {
@@ -91,6 +113,13 @@ public class PaymentTransactionEntity {
         this.amount = amount;
     }
 
+    public String getCurrency() {
+        return currency;
+    }
+    public void setCurrency(String currency) {
+        this.currency = currency;
+    }
+
     public String getStatus() {
         return status;
     }
@@ -119,6 +148,41 @@ public class PaymentTransactionEntity {
         this.transactionReference = transactionReference;
     }
 
+    public String getPaymentIntentId() {
+        return paymentIntentId;
+    }
+    public void setPaymentIntentId(String paymentIntentId) {
+        this.paymentIntentId = paymentIntentId;
+    }
+
+    public String getPaymentMethodId() {
+        return paymentMethodId;
+    }
+    public void setPaymentMethodId(String paymentMethodId) {
+        this.paymentMethodId = paymentMethodId;
+    }
+
+    public String getClientSecret() {
+        return clientSecret;
+    }
+    public void setClientSecret(String clientSecret) {
+        this.clientSecret = clientSecret;
+    }
+
+    public Boolean getIsRefunded() {
+        return isRefunded;
+    }
+    public void setIsRefunded(Boolean isRefunded) {
+        this.isRefunded = isRefunded;
+    }
+
+    public String getReceiptUrl() {
+        return receiptUrl;
+    }
+    public void setReceiptUrl(String receiptUrl) {
+        this.receiptUrl = receiptUrl;
+    }
+
     public Date getCreatedAt() {
         return createdAt;
     }
@@ -131,6 +195,13 @@ public class PaymentTransactionEntity {
     }
     public void setUpdatedAt(Date updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public Date getCompletedAt() {
+        return completedAt;
+    }
+    public void setCompletedAt(Date completedAt) {
+        this.completedAt = completedAt;
     }
 
     @PrePersist

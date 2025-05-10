@@ -23,6 +23,8 @@ import 'react-datepicker/dist/react-datepicker.css';
 import axios from 'axios';
 import { useUser } from '../../context/UserContext';
 import L from 'leaflet';
+import UserAvatar from '../../components/common/UserAvatar';
+import { formatDateTimeString } from '../../utils/dateUtils';
 
 const TutorDetails = () => {
   const { id } = useParams();
@@ -662,8 +664,8 @@ const TutorDetails = () => {
       const sessionData = {
         tutorId: tutor.id,
         studentId: user.id,
-        startTime: selectedTimeSlot.start.toISOString(),
-        endTime: selectedTimeSlot.end.toISOString(),
+        startTime: formatDateTimeString(selectedTimeSlot.start),
+        endTime: formatDateTimeString(selectedTimeSlot.end),
         sessionType: sessionType,
         status: 'PENDING'
       };
@@ -821,15 +823,11 @@ const TutorDetails = () => {
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <div className="sm:flex items-start">
               <div className="flex-shrink-0 h-24 w-24 sm:h-32 sm:w-32 rounded-full bg-gray-300 flex items-center justify-center text-gray-700 overflow-hidden mb-4 sm:mb-0">
-                {tutor.user?.profileImage ? (
-                  <img
-                    src={tutor.user.profileImage}
-                    alt={`${tutor.user?.firstName} ${tutor.user?.lastName}`}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <FaChalkboardTeacher size={64} />
-                )}
+                <UserAvatar
+                  user={tutor.user}
+                  size="xl"
+                  className="w-full h-full"
+                />
               </div>
               <div className="sm:ml-6">
                 <h1 className="text-2xl font-bold text-gray-900">
@@ -929,15 +927,11 @@ const TutorDetails = () => {
                   <div key={review.id} className="border-b pb-6 last:border-b-0 last:pb-0">
                     <div className="flex items-start">
                       <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center overflow-hidden">
-                        {review.student?.user?.profileImage ? (
-                          <img
-                            src={review.student.user.profileImage}
-                            alt={`${review.student?.user?.firstName || 'Student'}`}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <FaUser />
-                        )}
+                        <UserAvatar
+                          user={review.student?.user}
+                          size="sm"
+                          className="w-full h-full"
+                        />
                       </div>
                       <div className="ml-4">
                         <h4 className="text-sm font-medium text-gray-900">

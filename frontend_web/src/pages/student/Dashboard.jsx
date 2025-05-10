@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { FaCalendarAlt, FaClock} from 'react-icons/fa';
 import axios from 'axios';
 import { FaStar, FaMapMarkerAlt, FaDollarSign, FaVideo, FaUserFriends } from 'react-icons/fa';
+import { toast } from 'react-toastify';
 
 const Dashboard = () => {
   const [sessions, setSessions] = useState([]);
@@ -154,12 +155,33 @@ const Dashboard = () => {
         'Content-Type': 'application/json'
       };
 
-      // Try multiple endpoints in sequence, just like the mobile app does
+      // First get the student profile to get the profile ID
+      let profileId = null;
+      try {
+        console.log('Trying to fetch student profile for userId:', user.userId);
+        const profileResponse = await axios.get(
+          `${apiBaseUrl}/api/students/findByUserId/${user.userId}`,
+          { headers }
+        );
+        
+        if (profileResponse.data && profileResponse.data.profileId) {
+          profileId = profileResponse.data.profileId;
+          console.log('Found student profile ID:', profileId);
+        }
+      } catch (profileErr) {
+        console.warn('Could not fetch student profile:', profileErr);
+        // Continue with userId if profile not found
+      }
+
+      // Try multiple endpoints in sequence, using profileId if available
+      const studentId = profileId || user.userId;
+      console.log(`Using ${profileId ? 'profile' : 'user'} ID for session fetch: ${studentId}`);
+      
       const endpointsToTry = [
-        `/api/tutoring-sessions/findByStudent/${user.userId}`,
-        `/api/tutoring-sessions/learner/${user.userId}`,
-        `/api/tutoring-sessions/student/${user.userId}`,
-        `/api/sessions/learner/${user.userId}`
+        `/api/tutoring-sessions/findByStudent/${studentId}`,
+        `/api/tutoring-sessions/learner/${studentId}`,
+        `/api/tutoring-sessions/student/${studentId}`,
+        `/api/sessions/learner/${studentId}`
       ];
 
       let response = null;
@@ -184,7 +206,17 @@ const Dashboard = () => {
       // If we have a successful response, use it
       if (response && response.data) {
         console.log('Sessions API response:', response);
-        setSessions(response.data);
+        
+        // Normalize sessions to have both id and sessionId fields
+        const normalizedSessions = Array.isArray(response.data) 
+          ? response.data.map(session => ({
+              ...session,
+              id: session.id || session.sessionId,
+              sessionId: session.sessionId || session.id
+            }))
+          : [];
+          
+        setSessions(normalizedSessions);
       } else {
         // If all endpoints failed, throw the last error
         throw lastError || new Error('All endpoints failed');
@@ -220,6 +252,9 @@ const Dashboard = () => {
 
   // Include ALL statuses for upcoming sessions
   const upcomingSessions = sessions
+    .filter(session => 
+      ['PENDING', 'SCHEDULED', 'CONFIRMED'].includes(session.status?.toUpperCase())
+    )
     .sort((a, b) => new Date(a.startTime) - new Date(b.startTime)); // Sort by nearest session first
 
   // Helper to format date
@@ -244,21 +279,119 @@ const Dashboard = () => {
 
   // Helper to get status class for styling
   const getStatusClass = (status) => {
-    switch(status) {
+    switch(String(status).toUpperCase()) {
       case 'PENDING':
         return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
       case 'NEGOTIATING':
-        return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300';
+        return 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300';
       case 'SCHEDULED':
+        return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300';
+      case 'CONFIRMED':
         return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
-      case 'ONGOING':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
       case 'COMPLETED':
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300';
+        return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300';
       case 'CANCELLED':
+      case 'CANCELED':
         return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
       default:
         return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300';
+    }
+  };
+
+  // Function to handle session click - redirects to conversation instead of session detail
+  const handleSessionClick = async (session) => {
+    try {
+      // Display loading toast
+      const loadingToastId = toast.loading("Opening conversation...");
+      
+      // Get user from localStorage
+      const userString = localStorage.getItem('user');
+      if (!userString) {
+        toast.update(loadingToastId, { render: "User information not found, please login again", type: "error", isLoading: false, autoClose: 3000 });
+        return;
+      }
+      
+      const user = JSON.parse(userString);
+      
+      // First check if conversation already exists for this session
+      const { conversationApi } = await import('../../api/api');
+      
+      // Create conversation data - matches mobile app format
+      const conversationData = {
+        studentId: user.userId,
+        tutorId: session.tutorId,
+        sessionId: session.sessionId || session.id,
+        lastMessageTime: new Date().toISOString()
+      };
+      
+      console.log('Creating conversation with data:', conversationData);
+      
+      let conversationId;
+      
+      // Try to find an existing conversation first
+      try {
+        const conversationsResponse = await conversationApi.getConversations(user.userId);
+        const conversations = conversationsResponse?.data || [];
+        
+        // Find if there's an existing conversation for this session
+        const existingConversation = conversations.find(conv => 
+          (conv.sessionId === session.sessionId || conv.sessionId === session.id) ||
+          (conv.studentId === user.userId && conv.tutorId === session.tutorId)
+        );
+        
+        if (existingConversation) {
+          conversationId = existingConversation.conversationId || existingConversation.id;
+          console.log(`Found existing conversation: ${conversationId}`);
+        }
+      } catch (err) {
+        console.log('Error finding existing conversations, will create new one:', err);
+      }
+      
+      // If no existing conversation found, create a new one
+      if (!conversationId) {
+        try {
+          const response = await conversationApi.createConversation(conversationData);
+          if (response?.data) {
+            conversationId = response.data.conversationId || response.data.id;
+            console.log(`Created new conversation: ${conversationId}`);
+          } else {
+            throw new Error('No conversation ID returned from API');
+          }
+        } catch (err) {
+          console.error('Error creating conversation:', err);
+          
+          // Try using findBetweenUsers as a fallback
+          try {
+            console.log('Trying findBetweenUsers as fallback');
+            const api = await import('../../api/api').then(module => module.api);
+            const fallbackResponse = await api.get(`/conversations/findBetweenUsers/${user.userId}/${session.tutorId}`);
+            
+            if (fallbackResponse?.data) {
+              conversationId = fallbackResponse.data.conversationId || fallbackResponse.data.id;
+              console.log(`Found conversation via fallback: ${conversationId}`);
+            } else {
+              throw new Error('Failed to get conversation from fallback method');
+            }
+          } catch (fallbackErr) {
+            console.error('Fallback method also failed:', fallbackErr);
+            toast.update(loadingToastId, { render: "Failed to create conversation", type: "error", isLoading: false, autoClose: 3000 });
+            return;
+          }
+        }
+      }
+      
+      // Close loading toast
+      toast.update(loadingToastId, { render: "Opening conversation...", type: "success", isLoading: false, autoClose: 1500 });
+      
+      // Navigate to the conversation
+      if (conversationId) {
+        navigate(`/messages/${conversationId}`);
+      } else {
+        toast.error('Could not establish a conversation with the tutor');
+      }
+    } catch (error) {
+      console.error('Error handling session click:', error);
+      toast.error('There was a problem accessing the conversation');
     }
   };
 
@@ -348,7 +481,7 @@ const Dashboard = () => {
                     className="mt-auto w-full bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-3 rounded transition duration-200"
                     onClick={(e) => {
                       e.stopPropagation();
-                      window.location.href = `/student/book/${tutor.profileId || tutor.userId}`;
+                      window.location.href = `/student/book/${tutor.userId || tutor.user?.userId}`;
                     }}
                   >
                     Book Session
@@ -372,7 +505,15 @@ const Dashboard = () => {
         
       {/* All Sessions Row */}
       <div className="mt-8">
-        <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">All Sessions</h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">All Sessions</h2>
+          <Link 
+            to="/student/sessions" 
+            className="text-primary-600 dark:text-primary-500 hover:text-primary-700 dark:hover:text-primary-400 text-sm font-medium"
+          >
+            See All →
+          </Link>
+        </div>
         
         {loadingSessions ? (
           <div className="flex justify-center items-center h-40">
@@ -388,7 +529,8 @@ const Dashboard = () => {
               {upcomingSessions.map(session => (
                 <div 
                   key={session.sessionId || session.id} 
-                  className="bg-white dark:bg-dark-800 rounded-lg shadow-sm border border-gray-200 dark:border-dark-700 p-4 w-72 flex-shrink-0"
+                  className="bg-white dark:bg-dark-800 rounded-lg shadow-sm border border-gray-200 dark:border-dark-700 p-4 w-72 flex-shrink-0 cursor-pointer hover:shadow-md"
+                  onClick={() => handleSessionClick(session)}
                 >
                   <div className="flex flex-col h-full">
                     <div className="mb-2">

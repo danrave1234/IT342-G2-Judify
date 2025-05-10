@@ -1,5 +1,21 @@
 package edu.cit.Judify.TutorAvailability;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import edu.cit.Judify.TutorAvailability.DTO.TutorAvailabilityDTO;
 import edu.cit.Judify.TutorAvailability.DTO.TutorAvailabilityDTOMapper;
 import edu.cit.Judify.User.UserEntity;
@@ -11,12 +27,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/tutor-availability")
@@ -37,7 +47,7 @@ public class TutorAvailabilityController {
         this.userService = userService;
     }
 
-    @Operation(summary = "Create a new availability slot", description = "Creates a new availability time slot for a tutor")
+    @Operation(summary = "Create a new availability slot", description = "Creates a new availability time slot for a user")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Availability slot successfully created",
                 content = @Content(mediaType = "application/json", schema = @Schema(implementation = TutorAvailabilityDTO.class))),
@@ -47,18 +57,18 @@ public class TutorAvailabilityController {
     public ResponseEntity<TutorAvailabilityDTO> createAvailability(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Availability slot data to create", required = true)
             @RequestBody TutorAvailabilityDTO availabilityDTO) {
-        if (availabilityDTO.getTutorId() == null) {
+        if (availabilityDTO.getUserId() == null) {
             return ResponseEntity.badRequest().build();
         }
 
-        // Get the tutor entity from the user service
-        UserEntity tutor = userService.getUserById(availabilityDTO.getTutorId())
-            .orElseThrow(() -> new RuntimeException("Tutor not found with ID: " + availabilityDTO.getTutorId()));
+        // Get the user entity from the user service
+        UserEntity tutor = userService.getUserById(availabilityDTO.getUserId())
+            .orElseThrow(() -> new RuntimeException("User not found with ID: " + availabilityDTO.getUserId()));
 
         // Convert DTO to entity
         TutorAvailabilityEntity availability = availabilityDTOMapper.toEntity(availabilityDTO);
 
-        // Set the tutor entity
+        // Set the user entity
         availability.setTutor(tutor);
 
         // Save and return
@@ -80,16 +90,16 @@ public class TutorAvailabilityController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @Operation(summary = "Get tutor's availability slots", description = "Returns all availability slots for a specific tutor")
+    @Operation(summary = "Get user's availability slots", description = "Returns all availability slots for a specific user")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Successfully retrieved tutor's availability slots")
+        @ApiResponse(responseCode = "200", description = "Successfully retrieved user's availability slots")
     })
-    @GetMapping("/findByTutor/{tutorId}")
-    public ResponseEntity<List<TutorAvailabilityDTO>> getTutorAvailability(
-            @Parameter(description = "Tutor ID") @PathVariable Long tutorId) {
-        // Get the tutor entity from the user service
-        UserEntity tutor = userService.getUserById(tutorId)
-            .orElseThrow(() -> new RuntimeException("Tutor not found with ID: " + tutorId));
+    @GetMapping("/findByUser/{userId}")
+    public ResponseEntity<List<TutorAvailabilityDTO>> getUserAvailability(
+            @Parameter(description = "User ID") @PathVariable Long userId) {
+        // Get the user entity from the user service
+        UserEntity tutor = userService.getUserById(userId)
+            .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
 
         return ResponseEntity.ok(availabilityService.getTutorAvailability(tutor)
                 .stream()
@@ -110,17 +120,17 @@ public class TutorAvailabilityController {
                 .collect(Collectors.toList()));
     }
 
-    @Operation(summary = "Get tutor's availability by day", description = "Returns all availability slots for a specific tutor on a specific day")
+    @Operation(summary = "Get user's availability by day", description = "Returns all availability slots for a specific user on a specific day")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Successfully retrieved tutor's availability for the specified day")
+        @ApiResponse(responseCode = "200", description = "Successfully retrieved user's availability for the specified day")
     })
-    @GetMapping("/findByTutorAndDay/{tutorId}/{dayOfWeek}")
-    public ResponseEntity<List<TutorAvailabilityDTO>> getTutorAvailabilityByDay(
-            @Parameter(description = "Tutor ID") @PathVariable("tutorId") Long tutorId,
+    @GetMapping("/findByUserAndDay/{userId}/{dayOfWeek}")
+    public ResponseEntity<List<TutorAvailabilityDTO>> getUserAvailabilityByDay(
+            @Parameter(description = "User ID") @PathVariable("userId") Long userId,
             @Parameter(description = "Day of week (e.g., MONDAY, TUESDAY)") @PathVariable String dayOfWeek) {
-        // Get the tutor entity from the user service
-        UserEntity tutor = userService.getUserById(tutorId)
-            .orElseThrow(() -> new RuntimeException("Tutor not found with ID: " + tutorId));
+        // Get the user entity from the user service
+        UserEntity tutor = userService.getUserById(userId)
+            .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
 
         return ResponseEntity.ok(availabilityService.getTutorAvailabilityByDay(tutor, dayOfWeek)
                 .stream()
@@ -138,18 +148,18 @@ public class TutorAvailabilityController {
             @Parameter(description = "Availability slot ID") @PathVariable Long id,
             @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Updated availability slot data", required = true)
             @RequestBody TutorAvailabilityDTO availabilityDTO) {
-        if (availabilityDTO.getTutorId() == null) {
+        if (availabilityDTO.getUserId() == null) {
             return ResponseEntity.badRequest().build();
         }
 
-        // Get the tutor entity from the user service
-        UserEntity tutor = userService.getUserById(availabilityDTO.getTutorId())
-            .orElseThrow(() -> new RuntimeException("Tutor not found with ID: " + availabilityDTO.getTutorId()));
+        // Get the user entity from the user service
+        UserEntity tutor = userService.getUserById(availabilityDTO.getUserId())
+            .orElseThrow(() -> new RuntimeException("User not found with ID: " + availabilityDTO.getUserId()));
 
         // Convert DTO to entity
         TutorAvailabilityEntity availability = availabilityDTOMapper.toEntity(availabilityDTO);
 
-        // Set the tutor entity
+        // Set the user entity
         availability.setTutor(tutor);
 
         // Update and return
@@ -169,34 +179,34 @@ public class TutorAvailabilityController {
         return ResponseEntity.ok().build();
     }
 
-    @Operation(summary = "Delete all availability slots for a tutor", description = "Deletes all availability slots for a specific tutor")
+    @Operation(summary = "Delete all availability slots for a user", description = "Deletes all availability slots for a specific user")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "All tutor's availability slots successfully deleted")
+        @ApiResponse(responseCode = "200", description = "All user's availability slots successfully deleted")
     })
-    @DeleteMapping("/deleteAllForTutor/{tutorId}")
-    public ResponseEntity<Void> deleteTutorAvailability(
-            @Parameter(description = "Tutor ID") @PathVariable Long tutorId) {
-        // Get the tutor entity from the user service
-        UserEntity tutor = userService.getUserById(tutorId)
-            .orElseThrow(() -> new RuntimeException("Tutor not found with ID: " + tutorId));
+    @DeleteMapping("/deleteAllForUser/{userId}")
+    public ResponseEntity<Void> deleteUserAvailability(
+            @Parameter(description = "User ID") @PathVariable Long userId) {
+        // Get the user entity from the user service
+        UserEntity tutor = userService.getUserById(userId)
+            .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
 
         availabilityService.deleteTutorAvailability(tutor);
         return ResponseEntity.ok().build();
     }
 
-    @Operation(summary = "Check time slot availability", description = "Checks if a specific time slot is available for a tutor")
+    @Operation(summary = "Check time slot availability", description = "Checks if a specific time slot is available for a user")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Successfully checked availability")
     })
     @GetMapping("/checkAvailability")
     public ResponseEntity<Boolean> isTimeSlotAvailable(
-            @Parameter(description = "Tutor ID") @RequestParam Long tutorId,
+            @Parameter(description = "User ID") @RequestParam Long userId,
             @Parameter(description = "Day of week (e.g., MONDAY, TUESDAY)") @RequestParam String dayOfWeek,
             @Parameter(description = "Start time (HH:MM)") @RequestParam String startTime,
             @Parameter(description = "End time (HH:MM)") @RequestParam String endTime) {
-        // Get the tutor entity from the user service
-        UserEntity tutor = userService.getUserById(tutorId)
-            .orElseThrow(() -> new RuntimeException("Tutor not found with ID: " + tutorId));
+        // Get the user entity from the user service
+        UserEntity tutor = userService.getUserById(userId)
+            .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
 
         return ResponseEntity.ok(availabilityService.isTimeSlotAvailable(tutor, dayOfWeek, startTime, endTime));
     }

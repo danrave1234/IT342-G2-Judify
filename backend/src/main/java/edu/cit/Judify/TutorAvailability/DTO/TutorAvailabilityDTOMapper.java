@@ -1,8 +1,9 @@
 package edu.cit.Judify.TutorAvailability.DTO;
 
+import org.springframework.stereotype.Component;
+
 import edu.cit.Judify.TutorAvailability.TutorAvailabilityEntity;
 import edu.cit.Judify.User.UserEntity;
-import org.springframework.stereotype.Component;
 
 @Component
 public class TutorAvailabilityDTOMapper {
@@ -14,7 +15,7 @@ public class TutorAvailabilityDTOMapper {
 
         TutorAvailabilityDTO dto = new TutorAvailabilityDTO();
         dto.setAvailabilityId(entity.getAvailabilityId());
-        dto.setTutorId(entity.getTutor().getUserId());
+        dto.setUserId(entity.getTutor().getUserId());
         dto.setDayOfWeek(entity.getDayOfWeek());
         dto.setStartTime(entity.getStartTime());
         dto.setEndTime(entity.getEndTime());
@@ -31,9 +32,9 @@ public class TutorAvailabilityDTOMapper {
         entity.setAvailabilityId(dto.getAvailabilityId());
 
         // Set tutor if tutorId is provided
-        if (dto.getTutorId() != null) {
+        if (dto.getUserId() != null) {
             UserEntity tutor = new UserEntity();
-            tutor.setUserId(dto.getTutorId());
+            tutor.setUserId(dto.getUserId());
             entity.setTutor(tutor);
         }
 

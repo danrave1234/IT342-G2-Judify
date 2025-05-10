@@ -48,6 +48,7 @@ import kotlin.math.abs
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.Drawable
+import com.mobile.utils.UiUtils
 
 // Extension function to convert Drawable to Bitmap
 private fun Drawable.toBitmap(): Bitmap {
@@ -71,8 +72,6 @@ class MapFragment : BaseFragment() {
     private lateinit var tutorMarkersOverlay: FolderOverlay
     private lateinit var bottomSheetBehavior: BottomSheetBehavior<View>
 
-    // Flag to track auto-follow mode
-    private var isAutoFollowEnabled = false
 
     // Flag to track if user is a tutor
     private var isTutor = false
@@ -183,14 +182,14 @@ class MapFragment : BaseFragment() {
         // Set up the directions button
         view.findViewById<MaterialButton>(R.id.directionsButton)?.setOnClickListener {
             val locationTitle = view.findViewById<TextView>(R.id.locationTitleTextView).text.toString()
-            Toast.makeText(requireContext(), "Navigating to $locationTitle", Toast.LENGTH_SHORT).show()
+            UiUtils.showSnackbar(requireView(), "Navigating to $locationTitle")
             // Here you would launch external navigation
         }
 
         // Set up the save location button
         view.findViewById<MaterialButton>(R.id.saveLocationButton)?.setOnClickListener {
             val locationTitle = view.findViewById<TextView>(R.id.locationTitleTextView).text.toString()
-            Toast.makeText(requireContext(), "Saved $locationTitle", Toast.LENGTH_SHORT).show()
+            UiUtils.showSuccessSnackbar(requireView(), "Saved $locationTitle")
             // Toggle button state
             (it as MaterialButton).apply {
                 if (text == "Save") {
@@ -235,7 +234,7 @@ class MapFragment : BaseFragment() {
                 view?.findViewById<View>(R.id.progressBar)?.visibility = View.GONE
 
                 if (matchingMarkers.isEmpty()) {
-                    Toast.makeText(requireContext(), "No tutors found matching '$query'", Toast.LENGTH_SHORT).show()
+                    UiUtils.showInfoSnackbar(requireView(), "No tutors found matching '$query'")
                 } else {
                     // Center on first match
                     val firstMatch = matchingMarkers.first()
@@ -246,7 +245,7 @@ class MapFragment : BaseFragment() {
 
                     // If there are multiple matches, show count
                     if (matchingMarkers.size > 1) {
-                        Toast.makeText(requireContext(), "Found ${matchingMarkers.size} tutors matching '$query'", Toast.LENGTH_SHORT).show()
+                        UiUtils.showSuccessSnackbar(requireView(), "Found ${matchingMarkers.size} tutors matching '$query'")
                     }
                 }
             }
@@ -270,7 +269,7 @@ class MapFragment : BaseFragment() {
                     // Show all tutors if no filter is selected
                     tutorMarkers.forEach { it.isEnabled = true }
                     mapView.invalidate()
-                    Toast.makeText(requireContext(), "Showing all tutors", Toast.LENGTH_SHORT).show()
+                    UiUtils.showInfoSnackbar(requireView(), "Showing all tutors")
                 } else {
                     // Filter tutors by subject
                     tutorMarkers.forEach { marker ->
@@ -279,7 +278,7 @@ class MapFragment : BaseFragment() {
                         }
                     }
                     mapView.invalidate()
-                    Toast.makeText(requireContext(), "Filtered by ${selectedSubjects.joinToString()}", Toast.LENGTH_SHORT).show()
+                    UiUtils.showInfoSnackbar(requireView(), "Filtered by ${selectedSubjects.joinToString()}")
                 }
             }
             .setNegativeButton("Cancel", null)
@@ -287,7 +286,7 @@ class MapFragment : BaseFragment() {
                 // Show all tutors
                 tutorMarkers.forEach { it.isEnabled = true }
                 mapView.invalidate()
-                Toast.makeText(requireContext(), "Showing all tutors", Toast.LENGTH_SHORT).show()
+                UiUtils.showInfoSnackbar(requireView(), "Showing all tutors")
             }
             .show()
     }
@@ -354,18 +353,7 @@ class MapFragment : BaseFragment() {
         // Add map listener for smoother interactions
         mapView.addMapListener(object : MapListener {
             override fun onScroll(event: ScrollEvent?): Boolean {
-                // Disable auto-follow when user manually scrolls the map
-                if (isAutoFollowEnabled && locationOverlay::class.java.isAssignableFrom(MyLocationNewOverlay::class.java)) {
-                    val scrollDistance = abs((event?.x ?: 0).toFloat()) + abs((event?.y ?: 0).toFloat())
-                    if (scrollDistance > 10) {
-                        // Disable auto-follow only for significant scrolls
-                        locationOverlay.disableFollowLocation()
-                        isAutoFollowEnabled = false
-
-                        // Update the button icon to show follow is disabled
-                        view?.findViewById<FloatingActionButton>(R.id.autoFollowButton)?.setImageResource(R.drawable.ic_my_location_off)
-                    }
-                }
+                // Simple scroll handler
                 return false
             }
 
@@ -394,8 +382,8 @@ class MapFragment : BaseFragment() {
     }
 
     private fun setupLocationTracking() {
-        // Add location overlay
-        locationOverlay = MyLocationNewOverlay(GpsMyLocationProvider(requireContext()), mapView)
+        // Add location overlay using our custom CenteredLocationOverlay
+        locationOverlay = CenteredLocationOverlay(GpsMyLocationProvider(requireContext()), mapView)
         locationOverlay.enableMyLocation()
 
         // Set up a runnable to execute when location is first available
@@ -416,15 +404,13 @@ class MapFragment : BaseFragment() {
             }
         }
 
-        // Enable following mode by default
-        locationOverlay.enableFollowLocation()
-        isAutoFollowEnabled = true
+        // Don't enable following mode by default to allow user to browse the map freely
 
         // Use the arrow icon for both person and direction to prevent flickering
         val arrowIcon = ContextCompat.getDrawable(requireContext(), 
             if (isNightModeActive()) R.drawable.ic_direction_arrow_dark 
             else R.drawable.ic_direction_arrow)?.toBitmap()
-            
+
         // Set both personIcon and directionIcon to be the arrow
         arrowIcon?.let {
             locationOverlay.setPersonIcon(it)
@@ -606,7 +592,6 @@ class MapFragment : BaseFragment() {
 
     private fun initMapControls(view: View) {
         // Find the buttons
-        val autoFollowButton = view.findViewById<FloatingActionButton>(R.id.autoFollowButton)
         val resetOrientationButton = view.findViewById<FloatingActionButton>(R.id.resetOrientationButton)
         val myLocationFab = view.findViewById<FloatingActionButton>(R.id.myLocationFab)
 
@@ -618,28 +603,7 @@ class MapFragment : BaseFragment() {
                 mapView.controller.animateTo(myLocation)
                 // Don't enable follow mode to allow the user to continue browsing
             } else {
-                Toast.makeText(requireContext(), "Location not available yet", Toast.LENGTH_SHORT).show()
-            }
-        }
-
-        // Auto-Follow toggle button - enables/disables auto-follow mode
-        autoFollowButton.setOnClickListener {
-            if (isAutoFollowEnabled) {
-                // Disable auto-follow
-                locationOverlay.disableFollowLocation()
-                isAutoFollowEnabled = false
-                autoFollowButton.setImageResource(R.drawable.ic_my_location_off)
-                Toast.makeText(requireContext(), "Auto-follow disabled", Toast.LENGTH_SHORT).show()
-            } else {
-                // Enable auto-follow
-                val myLocation = locationOverlay.myLocation
-                if (myLocation != null) {
-                    mapView.controller.animateTo(myLocation)
-                }
-                locationOverlay.enableFollowLocation()
-                isAutoFollowEnabled = true
-                autoFollowButton.setImageResource(R.drawable.ic_my_location)
-                Toast.makeText(requireContext(), "Auto-follow enabled", Toast.LENGTH_SHORT).show()
+                UiUtils.showWarningSnackbar(requireView(), "Location not available yet")
             }
         }
 
@@ -657,7 +621,7 @@ class MapFragment : BaseFragment() {
                 }
                 animator.start()
 
-                Toast.makeText(requireContext(), "Map orientation reset", Toast.LENGTH_SHORT).show()
+                UiUtils.showSnackbar(requireView(), "Map orientation reset")
             } else {
                 mapView.mapOrientation = 0f
             }
@@ -671,7 +635,7 @@ class MapFragment : BaseFragment() {
                 // Pin the location
                 pinTutorLocation(currentLocation.latitude, currentLocation.longitude)
             } else {
-                Toast.makeText(requireContext(), "Location not available. Please try again.", Toast.LENGTH_SHORT).show()
+                UiUtils.showErrorSnackbar(requireView(), "Location not available. Please try again.")
             }
         }
     }
@@ -680,7 +644,7 @@ class MapFragment : BaseFragment() {
         // Get user ID from preferences
         val userId = PreferenceUtils.getUserId(requireContext())
         if (userId == null) {
-            Toast.makeText(requireContext(), "User ID not found", Toast.LENGTH_SHORT).show()
+            UiUtils.showErrorSnackbar(requireView(), "User ID not found")
             return
         }
 
@@ -710,11 +674,7 @@ class MapFragment : BaseFragment() {
 
                             updateResult.fold(
                                 onSuccess = { _ ->
-                                    Toast.makeText(
-                                        requireContext(),
-                                        "Location updated successfully",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
+                                    UiUtils.showSuccessSnackbar(requireView(), "Location updated successfully")
 
                                     // Update or add a marker at the pinned location
                                     val existingMarker = tutorMarkers.find { it.title == tutorProfile.name }
@@ -733,42 +693,26 @@ class MapFragment : BaseFragment() {
                                     }
                                 },
                                 onFailure = { error ->
-                                    Toast.makeText(
-                                        requireContext(),
-                                        "Failed to update location: ${error.message}",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
+                                    UiUtils.showErrorSnackbar(requireView(), "Failed to update location: ${error.message}")
                                 }
                             )
                         }
                     } else {
                         withContext(Dispatchers.Main) {
                             loadingDialog.dismiss()
-                            Toast.makeText(
-                                requireContext(),
-                                "Tutor profile not found",
-                                Toast.LENGTH_SHORT
-                            ).show()
+                            UiUtils.showErrorSnackbar(requireView(), "Tutor profile not found")
                         }
                     }
                 } else {
                     withContext(Dispatchers.Main) {
                         loadingDialog.dismiss()
-                        Toast.makeText(
-                            requireContext(),
-                            "Failed to find tutor profile",
-                            Toast.LENGTH_SHORT
-                        ).show()
+                        UiUtils.showErrorSnackbar(requireView(), "Failed to find tutor profile")
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     loadingDialog.dismiss()
-                    Toast.makeText(
-                        requireContext(),
-                        "Error: ${e.message}",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    UiUtils.showErrorSnackbar(requireView(), "Error: ${e.message}")
                 }
             }
         }

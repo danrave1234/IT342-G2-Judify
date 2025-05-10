@@ -24,10 +24,8 @@ import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 import com.mobile.R
 import com.mobile.ui.booking.BookingActivity
-import com.mobile.ui.chat.ChatFragment
-import com.mobile.ui.dashboard.LearnerDashboardActivity
-import com.mobile.ui.map.MapFragment
-import com.mobile.ui.profile.ProfileFragment
+import com.mobile.ui.dashboard.StudentDashboardActivity
+
 
 class TutorSearchActivity : AppCompatActivity() {
 
@@ -193,7 +191,7 @@ class TutorSearchActivity : AppCompatActivity() {
             when (item.itemId) {
                 R.id.navigation_home -> {
                     // Navigate to the home/dashboard
-                    val intent = Intent(this, LearnerDashboardActivity::class.java)
+                    val intent = Intent(this, StudentDashboardActivity::class.java)
                     startActivity(intent)
                     overridePendingTransition(0, 0)
                     finish()
@@ -205,7 +203,7 @@ class TutorSearchActivity : AppCompatActivity() {
                 }
                 R.id.navigation_map -> {
                     // Navigate to the dashboard with the Map fragment
-                    val intent = Intent(this, LearnerDashboardActivity::class.java)
+                    val intent = Intent(this, StudentDashboardActivity::class.java)
                     intent.putExtra("FRAGMENT", "MAP")
                     startActivity(intent)
                     overridePendingTransition(0, 0)
@@ -214,7 +212,7 @@ class TutorSearchActivity : AppCompatActivity() {
                 }
                 R.id.navigation_chat -> {
                     // Navigate to the dashboard with the Chat fragment
-                    val intent = Intent(this, LearnerDashboardActivity::class.java)
+                    val intent = Intent(this, StudentDashboardActivity::class.java)
                     intent.putExtra("FRAGMENT", "CHAT")
                     startActivity(intent)
                     overridePendingTransition(0, 0)
@@ -223,7 +221,7 @@ class TutorSearchActivity : AppCompatActivity() {
                 }
                 R.id.navigation_profile -> {
                     // Navigate to the dashboard with the Profile fragment
-                    val intent = Intent(this, LearnerDashboardActivity::class.java)
+                    val intent = Intent(this, StudentDashboardActivity::class.java)
                     intent.putExtra("FRAGMENT", "PROFILE")
                     startActivity(intent)
                     overridePendingTransition(0, 0)

@@ -15,6 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 import edu.cit.Judify.Conversation.ConversationEntity;
 import edu.cit.Judify.Conversation.ConversationRepository;
 import edu.cit.Judify.Message.DTO.MessageDTO;
+import edu.cit.Judify.TutoringSession.TutoringSessionEntity;
+import edu.cit.Judify.TutoringSession.TutoringSessionRepository;
 import edu.cit.Judify.User.UserEntity;
 import edu.cit.Judify.User.UserRepository;
 
@@ -24,14 +26,17 @@ public class MessageService {
     private final MessageRepository messageRepository;
     private final ConversationRepository conversationRepository;
     private final UserRepository userRepository;
+    private final TutoringSessionRepository tutoringSessionRepository;
 
     @Autowired
     public MessageService(MessageRepository messageRepository, 
                           ConversationRepository conversationRepository,
-                          UserRepository userRepository) {
+                          UserRepository userRepository,
+                          TutoringSessionRepository tutoringSessionRepository) {
         this.messageRepository = messageRepository;
         this.conversationRepository = conversationRepository;
         this.userRepository = userRepository;
+        this.tutoringSessionRepository = tutoringSessionRepository;
     }
 
     /**
@@ -70,6 +75,18 @@ public class MessageService {
         message.setReceiver(receiver);
         message.setContent(messageDTO.getContent());
         message.setIsRead(false);
+
+        // Set message type if provided
+        if (messageDTO.getMessageType() != null) {
+            message.setMessageType(messageDTO.getMessageType());
+        }
+
+        // Set session if sessionId is provided
+        if (messageDTO.getSessionId() != null) {
+            TutoringSessionEntity session = tutoringSessionRepository.findById(messageDTO.getSessionId())
+                    .orElseThrow(() -> new RuntimeException("Session not found with ID: " + messageDTO.getSessionId()));
+            message.setSession(session);
+        }
 
         return messageRepository.save(message);
     }
@@ -285,4 +302,190 @@ public class MessageService {
 
         return allMessages;
     }
-} 
+
+    /**
+     * Send a session details message in a conversation
+     * @param conversationId The ID of the conversation
+     * @param sessionId The ID of the tutoring session
+     * @param senderId The ID of the sender (usually the system or the tutor)
+     * @param receiverId The ID of the receiver
+     * @return The created message
+     * @throws RuntimeException if the conversation, session, sender, or receiver is not found
+     */
+    @Transactional
+    public MessageEntity sendSessionDetailsMessage(Long conversationId, Long sessionId, Long senderId, Long receiverId) {
+        System.out.println("Attempting to send session details message:");
+        System.out.println("- Conversation ID: " + conversationId);
+        System.out.println("- Session ID: " + sessionId);
+        System.out.println("- Sender ID: " + senderId);
+        System.out.println("- Receiver ID: " + receiverId);
+
+        try {
+            // Validate conversation
+            ConversationEntity conversation = conversationRepository.findById(conversationId)
+                    .orElseThrow(() -> new RuntimeException("Conversation not found with ID: " + conversationId));
+            
+            System.out.println("Found conversation between student=" + conversation.getStudent().getUserId() + 
+                              " and tutor=" + conversation.getTutor().getUserId());
+
+            // Validate session
+            TutoringSessionEntity session = tutoringSessionRepository.findById(sessionId)
+                    .orElseThrow(() -> new RuntimeException("Session not found with ID: " + sessionId));
+            
+            System.out.println("Found session with subject: " + session.getSubject() + 
+                              ", student=" + session.getStudent().getUserId() + 
+                              ", tutor=" + session.getTutor().getUserId());
+
+            // Check if the session has a different tutor ID (profile ID vs user ID issue)
+            if (!session.getTutor().getUserId().equals(conversation.getTutor().getUserId())) {
+                System.out.println("WARNING: Mismatch between session tutor ID (" + session.getTutor().getUserId() + 
+                                  ") and conversation tutor ID (" + conversation.getTutor().getUserId() + ")");
+            }
+
+            // Validate sender with better error handling
+            UserEntity sender;
+            try {
+                sender = userRepository.findById(senderId)
+                        .orElseThrow(() -> new RuntimeException("Sender not found with ID: " + senderId));
+                System.out.println("Found sender: " + sender.getUsername() + " (ID: " + sender.getUserId() + ")");
+            } catch (Exception e) {
+                System.out.println("ERROR: Failed to find sender with ID " + senderId + ": " + e.getMessage());
+                e.printStackTrace();
+                throw e;
+            }
+
+            // Validate receiver with better error handling  
+            UserEntity receiver;
+            try {
+                receiver = userRepository.findById(receiverId)
+                        .orElseThrow(() -> new RuntimeException("Receiver not found with ID: " + receiverId));
+                System.out.println("Found receiver: " + receiver.getUsername() + " (ID: " + receiver.getUserId() + ")");
+            } catch (Exception e) {
+                System.out.println("ERROR: Failed to find receiver with ID " + receiverId + ": " + e.getMessage());
+                e.printStackTrace();
+                throw e;
+            }
+
+            // Create session details content
+            String content = formatSessionDetailsContent(session);
+
+            // Create and save the message
+            MessageEntity message = new MessageEntity();
+            message.setConversation(conversation);
+            message.setSender(sender);
+            message.setReceiver(receiver);
+            message.setContent(content);
+            message.setIsRead(false);
+            message.setMessageType(MessageEntity.MessageType.SESSION_DETAILS);
+            message.setSession(session);
+
+            MessageEntity savedMessage = messageRepository.save(message);
+            System.out.println("Successfully saved session details message with ID: " + savedMessage.getMessageId());
+            return savedMessage;
+        } catch (Exception e) {
+            System.out.println("ERROR in sendSessionDetailsMessage: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
+    }
+
+    /**
+     * Send a session action message (accept/reject) in a conversation
+     * @param conversationId The ID of the conversation
+     * @param sessionId The ID of the tutoring session
+     * @param senderId The ID of the sender (usually the tutor)
+     * @param receiverId The ID of the receiver (usually the student)
+     * @param accepted Whether the session was accepted or rejected
+     * @return The created message
+     * @throws RuntimeException if the conversation, session, sender, or receiver is not found
+     */
+    @Transactional
+    public MessageEntity sendSessionActionMessage(Long conversationId, Long sessionId, Long senderId, Long receiverId, boolean accepted) {
+        // Validate conversation
+        ConversationEntity conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new RuntimeException("Conversation not found with ID: " + conversationId));
+
+        // Validate session
+        TutoringSessionEntity session = tutoringSessionRepository.findById(sessionId)
+                .orElseThrow(() -> new RuntimeException("Session not found with ID: " + sessionId));
+
+        // Validate sender
+        UserEntity sender = userRepository.findById(senderId)
+                .orElseThrow(() -> new RuntimeException("Sender not found with ID: " + senderId));
+
+        // Validate receiver
+        UserEntity receiver = userRepository.findById(receiverId)
+                .orElseThrow(() -> new RuntimeException("Receiver not found with ID: " + receiverId));
+
+        // Create action content
+        String content = accepted ? 
+                "Session request accepted. The tutoring session has been scheduled." : 
+                "Session request declined. Please contact the tutor for more information.";
+
+        // Create and save the message
+        MessageEntity message = new MessageEntity();
+        message.setConversation(conversation);
+        message.setSender(sender);
+        message.setReceiver(receiver);
+        message.setContent(content);
+        message.setIsRead(false);
+        message.setMessageType(MessageEntity.MessageType.SESSION_ACTION);
+        message.setSession(session);
+
+        return messageRepository.save(message);
+    }
+
+    /**
+     * Format session details into a readable message content
+     * @param session The tutoring session
+     * @return Formatted session details as a string
+     */
+    private String formatSessionDetailsContent(TutoringSessionEntity session) {
+        StringBuilder content = new StringBuilder();
+        content.append("**Tutoring Session Details**\n\n");
+        content.append("Subject: ").append(session.getSubject()).append("\n");
+        content.append("Date: ").append(formatDate(session.getStartTime())).append("\n");
+        content.append("Time: ").append(formatTime(session.getStartTime())).append(" - ").append(formatTime(session.getEndTime())).append("\n");
+        content.append("Status: ").append(session.getStatus()).append("\n");
+
+        if (session.getPrice() != null) {
+            content.append("Price: $").append(String.format("%.2f", session.getPrice())).append("\n");
+        }
+
+        if (session.getSessionType() != null) {
+            content.append("Session Type: ").append(session.getSessionType()).append("\n");
+
+            if ("online".equalsIgnoreCase(session.getSessionType()) && session.getMeetingLink() != null) {
+                content.append("Meeting Link: ").append(session.getMeetingLink()).append("\n");
+            } else if ("in-person".equalsIgnoreCase(session.getSessionType()) && session.getLocationData() != null) {
+                content.append("Location: ").append(session.getLocationData()).append("\n");
+            }
+        }
+
+        if (session.getNotes() != null && !session.getNotes().isEmpty()) {
+            content.append("\nNotes: ").append(session.getNotes()).append("\n");
+        }
+
+        return content.toString();
+    }
+
+    /**
+     * Format a date to a readable string
+     * @param date The date to format
+     * @return Formatted date string
+     */
+    private String formatDate(java.util.Date date) {
+        if (date == null) return "Not specified";
+        return new java.text.SimpleDateFormat("EEEE, MMMM d, yyyy").format(date);
+    }
+
+    /**
+     * Format a time to a readable string
+     * @param date The date/time to format
+     * @return Formatted time string
+     */
+    private String formatTime(java.util.Date date) {
+        if (date == null) return "Not specified";
+        return new java.text.SimpleDateFormat("h:mm a").format(date);
+    }
+}

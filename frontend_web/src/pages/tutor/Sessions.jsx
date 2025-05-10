@@ -47,13 +47,15 @@ const Sessions = () => {
   const fetchSessions = async () => {
     const result = await getTutorSessions();
     if (result.success) {
+      console.log('Fetched sessions:', result.sessions);
       setSessions(result.sessions);
     }
   };
 
   const upcomingSessions = sessions.filter(session => 
     session.status === SESSION_STATUS.SCHEDULED || 
-    session.status === SESSION_STATUS.CONFIRMED
+    session.status === SESSION_STATUS.CONFIRMED || 
+    session.status === SESSION_STATUS.PENDING
   );
   
   const pastSessions = sessions.filter(session => 
@@ -114,12 +116,21 @@ const Sessions = () => {
       }
       
       const user = JSON.parse(userData);
-      console.log('Fetching availabilities for user:', user.userId);
+      const userId = user.userId;
       
-      // Use the API to get real availability data
+      if (!userId) {
+        console.error('User ID not found in localStorage data');
+        setAvailabilities([]);
+        setLoading(false);
+        return;
+      }
+      
+      console.log('Getting availability for userId:', userId);
+      
       try {
-        const response = await tutorAvailabilityApi.getAvailabilities(user.userId);
-        console.log('Availability API response:', response);
+        // Use userId directly for fetching availabilities instead of profileId
+        const response = await tutorAvailabilityApi.getAvailabilities(userId, true);
+        console.log('Availability API response using userId:', response);
         
         if (response && response.data) {
           // Handle both array and single object responses
@@ -183,23 +194,22 @@ const Sessions = () => {
         return;
       }
       
-      // Add tutorId to availability data
-      const availabilityWithUserId = {
+      // Add userId directly to availability data instead of using profileId
+      const availabilityData = {
         ...availabilityForm,
-        tutorId: userId
+        userId: userId // Use userId directly
       };
       
-      console.log('Submitting availability data:', availabilityWithUserId);
+      console.log('Submitting availability data with userId:', availabilityData);
       
       // Call the backend API
-      const response = await tutorAvailabilityApi.createAvailability(availabilityWithUserId);
+      const response = await tutorAvailabilityApi.createAvailability(availabilityData);
       console.log('Availability creation response:', response);
       
       if (response && response.data) {
         // Update state with new availability
         const updatedAvailabilities = [...availabilities, response.data];
         setAvailabilities(updatedAvailabilities);
-        
         toast.success('Availability added successfully');
       } else {
         toast.error('Failed to add availability: Unexpected response format');
@@ -214,18 +224,19 @@ const Sessions = () => {
     } catch (error) {
       console.error('Error creating availability:', error);
       
-      // More detailed error messages
+      // Handle different error scenarios
       if (error.response) {
-        // The request was made and the server responded with a status code
-        // that falls out of the range of 2xx
-        console.error('Server response:', error.response.data);
-        toast.error(`Failed to add availability: ${error.response.data.message || 'Server error'}`);
+        // Server responded with an error code
+        if (error.response.status === 400) {
+          toast.error(`Failed to add availability: ${error.response.data.message || 'Invalid input'}`);
+        } else {
+          toast.error(`Failed to add availability: ${error.response.data.message || 'Server error'}`);
+        }
       } else if (error.request) {
         // The request was made but no response was received
-        console.error('No response received:', error.request);
         toast.error('Failed to add availability: No response from server. Backend may be down.');
       } else {
-        // Something happened in setting up the request
+        // Something else happened while setting up the request
         toast.error(`Failed to add availability: ${error.message}`);
       }
     } finally {
@@ -234,20 +245,24 @@ const Sessions = () => {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this availability?')) {
-      try {
+    try {
+      if (window.confirm('Are you sure you want to delete this availability?')) {
+        
         // Call the backend API to delete the availability
         await tutorAvailabilityApi.deleteAvailability(id);
         
-        // Remove from local state
-        const updatedAvailabilities = availabilities.filter(a => a.availabilityId !== id);
+        // Update the local state to reflect the deletion
+        const updatedAvailabilities = availabilities.filter(a => 
+          // Handle both forms of ID to ensure we filter correctly
+          (a.availabilityId !== id && a.id !== id)
+        );
         setAvailabilities(updatedAvailabilities);
         
         toast.success('Availability deleted successfully');
-      } catch (error) {
-        console.error('Error deleting availability:', error);
-        toast.error('Failed to delete availability. Please try again.');
       }
+    } catch (error) {
+      console.error('Error deleting availability:', error);
+      toast.error('Failed to delete availability. Please try again.');
     }
   };
 
@@ -367,14 +382,19 @@ const Sessions = () => {
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               You don't have any upcoming tutoring sessions scheduled.
             </p>
+            <pre className="mt-4 text-xs text-left bg-gray-100 dark:bg-dark-700 p-4 rounded overflow-auto">
+              {JSON.stringify(sessions, null, 2)}
+            </pre>
           </div>
         ) : (
           <div className="space-y-6">
             {upcomingSessions.map(session => {
                 const { date, time } = formatSessionTime(session.startTime, session.endTime);
+                // Use sessionId if id is not available
+                const sessionKey = session.id || session.sessionId;
                 return (
                 <div 
-                  key={session.id} 
+                  key={sessionKey} 
                   className="bg-white dark:bg-dark-800 rounded-lg shadow-sm border border-gray-200 dark:border-dark-700 overflow-hidden"
                 >
                   <div className="p-6">
@@ -403,11 +423,17 @@ const Sessions = () => {
                       </div>
                       <div>
                         <Link 
-                          to={`/tutor/sessions/${session.id}`}
+                          to={`/tutor/sessions/${sessionKey}`}
                           className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
                         >
                           View Details
                         </Link>
+                      </div>
+                    </div>
+                    <div className="mt-3">
+                      <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Student</div>
+                      <div className="mt-1 text-sm text-gray-900 dark:text-gray-300">
+                        {session.studentName || 'Unknown Student'}
                       </div>
                     </div>
                   </div>
@@ -429,9 +455,11 @@ const Sessions = () => {
           <div className="space-y-6">
             {pastSessions.map(session => {
               const { date, time } = formatSessionTime(session.startTime, session.endTime);
+              // Use sessionId if id is not available
+              const sessionKey = session.id || session.sessionId;
               return (
                 <div 
-                  key={session.id} 
+                  key={sessionKey} 
                   className="bg-white dark:bg-dark-800 rounded-lg shadow-sm border border-gray-200 dark:border-dark-700 overflow-hidden"
                 >
                   <div className="p-6">
@@ -460,11 +488,17 @@ const Sessions = () => {
                       </div>
                       <div>
                           <Link
-                          to={`/tutor/sessions/${session.id}`}
+                          to={`/tutor/sessions/${sessionKey}`}
                           className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 dark:bg-dark-700 dark:text-gray-300 dark:border-dark-600 dark:hover:bg-dark-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
                           >
                             View Details
                           </Link>
+                        </div>
+                      </div>
+                      <div className="mt-3">
+                        <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Student</div>
+                        <div className="mt-1 text-sm text-gray-900 dark:text-gray-300">
+                          {session.studentName || 'Unknown Student'}
                         </div>
                       </div>
                     </div>

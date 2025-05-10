@@ -2,7 +2,7 @@ package edu.cit.Judify.TutorAvailability.DTO;
 
 public class TutorAvailabilityDTO {
     private Long availabilityId;
-    private Long tutorId;
+    private Long userId;
     private String dayOfWeek;
     private String startTime;
     private String endTime;
@@ -21,12 +21,12 @@ public class TutorAvailabilityDTO {
         this.availabilityId = availabilityId;
     }
 
-    public Long getTutorId() {
-        return tutorId;
+    public Long getUserId() {
+        return userId;
     }
 
-    public void setTutorId(Long tutorId) {
-        this.tutorId = tutorId;
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
 
     public String getDayOfWeek() {

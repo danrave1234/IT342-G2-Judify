@@ -3,10 +3,10 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useUser } from '../../context/UserContext';
 import { useSession } from '../../context/SessionContext';
 import { SESSION_STATUS } from '../../types';
-import { tutorProfileApi } from '../../api/api'; // Assuming API object is default export
+import { tutorProfileApi, tutorAvailabilityApi } from '../../api/api'; // Import tutorAvailabilityApi
 import API from '../../api/api'; // Import the default export
 import { toast } from 'react-toastify';
-import { format, startOfDay, addMonths, parseISO } from 'date-fns'; // Keep parseISO if needed elsewhere
+import { format, startOfDay, addMonths } from 'date-fns';
 
 // Import the DatePicker component
 import DatePicker from '../../components/common/DatePicker';
@@ -30,7 +30,8 @@ const BookSession = () => {
     subject: '',
     notes: '',
     duration: 1,
-    isOnline: true,
+    sessionType: 'Online',
+    locationName: '',
   });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -43,58 +44,162 @@ const BookSession = () => {
     setError('');
     setAvailableDates([]); // Reset dates on re-fetch
 
-    const currentTutorId = tutorIdParam; // Use the param directly
+    const tutorUserId = tutorIdParam; // Treat parameter as userId by default
+    console.log('Attempting to fetch tutor data with User ID:', tutorUserId);
 
     try {
-      let tutorData;
-      console.log('Attempting to fetch tutor data with ID:', currentTutorId);
+      let tutorData = null;
+      let tutorResponse = null;
 
-      // Use tutorProfileApi for profile fetching
+      // Try to get tutor profile by userId first
       try {
-        const tutorResponse = await tutorProfileApi.getProfileById(currentTutorId);
-        tutorData = tutorResponse.data;
-        console.log('Successfully fetched tutor profile by profileId:', currentTutorId);
-      } catch (error) {
-        console.log(`Error fetching by profileId (${currentTutorId}), trying userId:`, error.message);
-        try {
-          const tutorResponse = await tutorProfileApi.getProfileByUserId(currentTutorId);
+        tutorResponse = await tutorProfileApi.getProfileByUserId(tutorUserId);
+        if (tutorResponse.data) {
           tutorData = tutorResponse.data;
-          console.log('Successfully fetched tutor profile by userId:', currentTutorId);
-        } catch (userIdError) {
-          console.error(`Error fetching tutor profile by userId (${currentTutorId}):`, userIdError);
-          throw new Error('Tutor profile not found for ID: ' + currentTutorId);
+          console.log('Successfully fetched tutor profile by userId:', tutorUserId);
+        }
+      } catch (userIdError) {
+        console.log(`No tutor profile found with userId ${tutorUserId}:`, userIdError.message);
+      }
+
+      // If not found, treat parameter as profileId as a fallback 
+      if (!tutorData) {
+        try {
+          console.log('Trying to fetch profile by profileId as fallback:', tutorUserId);
+          tutorResponse = await tutorProfileApi.getProfileById(tutorUserId);
+          if (tutorResponse.data) {
+            tutorData = tutorResponse.data;
+            console.log('Successfully fetched tutor profile by profileId:', tutorUserId);
+          }
+        } catch (profileError) {
+          console.error('Error fetching by profileId:', profileError.message);
         }
       }
 
-      if (!tutorData || !tutorData.userId) {
-        throw new Error('Incomplete tutor data retrieved. Missing user ID.');
+      // If still no data, try to use any user info we can find
+      if (!tutorData) {
+        try {
+          // Try to get basic user data
+          console.log('Trying to get basic user info as last resort');
+          const userResponse = await API.get(`/users/${tutorUserId}`);
+          if (userResponse.data) {
+            // Create a minimal tutor data object from user data
+            tutorData = {
+              userId: userResponse.data.userId,
+              firstName: userResponse.data.firstName,
+              lastName: userResponse.data.lastName,
+              profilePicture: userResponse.data.profilePicture,
+              hourlyRate: 35, // Default hourly rate
+              subjects: ['General Tutoring'], // Default subject
+            };
+            console.log('Created minimal tutor data from user info');
+          }
+        } catch (userError) {
+          console.error('Failed to get basic user info:', userError.message);
+        }
       }
+
+      if (!tutorData) {
+        throw new Error('Could not find tutor information. Please try again later.');
+      }
+
       console.log('Retrieved tutor data:', tutorData);
 
+      // Store both IDs
+      const tutorProfileId = tutorData.profileId || tutorData.id;
+      const userId = tutorData.userId || tutorUserId;
+
       setTutor({
-        id: tutorData.userId,
-        profileId: tutorData.profileId || currentTutorId,
-        name: `${tutorData.firstName} ${tutorData.lastName}`,
-        profilePicture: tutorData.profilePicture || 'https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png?20150327203541',
+        id: userId,              // User ID for reference
+        userId: userId,          // Ensure userId is stored for booking
+        profileId: tutorProfileId, // Profile ID for availability and viewing
+        name: `${tutorData.firstName || ''} ${tutorData.lastName || ''}`.trim(),
+        profilePicture: tutorData.profilePicture,
         rate: tutorData.hourlyRate || 35,
         subjects: tutorData.subjects || ['General Tutoring'],
       });
 
-      // Fetch availability using the tutor's userId
-      const tutorUserId = tutorData.userId;
+      // Fetch availability using userId instead of profileId
       let availabilityData = [];
       try {
-        console.log('Fetching tutor availability with userId:', tutorUserId);
-        // Use the default exported API instance for availability
-        const availabilityResponse = await API.get(`/tutor-availability/findByTutor/${tutorUserId}`);
-        if (availabilityResponse.data && Array.isArray(availabilityResponse.data)) {
-          availabilityData = availabilityResponse.data;
-          console.log('Successfully fetched tutor availability with userId:', availabilityData);
-          setRawTutorAvailability(availabilityData); // Store raw data
-        } else {
-          console.warn('No availability data returned or invalid format');
-          setRawTutorAvailability([]); // Ensure it's an empty array if no data
+        console.log(`Fetching tutor availability with userId: ${userId}`);
+        
+        try {
+          // Use the tutorAvailabilityApi with isUserId=true flag to indicate we're using userId
+          console.log(`Attempting to call tutorAvailabilityApi.getAvailabilities(${userId}, true)`);
+          const availabilityResponse = await tutorAvailabilityApi.getAvailabilities(userId, true);
+          
+          if (availabilityResponse?.data && Array.isArray(availabilityResponse.data)) {
+            availabilityData = availabilityResponse.data;
+            console.log('Successfully fetched tutor availability using userId:', availabilityData);
+          } else {
+            console.log('No availability data found with userId or invalid response format:', availabilityResponse);
+          }
+        } catch (error) {
+          console.error(`Error fetching availability with userId: ${error.message}`);
+          console.log('Full error object:', error);
+          
+          // Try direct API calls as fallbacks
+          try {
+            console.log('Trying direct API call to /api/tutor-availability/findByUser/' + userId);
+            const response = await API.get(`/api/tutor-availability/findByUser/${userId}`);
+            if (response?.data && Array.isArray(response.data)) {
+              availabilityData = response.data;
+              console.log('Direct API call succeeded:', availabilityData);
+            }
+          } catch (directError) {
+            console.log('Direct API call failed:', directError.message);
+            
+            // Try one more endpoint format
+            try {
+              console.log('Trying endpoint: /tutors/' + userId + '/availability');
+              const legacyResponse = await API.get(`/tutors/${userId}/availability`);
+              if (legacyResponse?.data && Array.isArray(legacyResponse.data)) {
+                availabilityData = legacyResponse.data;
+                console.log('Legacy endpoint succeeded:', availabilityData);
+              }
+            } catch (legacyError) {
+              console.log('Legacy endpoint failed:', legacyError.message);
+              
+              // Fallback to using profileId if userId failed and profileId exists
+              if (tutorProfileId && tutorProfileId !== userId) {
+                console.log('Falling back to profileId for availability:', tutorProfileId);
+                try {
+                  const profileAvailabilityResponse = await tutorAvailabilityApi.getAvailabilities(tutorProfileId, false);
+                  if (profileAvailabilityResponse?.data && Array.isArray(profileAvailabilityResponse.data)) {
+                    availabilityData = profileAvailabilityResponse.data;
+                    console.log('Successfully fetched tutor availability using profileId fallback:', availabilityData);
+                  }
+                } catch (profileError) {
+                  console.warn('Profile availability endpoint also failed:', profileError.message);
+                }
+              }
+            }
+          }
         }
+        
+        // If still no data, try one more approach - using the API directly with both formats
+        if (availabilityData.length === 0) {
+          console.log('All standard endpoint attempts failed. Trying direct API endpoints as last resort');
+          
+          try {
+            // This endpoint pattern appears in the TutorAvailabilityController.java
+            const rawResponse = await fetch(`http://localhost:8080/api/tutor-availability/findByUser/${userId}`);
+            if (rawResponse.ok) {
+              const data = await rawResponse.json();
+              if (Array.isArray(data)) {
+                availabilityData = data;
+                console.log('Raw fetch succeeded with /findByUser endpoint:', data);
+              }
+            } else {
+              console.log('Raw fetch failed with status:', rawResponse.status);
+            }
+          } catch (rawError) {
+            console.error('Raw fetch error:', rawError);
+          }
+        }
+        
+        setRawTutorAvailability(availabilityData || []); // Store raw data
       } catch (availError) {
         console.error('Error fetching tutor availability:', availError);
         setError('Could not load tutor availability.');
@@ -188,8 +293,14 @@ const BookSession = () => {
       try {
         // Ensure times are valid before creating Date objects
         if (slot.startTime && slot.endTime) {
-          const startTime = new Date(`${dateStr}T${slot.startTime}`);
-          const endTime = new Date(`${dateStr}T${slot.endTime}`);
+          // Create Date objects with explicit timezone handling
+          // By appending 'Z' to the time string, we ensure it's interpreted as UTC
+          const startTimeStr = `${dateStr}T${slot.startTime}`;
+          const endTimeStr = `${dateStr}T${slot.endTime}`;
+
+          // Create Date objects from the time strings
+          const startTime = new Date(startTimeStr);
+          const endTime = new Date(endTimeStr);
 
           // Check if Date objects are valid
           if (!(startTime instanceof Date && !isNaN(startTime)) || !(endTime instanceof Date && !isNaN(endTime))) {
@@ -205,10 +316,21 @@ const BookSession = () => {
 
             // Ensure the slot ends within the tutor's availability window and is in the future if today
             if (slotEnd <= endTime && (!isToday || currentTime > now)) {
+              // Create ISO strings that preserve the selected time without timezone conversion
+              const timeValue = new Date(
+                Date.UTC(
+                  selectedDate.getFullYear(),
+                  selectedDate.getMonth(),
+                  selectedDate.getDate(),
+                  currentTime.getHours(),
+                  currentTime.getMinutes()
+                )
+              ).toISOString();
+
               processedTimeSlots.push({
-                startTime: format(currentTime, 'p'), // e.g., "10:00 AM"
-                endTime: format(slotEnd, 'p'), // e.g., "11:00 AM"
-                value: currentTime.toISOString() // Store ISO string for submission
+                startTime: format(currentTime, 'p'), // e.g., "10:00 AM" - for display only
+                endTime: format(slotEnd, 'p'), // e.g., "11:00 AM" - for display only
+                value: timeValue // Store ISO string for submission
               });
             }
             // Move to next 30-minute interval
@@ -281,15 +403,20 @@ const BookSession = () => {
       toast.error('Please select a subject.');
       return;
     }
+    if (sessionInfo.sessionType === 'In-Person' && !sessionInfo.locationName.trim()) {
+      setError('Please enter a meeting location for in-person session.');
+      toast.error('Please enter a meeting location for in-person session.');
+      return;
+    }
     if (!user || !user.userId) {
       setError('User not found. Please log in again.');
       toast.error('User not found. Please log in again.');
       return;
     }
-    // Ensure tutor ID is available
-    if (!tutor || !tutor.id) {
-      setError('Tutor information is missing.');
-      toast.error('Tutor information is missing.');
+    // Ensure tutor user ID is available - this is critical for booking
+    if (!tutor || !tutor.userId) {
+      setError('Tutor user ID is missing. Cannot process booking.');
+      toast.error('Tutor user ID is missing. Cannot process booking.');
       return;
     }
 
@@ -297,44 +424,66 @@ const BookSession = () => {
     setError('');
 
     try {
-      const startTime = new Date(selectedTimeSlot.value);
+      // Use the ISO string directly from selectedTimeSlot.value to avoid timezone issues
+      const startTimeISO = selectedTimeSlot.value;
+
+      // Parse the ISO string to create a Date object for calculating the end time
+      const startTime = new Date(startTimeISO);
       const endTime = new Date(startTime);
       endTime.setMinutes(endTime.getMinutes() + sessionInfo.duration * 60);
 
+      // Format the end time as ISO string
+      const endTimeISO = endTime.toISOString();
+
+      console.log('Selected time (local):', new Date(startTimeISO).toLocaleString());
+      console.log('Start time ISO:', startTimeISO);
+      console.log('End time ISO:', endTimeISO);
+
       const sessionData = {
-        tutorId: tutor.id, // Use the correct tutor ID from state
+        tutorId: tutor.userId, // Use tutor's userId for business transactions
         studentId: user.userId,
         subject: sessionInfo.subject,
         notes: sessionInfo.notes,
-        startTime: startTime.toISOString(),
-        endTime: endTime.toISOString(),
+        startTime: startTimeISO,
+        endTime: endTimeISO,
         price: calculateTotalPrice(),
-        status: SESSION_STATUS.SCHEDULED, // Or maybe PENDING if negotiation is needed
-        locationData: sessionInfo.isOnline ? null : 'In person - TBD',
-        meetingLink: sessionInfo.isOnline ? null : null,
+        status: 'PENDING', // Create as PENDING instead of SCHEDULED
+        locationData: sessionInfo.sessionType === 'Online' ? null : sessionInfo.locationName || 'In person - TBD',
+        meetingLink: sessionInfo.sessionType === 'Online' ? null : null,
+        sessionType: sessionInfo.sessionType, // Include the session type
         // Include acceptance status
         studentAccepted: true,
         tutorAccepted: false,
+        paymentStatus: 'UNPAID' // Mark as UNPAID initially
       };
 
-      console.log("Submitting session data:", sessionData);
+      console.log("Submitting session data with tutor user ID:", tutor.userId);
 
       const result = await createSession(sessionData);
 
       if (result.success && result.session) {
-        toast.success('Session booked successfully! Proceeding to payment.');
-        // Store necessary info for payment page
-        localStorage.setItem('pendingSessionPayment', JSON.stringify({
-          sessionId: result.session.sessionId,
-          tutorId: tutor.id,
-          tutorName: tutor.name,
-          subject: sessionInfo.subject,
-          startTime: startTime.toISOString(),
-          duration: sessionInfo.duration,
-          price: calculateTotalPrice(),
-          isOnline: sessionInfo.isOnline
-        }));
-        navigate('/student/payments?tab=payment'); // Redirect to payment page
+        toast.success('Session request sent to tutor successfully!');
+
+        // Create conversation for the session
+        try {
+          const { conversationApi } = await import('../../api/api');
+          
+          // Create conversation using userId directly
+          await conversationApi.createConversation({
+            tutorId: tutor.userId, // Use userId directly for conversation
+            studentId: user.userId,
+            sessionId: result.session.sessionId || result.session.id,
+            lastMessageTime: new Date().toISOString()
+          });
+          
+          console.log('Conversation created for session with tutor userId:', tutor.userId);
+        } catch (convError) {
+          console.error('Error creating conversation:', convError);
+          // Don't block the flow if conversation creation fails
+        }
+
+        // Redirect to sessions page instead of payment
+        navigate('/student/sessions');
       } else {
         setError(result.message || 'Failed to book session. Please try again.');
         toast.error(result.message || 'Failed to book session.');
@@ -387,12 +536,17 @@ const BookSession = () => {
               Book a Session with {tutor.name}
             </h1>
             <div className="flex items-center">
-              <img
+              {tutor.profilePicture ? (
+                <img
                   src={tutor.profilePicture}
                   alt={`${tutor.name}'s profile`}
                   className="w-12 h-12 rounded-full object-cover mr-3"
-                  onError={(e) => { e.target.src = 'https://via.placeholder.com/150'; }} // Fallback image
-              />
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-full bg-gray-300 dark:bg-dark-600 flex items-center justify-center text-gray-600 dark:text-gray-400 mr-3">
+                  {tutor.name?.[0] || 'T'}
+                </div>
+              )}
               <div>
                 <p className="text-gray-900 dark:text-white font-medium">{tutor.name}</p>
                 <p className="text-gray-600 dark:text-gray-400">${tutor.rate}/hour</p>
@@ -428,25 +582,54 @@ const BookSession = () => {
               </div>
 
               {/* Session Type */}
-              {/* ... (keep as is) ... */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Session Type</label>
                 <div className="flex items-center space-x-4">
                   <label className="inline-flex items-center">
                     <input
-                        type="checkbox"
-                        name="isOnline"
-                        checked={sessionInfo.isOnline}
+                        type="radio"
+                        name="sessionType"
+                        value="Online"
+                        checked={sessionInfo.sessionType === 'Online'}
                         onChange={handleInputChange}
-                        className="form-checkbox h-5 w-5 text-primary-600"
+                        className="form-radio h-5 w-5 text-primary-600"
                     />
-                    <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Online Session</span>
+                    <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Online</span>
+                  </label>
+                  <label className="inline-flex items-center">
+                    <input
+                        type="radio"
+                        name="sessionType"
+                        value="In-Person"
+                        checked={sessionInfo.sessionType === 'In-Person'}
+                        onChange={handleInputChange}
+                        className="form-radio h-5 w-5 text-primary-600"
+                    />
+                    <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">In-Person</span>
                   </label>
                 </div>
               </div>
 
+              {/* Location Selection (for In-Person sessions) */}
+              {sessionInfo.sessionType === 'In-Person' && (
+                <div>
+                  <label htmlFor="locationName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Meeting Location
+                    <span className="text-gray-500 text-xs ml-1">- Where would you like to meet?</span>
+                  </label>
+                  <input
+                    id="locationName"
+                    name="locationName"
+                    value={sessionInfo.locationName}
+                    onChange={handleInputChange}
+                    placeholder="Enter a meeting location"
+                    className="input"
+                    required={sessionInfo.sessionType === 'In-Person'}
+                  />
+                </div>
+              )}
+
               {/* Duration */}
-              {/* ... (keep as is) ... */}
               <div>
                 <label htmlFor="duration" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Duration (hours)</label>
                 <select
@@ -460,6 +643,8 @@ const BookSession = () => {
                   <option value="1">1 hour</option>
                   <option value="1.5">1.5 hours</option>
                   <option value="2">2 hours</option>
+                  <option value="2.5">2.5 hours</option>
+                  <option value="3">3 hours</option>
                 </select>
               </div>
 
@@ -542,11 +727,10 @@ const BookSession = () => {
               </div>
 
               {/* Summary and Price */}
-              {/* ... (keep as is) ... */}
               <div className="bg-gray-50 dark:bg-dark-700 rounded-lg p-4">
                 <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Session Summary</h3>
                 <div className="space-y-2 mb-4 text-sm">
-                  {selectedTimeSlot && selectedDate && ( // Add selectedDate check
+                  {selectedTimeSlot && selectedDate && (
                       <div className="flex justify-between">
                         <span className="text-gray-600 dark:text-gray-400">Time:</span>
                         <span className="text-gray-900 dark:text-white font-medium">
@@ -555,27 +739,49 @@ const BookSession = () => {
                       </div>
                   )}
                   <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Tutor Rate:</span>
+                    <span className="text-gray-900 dark:text-white font-medium">${tutor?.rate?.toFixed(2)}/hr</span>
+                  </div>
+                  <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">Duration:</span>
                     <span className="text-gray-900 dark:text-white font-medium">{sessionInfo.duration} hours</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">Type:</span>
-                    <span className="text-gray-900 dark:text-white font-medium">{sessionInfo.isOnline ? 'Online' : 'In-person'}</span>
+                    <span className="text-gray-900 dark:text-white font-medium">{sessionInfo.sessionType}</span>
                   </div>
+                  {sessionInfo.sessionType === 'In-Person' && sessionInfo.locationName && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Location:</span>
+                      <span className="text-gray-900 dark:text-white font-medium">{sessionInfo.locationName}</span>
+                    </div>
+                  )}
                   <div className="border-t border-gray-200 dark:border-dark-600 pt-2 mt-2"></div>
                   <div className="flex justify-between font-semibold">
                     <span className="text-gray-700 dark:text-gray-300">Total Price:</span>
-                    <span className="text-gray-900 dark:text-white">${calculateTotalPrice().toFixed(2)}</span> {/* Ensure 2 decimal places */}
+                    <span className="text-gray-900 dark:text-white">${calculateTotalPrice().toFixed(2)}</span>
                   </div>
+                </div>
+
+                {/* Booking process note */}
+                <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800/30 rounded-lg p-3 mb-4">
+                  <p className="text-blue-800 dark:text-blue-400 text-sm">
+                    <strong>How it works:</strong> After booking, your session will be sent to the tutor for approval. Once approved, you'll be able to communicate with them through the conversation created for this session. Payment will be handled later.
+                  </p>
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-3">
                   <button
                       type="submit"
-                      disabled={submitting || !selectedTimeSlot || loadingTimeSlots}
+                      disabled={
+                        submitting || 
+                        !selectedTimeSlot || 
+                        loadingTimeSlots || 
+                        (sessionInfo.sessionType === 'In-Person' && !sessionInfo.locationName.trim())
+                      }
                       className="btn-primary flex-1 disabled:opacity-50"
                   >
-                    {submitting ? 'Booking...' : 'Proceed to Payment'}
+                    {submitting ? 'Booking...' : 'Book Session'}
                   </button>
                 </div>
               </div>

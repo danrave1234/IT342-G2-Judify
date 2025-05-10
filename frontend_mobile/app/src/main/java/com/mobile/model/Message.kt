@@ -10,5 +10,13 @@ data class Message(
     val receiverId: Long,
     val content: String,
     val timestamp: Long,
-    val readStatus: Boolean = false
-) 
+    val readStatus: Boolean = false,
+    val messageType: MessageType = MessageType.TEXT,
+    val sessionId: Long? = null
+) {
+    enum class MessageType {
+        TEXT,           // Regular text message
+        SESSION_DETAILS, // Message containing session details
+        SESSION_ACTION   // Message for session actions (accept/reject)
+    }
+}

@@ -124,6 +124,7 @@ public class MessageController {
             
             return ResponseEntity.ok(messageDTOPage);
         } catch (Exception e) {
+            e.printStackTrace(); // Log the exception
             return ResponseEntity.notFound().build();
         }
     }

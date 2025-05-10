@@ -143,13 +143,21 @@ export const UserProvider = ({ children }) => {
       }
 
       // Authentication successful - extract user data
+      // Map role from backend (STUDENT) to frontend (LEARNER) if needed
+      let role = authData.role || (email.includes('tutor') ? 'TUTOR' : 'STUDENT');
+
+      // For frontend display, use LEARNER instead of STUDENT to match mobile app
+      if (role.toUpperCase() === 'STUDENT') {
+        role = 'LEARNER';
+      }
+
       const userDetails = {
         userId: authData.userId, 
         email: authData.email || email,
         username: authData.username || '',
         firstName: authData.firstName || '',
         lastName: authData.lastName || '',
-        role: authData.role || (email.includes('tutor') ? 'TUTOR' : 'STUDENT'),
+        role: role,
         profileImage: authData.profilePicture || authData.profileImage || '',
         isAuthenticated: true
       };
@@ -170,8 +178,12 @@ export const UserProvider = ({ children }) => {
       console.log("Processed user data:", userDetails);
 
       // Save token and user data to localStorage
-      const token = authData.token || `mock-token-${Date.now()}`;
-      localStorage.setItem('token', token);
+      if (!authData.token) {
+        console.error('No authentication token received from server');
+        setError('Authentication error: No token received');
+        return { success: false, message: 'Authentication error: No token received' };
+      }
+      localStorage.setItem('token', authData.token);
       localStorage.setItem('user', JSON.stringify(userDetails));
 
       // Update app state
@@ -186,32 +198,8 @@ export const UserProvider = ({ children }) => {
         data: err.response?.data
       });
 
-      // For development/testing only: Create mock response if all API attempts fail
-      if (process.env.NODE_ENV !== 'production' && (err.message?.includes('Network Error') || err.message?.includes('404'))) {
-        console.warn("Creating mock login for development mode");
-
-        // Mock user for development/testing
-        const mockUser = {
-          userId: 1,
-          email: email,
-          username: email.split('@')[0],
-          firstName: 'Test',
-          lastName: 'User',
-          role: email.includes('tutor') ? 'TUTOR' : 'STUDENT',
-          profileImage: localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).profileImage : '',
-          isAuthenticated: true
-        };
-
-        // Save mock data to localStorage
-        const mockToken = `dev-token-${Date.now()}`;
-        localStorage.setItem('token', mockToken);
-        localStorage.setItem('user', JSON.stringify(mockUser));
-
-        // Update app state
-        setUser(mockUser);
-
-        return { success: true };
-      }
+      // We no longer use mock data for authentication
+      console.error("Authentication failed - please check your credentials or try again later");
 
       const errorMessage = err.response?.data?.message || err.message || 'Login failed';
       setError(errorMessage);
@@ -246,12 +234,17 @@ export const UserProvider = ({ children }) => {
       // Make sure role is set properly to match backend expectations
       if (!userData.role) {
         if (userData.userType) {
-          userData.role = userData.userType === 'student' ? 'STUDENT' : 'TUTOR';
+          // Map 'student' or 'learner' userType to 'STUDENT' for backend
+          userData.role = (userData.userType.toLowerCase() === 'student' || 
+                          userData.userType.toLowerCase() === 'learner') ? 'STUDENT' : 'TUTOR';
           delete userData.userType; // Remove userType as backend expects role
         } else {
           // Default to STUDENT if no role is specified
           userData.role = 'STUDENT';
         }
+      } else if (userData.role.toUpperCase() === 'LEARNER') {
+        // Map LEARNER role to STUDENT for backend compatibility
+        userData.role = 'STUDENT';
       }
 
       // Make sure username is set
@@ -358,29 +351,11 @@ export const UserProvider = ({ children }) => {
       const formData = new FormData();
       formData.append('file', file);
 
-      // For development/testing, we'll create a mock implementation
-      if (process.env.NODE_ENV !== 'production' || !user?.userId) {
-        // Create object URL for direct display
-        const reader = new FileReader();
-
-        return new Promise((resolve) => {
-          reader.onloadend = () => {
-            // Get base64 data URL
-            const profileImage = reader.result;
-
-            // Update user state with the new profile picture URL
-            const updatedUser = { ...user, profileImage };
-            setUser(updatedUser);
-
-            // Save to localStorage
-            localStorage.setItem('user', JSON.stringify(updatedUser));
-
-            toast.success('Profile picture updated successfully');
-            resolve({ success: true, profileImage });
-          };
-
-          reader.readAsDataURL(file);
-        });
+      // Ensure user ID is available before proceeding
+      if (!user?.userId) {
+        console.error('Cannot upload profile picture: No user ID available');
+        toast.error('User authentication required to upload profile picture');
+        return Promise.reject(new Error('User ID is required for profile picture upload'));
       }
 
       // Use the API to upload the file
@@ -435,13 +410,14 @@ export const UserProvider = ({ children }) => {
     return userRole === 'TUTOR' || userRole === USER_ROLES.TUTOR;
   };
 
-  // Check if the user is a student
+  // Check if the user is a student (or learner)
   const isStudent = () => {
     if (!user) return false;
 
     // Compare normalizing case
     const userRole = (user.role || '').toUpperCase();
-    return userRole === 'STUDENT' || userRole === USER_ROLES.STUDENT;
+    return userRole === 'STUDENT' || userRole === 'LEARNER' || 
+           userRole === USER_ROLES.STUDENT || userRole === USER_ROLES.LEARNER;
   };
 
   // Check if the user is an admin

@@ -97,12 +97,25 @@ public class TutoringSessionService {
         return sessionRepository.findById(id);
     }
 
+    public Optional<TutoringSessionEntity> getTutoringSessionById(Long id) {
+        return sessionRepository.findById(id);
+    }
+
     public List<TutoringSessionEntity> getTutorSessions(UserEntity tutor) {
         return sessionRepository.findByTutorOrderByStartTimeDesc(tutor);
     }
 
     public List<TutoringSessionEntity> getStudentSessions(UserEntity student) {
         return sessionRepository.findByStudentOrderByStartTimeDesc(student);
+    }
+
+    /**
+     * Get all sessions for a user regardless of whether they are a tutor or student
+     * @param user The user entity
+     * @return A list of all sessions where the user is either a tutor or student
+     */
+    public List<TutoringSessionEntity> getAllUserSessions(UserEntity user) {
+        return sessionRepository.findByTutorOrStudentOrderByStartTimeDesc(user, user);
     }
 
     public List<TutoringSessionEntity> getSessionsByStatus(String status) {
@@ -188,6 +201,8 @@ public class TutoringSessionService {
                 return "has been cancelled.";
             case "ONGOING":
                 return "has started.";
+            case "APPROVED":
+                return "has been approved.";
             default:
                 return null; // No notification for other status changes
         }
@@ -254,29 +269,29 @@ public class TutoringSessionService {
     }
 
     /**
-     * Find sessions that overlap with the given time range for a specific tutor and have the specified status.
+     * Find sessions that overlap with the given time range for a specific user and have the specified status.
      * 
-     * @param tutorId The ID of the tutor
+     * @param userId The ID of the user
      * @param startTime The start time of the range
      * @param endTime The end time of the range
      * @param status The status of the sessions to find
      * @return A list of overlapping sessions
      */
-    public List<TutoringSessionEntity> findOverlappingSessionsByTutorAndStatus(Long tutorId, Date startTime, Date endTime, String status) {
-        return sessionRepository.findOverlappingSessionsByTutorAndStatus(tutorId, startTime, endTime, status);
+    public List<TutoringSessionEntity> findOverlappingSessionsByUserAndStatus(Long userId, Date startTime, Date endTime, String status) {
+        return sessionRepository.findOverlappingSessionsByUserAndStatus(userId, startTime, endTime, status);
     }
 
     /**
-     * Check if there are any approved sessions that overlap with the given time range for a specific tutor.
+     * Check if there are any approved sessions that overlap with the given time range for a specific user.
      * 
-     * @param tutorId The ID of the tutor
+     * @param userId The ID of the user
      * @param startTime The start time of the range
      * @param endTime The end time of the range
      * @return true if there are overlapping approved sessions, false otherwise
      */
-    public boolean hasOverlappingApprovedSessions(Long tutorId, Date startTime, Date endTime) {
-        List<TutoringSessionEntity> overlappingSessions = findOverlappingSessionsByTutorAndStatus(
-            tutorId, startTime, endTime, "APPROVED");
+    public boolean hasOverlappingApprovedSessions(Long userId, Date startTime, Date endTime) {
+        List<TutoringSessionEntity> overlappingSessions = findOverlappingSessionsByUserAndStatus(
+            userId, startTime, endTime, "APPROVED");
         return !overlappingSessions.isEmpty();
     }
 
@@ -295,4 +310,14 @@ public class TutoringSessionService {
         session.setConversation(conversationEntity);
         return sessionRepository.save(session);
     }
-} 
+
+    /**
+     * Find a session by conversation ID
+     * 
+     * @param conversationId The ID of the conversation
+     * @return The session entity or null if not found
+     */
+    public TutoringSessionEntity getSessionByConversationId(Long conversationId) {
+        return sessionRepository.findByConversationConversationId(conversationId);
+    }
+}

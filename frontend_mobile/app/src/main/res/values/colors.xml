@@ -55,4 +55,19 @@
     <!-- New color values -->
     <color name="light_gray">#DDDDDD</color>
     <color name="gray">#757575</color>
+    
+    <!-- Light and dark variations for ripple effects -->
+    <color name="ripple_light">#1A000000</color>
+    <color name="ripple_dark">#33FFFFFF</color>
+    
+    <!-- Status colors -->
+    <color name="status_online">#4CAF50</color>
+    <color name="status_offline">#9E9E9E</color>
+    <color name="status_away">#FFC107</color>
+    
+    <!-- Snackbar and notification colors -->
+    <color name="success_green">#4CAF50</color>
+    <color name="error_red">#F44336</color>
+    <color name="warning_amber">#FFC107</color>
+    <color name="info_blue">#2196F3</color>
 </resources>

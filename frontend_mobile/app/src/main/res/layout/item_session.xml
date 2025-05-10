@@ -5,120 +5,281 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="8dp"
-    app:cardCornerRadius="8dp"
-    app:cardElevation="2dp">
+    android:layout_marginBottom="10dp"
+    android:layout_marginHorizontal="6dp"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="2dp"
+    app:strokeWidth="0dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp">
+        android:orientation="vertical">
 
-        <TextView
-            android:id="@+id/sessionSubject"
+        <!-- Colored top bar based on subject with gradient -->
+        <View
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Mathematics"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:textColor="?android:textColorPrimary" />
+            android:layout_height="6dp"
+            android:background="@drawable/session_header_gradient" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="4dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Tutor: "
-                android:textSize="14sp"
-                android:textColor="?android:textColorSecondary" />
-
-            <TextView
-                android:id="@+id/tutorName"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="John Doe"
-                android:textSize="14sp"
-                android:textColor="?android:textColorPrimary" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="8dp">
+            android:orientation="vertical"
+            android:padding="12dp">
 
             <LinearLayout
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
 
                 <TextView
-                    android:layout_width="wrap_content"
+                    android:id="@+id/sessionSubject"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:text="Date"
-                    android:textSize="12sp"
-                    android:textColor="?android:textColorSecondary" />
-
-                <TextView
-                    android:id="@+id/sessionDate"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="May 15, 2025"
-                    android:textSize="14sp"
-                    android:textColor="?android:textColorPrimary" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Time"
-                    android:textSize="12sp"
-                    android:textColor="?android:textColorSecondary" />
-
-                <TextView
-                    android:id="@+id/sessionTime"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="2:00 PM - 3:30 PM"
-                    android:textSize="14sp"
-                    android:textColor="?android:textColorPrimary" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="end">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Status"
-                    android:textSize="12sp"
-                    android:textColor="?android:textColorSecondary" />
+                    android:layout_weight="1"
+                    android:text="Mathematics"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/primary_blue_dark" />
 
                 <TextView
                     android:id="@+id/sessionStatus"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Scheduled"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/primary_blue"
+                    android:background="@drawable/status_background_scheduled"
+                    android:layout_marginStart="8dp"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="4dp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp"
+                android:gravity="center_vertical">
+
+                <ImageView
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:src="@drawable/ic_person"
+                    android:tint="@color/primary_blue"
+                    android:layout_gravity="center_vertical"
+                    android:background="@drawable/circle_icon_background"
+                    android:padding="2dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Tutor: "
+                    android:textSize="14sp"
+                    android:textColor="@color/text_secondary"
+                    android:layout_marginStart="8dp" />
+
+                <TextView
+                    android:id="@+id/tutorName"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="John Doe"
                     android:textSize="14sp"
                     android:textStyle="bold"
-                    android:textColor="@color/primary_blue" />
+                    android:textColor="@color/text_primary" />
+            </LinearLayout>
+
+            <!-- Session Type Row -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp"
+                android:gravity="center_vertical">
+
+                <ImageView
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:src="@drawable/ic_video_on"
+                    android:tint="@color/primary_blue"
+                    android:layout_gravity="center_vertical"
+                    android:background="@drawable/circle_icon_background"
+                    android:padding="2dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Type: "
+                    android:textSize="14sp"
+                    android:textColor="@color/text_secondary"
+                    android:layout_marginStart="8dp" />
+
+                <TextView
+                    android:id="@+id/sessionType"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Online"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/text_primary" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#EEEEEE"
+                android:layout_marginTop="10dp"
+                android:layout_marginBottom="10dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1.2"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <ImageView
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:src="@drawable/ic_calendar"
+                        android:tint="@color/primary_blue"
+                        android:layout_gravity="center_vertical"
+                        android:background="@drawable/circle_icon_background"
+                        android:padding="2dp" />
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:layout_marginStart="8dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Date"
+                            android:textSize="12sp"
+                            android:textColor="@color/text_secondary" />
+
+                        <TextView
+                            android:id="@+id/sessionDate"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="May 15, 2025"
+                            android:textSize="14sp"
+                            android:maxLines="1"
+                            android:ellipsize="end"
+                            android:textStyle="bold"
+                            android:textColor="@color/text_primary" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1.8"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <ImageView
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:src="@drawable/ic_time"
+                        android:tint="@color/primary_blue"
+                        android:layout_gravity="center_vertical"
+                        android:background="@drawable/circle_icon_background"
+                        android:padding="2dp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:layout_marginStart="8dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Time"
+                            android:textSize="12sp"
+                            android:textColor="@color/text_secondary" />
+
+                        <TextView
+                            android:id="@+id/sessionTime"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="2:00 PM - 3:30 PM"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:maxLines="1"
+                            android:ellipsize="end"
+                            android:layout_marginEnd="4dp"
+                            android:textColor="@color/text_primary" />
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+            
+            <!-- Action Buttons for Scheduled/Agreed Sessions -->
+            <LinearLayout
+                android:id="@+id/sessionActionsContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="end"
+                android:layout_marginTop="12dp">
+                
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnStartVideoCall"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Start Video Call"
+                    android:textAllCaps="false"
+                    android:textSize="12sp"
+                    app:icon="@drawable/ic_video_on"
+                    app:iconSize="16dp"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="6dp"
+                    app:cornerRadius="8dp"
+                    android:layout_marginEnd="8dp"
+                    android:visibility="gone"
+                    style="@style/Widget.MaterialComponents.Button.UnelevatedButton"/>
+                    
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnViewMap"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="View Location"
+                    android:textAllCaps="false"
+                    android:textSize="12sp"
+                    app:icon="@drawable/ic_location_pin"
+                    app:iconSize="16dp"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="6dp"
+                    app:cornerRadius="8dp"
+                    android:visibility="gone"
+                    style="@style/Widget.MaterialComponents.Button.UnelevatedButton"/>
+                    
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnStartSession"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Start Session"
+                    android:textAllCaps="false"
+                    android:textSize="12sp"
+                    app:icon="@drawable/ic_check"
+                    app:iconSize="16dp"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="6dp"
+                    app:cornerRadius="8dp"
+                    android:visibility="gone"
+                    style="@style/Widget.MaterialComponents.Button.UnelevatedButton"/>
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>
-
-</com.google.android.material.card.MaterialCardView> 
+</com.google.android.material.card.MaterialCardView>

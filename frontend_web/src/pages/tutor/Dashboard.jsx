@@ -18,11 +18,43 @@ const Dashboard = () => {
       }
 
       try {
-        const response = await tutoringSessionApi.getTutorSessions(currentUser.userId);
-        setSessions(response.data);
+        const userId = currentUser.userId;
+        console.log('Fetching tutor sessions with userId:', userId);
+
+        // Import the API
+        const { tutoringSessionApi } = await import('../../api/api');
+        
+        // Fetch sessions using the user ID directly
+        const response = await tutoringSessionApi.getTutorSessionsByUserId(userId);
+
+        // Extract data, ensuring we always have an array
+        const sessionData = response.data || [];
+        console.log(`Successfully loaded ${sessionData.length} sessions`);
+
+        // Normalize sessions to have both id and sessionId
+        const normalizedSessions = sessionData.map(session => ({
+          ...session,
+          id: session.id || session.sessionId,
+          sessionId: session.sessionId || session.id
+        }));
+
+        // Filter for upcoming sessions if desired
+        const upcomingSessions = normalizedSessions.filter(session => 
+          ['PENDING', 'CONFIRMED', 'SCHEDULED'].includes(session.status?.toUpperCase())
+        );
+
+        setSessions(upcomingSessions.length > 0 ? upcomingSessions : normalizedSessions);
       } catch (err) {
         console.error('Error fetching tutor sessions:', err);
-        setError('Failed to load your sessions. Please try again later.');
+
+        // For 404 errors, just set empty sessions array (no error message)
+        if (err.response && err.response.status === 404) {
+          console.log('No sessions found (404 response)');
+          setSessions([]);
+        } else {
+          // For other errors, show error message
+          setError('Failed to load your sessions. Please try again later.');
+        }
       } finally {
         setLoading(false);
       }
@@ -33,8 +65,25 @@ const Dashboard = () => {
 
   // Format date for display
   const formatDate = (dateString) => {
-    const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
-    return new Date(dateString).toLocaleDateString(undefined, options);
+    // Handle null, undefined, or invalid date values
+    if (!dateString) {
+      return 'No date available';
+    }
+
+    try {
+      const date = new Date(dateString);
+
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return 'Invalid date';
+      }
+
+      const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+      return date.toLocaleDateString('en-US', options);
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Error displaying date';
+    }
   };
 
   // Get status icon based on session status
@@ -51,13 +100,44 @@ const Dashboard = () => {
     }
   };
 
+  const handleAcceptSession = async (sessionId) => {
+    try {
+      const response = await tutoringSessionApi.acceptSession(sessionId);
+      if (response.data) {
+        console.log('Session accepted successfully');
+        // Refresh sessions
+        const userId = currentUser.userId;
+        const { tutoringSessionApi } = await import('../../api/api');
+        const sessionsResponse = await tutoringSessionApi.getTutorSessionsByUserId(userId);
+        const sessionData = sessionsResponse.data || [];
+        
+        // Normalize sessions to have both id and sessionId
+        const normalizedSessions = sessionData.map(session => ({
+          ...session,
+          id: session.id || session.sessionId,
+          sessionId: session.sessionId || session.id
+        }));
+
+        // Filter for upcoming sessions if desired
+        const upcomingSessions = normalizedSessions.filter(session => 
+          ['PENDING', 'CONFIRMED', 'SCHEDULED', 'APPROVED'].includes(session.status?.toUpperCase())
+        );
+
+        setSessions(upcomingSessions.length > 0 ? upcomingSessions : normalizedSessions);
+      }
+    } catch (err) {
+      console.error('Error accepting session:', err);
+      setError('Failed to accept the session. Please try again later.');
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Welcome Back, {currentUser?.firstName || 'Tutor'}</h1>
         <p className="mt-2 text-lg text-gray-600 dark:text-gray-400">Manage your tutoring sessions and monitor your progress</p>
       </div>
-      
+
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <Link 
@@ -74,7 +154,7 @@ const Dashboard = () => {
             </div>
           </div>
         </Link>
-        
+
         <Link 
           to="/tutor/sessions" 
           className="bg-white dark:bg-dark-800 rounded-xl shadow-sm hover:shadow-md transition-shadow p-6 border border-gray-200 dark:border-dark-700 group"
@@ -89,7 +169,7 @@ const Dashboard = () => {
             </div>
           </div>
         </Link>
-        
+
         <Link 
           to="/tutor/payments" 
           className="bg-white dark:bg-dark-800 rounded-xl shadow-sm hover:shadow-md transition-shadow p-6 border border-gray-200 dark:border-dark-700 group"
@@ -104,7 +184,7 @@ const Dashboard = () => {
             </div>
           </div>
         </Link>
-        
+
         <Link 
           to="/tutor/profile" 
           className="bg-white dark:bg-dark-800 rounded-xl shadow-sm hover:shadow-md transition-shadow p-6 border border-gray-200 dark:border-dark-700 group"
@@ -162,42 +242,64 @@ const Dashboard = () => {
               ) : (
                 <div className="space-y-5">
                   {sessions.slice(0, 3).map((session) => (
-                    <Link 
-                      to={`/tutor/sessions/${session.sessionId}`} 
+                    <div 
                       key={session.sessionId} 
                       className="block p-4 border border-gray-100 dark:border-dark-700 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors"
                     >
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h3 className="font-medium text-gray-900 dark:text-white text-base">
-                            {session.subject || 'Tutoring Session'}
-                          </h3>
-                          <div className="mt-1 flex items-center text-sm text-gray-500 dark:text-gray-400">
-                            <span className="font-medium text-gray-900 dark:text-gray-300 mr-2">
-                              Student:
-                            </span>
-                            {session.studentName || 'Anonymous Student'}
+                      <div className="flex flex-col">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h3 className="font-medium text-gray-900 dark:text-white text-base">
+                              {session.subject || 'Tutoring Session'}
+                            </h3>
+                            <div className="mt-1 flex items-center text-sm text-gray-500 dark:text-gray-400">
+                              <span className="font-medium text-gray-900 dark:text-gray-300 mr-2">
+                                Student:
+                              </span>
+                              {session.studentName || 'Anonymous Student'}
+                            </div>
+                            <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                              {formatDate(session.startTime || session.sessionDate)}
+                            </div>
                           </div>
-                          <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                            {formatDate(session.sessionDate)}
+                          <div className="flex items-center">
+                            {getStatusIcon(session.status)}
+                            <span className={`ml-1.5 px-2.5 py-0.5 text-xs font-medium rounded-full ${
+                              session.status === 'CONFIRMED' || session.status === 'APPROVED' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 
+                              session.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' : 
+                              'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                            }`}>
+                              {session.status}
+                            </span>
                           </div>
                         </div>
-                        <div className="flex items-center">
-                          {getStatusIcon(session.status)}
-                          <span className={`ml-1.5 px-2.5 py-0.5 text-xs font-medium rounded-full ${
-                            session.status === 'CONFIRMED' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 
-                            session.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' : 
-                            'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-                          }`}>
-                            {session.status}
-                          </span>
+
+                        <div className="mt-3 flex items-center gap-2">
+                          <Link 
+                            to={`/tutor/sessions/${session.sessionId}`} 
+                            className="px-3 py-1.5 text-sm font-medium text-primary-600 border border-primary-600 rounded hover:bg-primary-50 dark:hover:bg-primary-900/10 dark:text-primary-400 dark:border-primary-400"
+                          >
+                            View Details
+                          </Link>
+                          
+                          {(!session.tutorAccepted && (session.status === 'PENDING')) && (
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAcceptSession(session.sessionId || session.id);
+                              }}
+                              className="px-3 py-1.5 text-sm font-medium text-white bg-green-600 border border-green-600 rounded hover:bg-green-700"
+                            >
+                              Accept Session
+                            </button>
+                          )}
                         </div>
                       </div>
-                    </Link>
-              ))}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-        </div>
           </div>
         </div>
 

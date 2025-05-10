@@ -11,7 +11,10 @@ const Payments = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [period, setPeriod] = useState('month');
 
-  // No need for useEffect since transactions are initialized with mock data
+  // Fetch transactions when component mounts
+  useEffect(() => {
+    fetchUserTransactions();
+  }, []);
 
   const filteredTransactions = transactions?.filter(transaction => {
     if (filterStatus === 'all') return true;
@@ -22,10 +25,10 @@ const Payments = () => {
   const totalEarnings = filteredTransactions
     .filter(transaction => transaction.status === 'COMPLETED')
     .reduce((sum, transaction) => sum + transaction.amount, 0);
-    
+
   // Calculate platform fees (assuming 10% of each transaction)
   const platformFees = totalEarnings * 0.1;
-  
+
   // Calculate net earnings after platform fees
   const netEarnings = totalEarnings - platformFees;
 
@@ -182,7 +185,7 @@ const Payments = () => {
                 <div>
                   <h3 className="text-sm font-medium text-primary-800 dark:text-primary-300">Gross Earnings</h3>
                   <p className="text-2xl font-bold text-primary-900 dark:text-primary-100 mt-1">{formatAmount(totalEarnings)}</p>
-                  <p className="text-xs text-primary-600 dark:text-primary-400 mt-1">+12% from last period</p>
+                  {/* Percentage change would be calculated from real data */}
                 </div>
               </div>
             </div>
@@ -195,7 +198,7 @@ const Payments = () => {
                 <div>
                   <h3 className="text-sm font-medium text-red-800 dark:text-red-300">Platform Fees</h3>
                   <p className="text-2xl font-bold text-red-900 dark:text-red-100 mt-1">{formatAmount(platformFees)}</p>
-                  <p className="text-xs text-red-600 dark:text-red-400 mt-1">10% of gross earnings</p>
+                  <p className="text-xs text-red-600 dark:text-red-400 mt-1">Platform fee</p>
                 </div>
               </div>
             </div>
@@ -208,7 +211,7 @@ const Payments = () => {
                 <div>
                   <h3 className="text-sm font-medium text-green-800 dark:text-green-300">Net Earnings</h3>
                   <p className="text-2xl font-bold text-green-900 dark:text-green-100 mt-1">{formatAmount(netEarnings)}</p>
-                  <p className="text-xs text-green-600 dark:text-green-400 mt-1">Available for withdrawal</p>
+                  <p className="text-xs text-green-600 dark:text-green-400 mt-1">After platform fees</p>
                 </div>
               </div>
             </div>
@@ -240,11 +243,11 @@ const Payments = () => {
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div className="flex items-center">
                 <div className="w-12 h-8 bg-blue-600 dark:bg-blue-700 rounded-md mr-3 flex items-center justify-center text-white font-bold text-sm">
-                  Visa
+                  Bank
                 </div>
                 <div>
-                  <p className="font-medium text-gray-900 dark:text-white">Direct Deposit</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Payments are processed every 14 days</p>
+                  <p className="font-medium text-gray-900 dark:text-white">Payment Method</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Set up your payment details</p>
                 </div>
               </div>
               <button className="text-primary-600 dark:text-primary-500 hover:text-primary-800 dark:hover:text-primary-300 text-sm font-medium">
@@ -269,7 +272,7 @@ const Payments = () => {
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Payments & Earnings</h1>
         <p className="mt-2 text-lg text-gray-600 dark:text-gray-400">Track your earnings and manage payment information</p>
       </div>
-      
+
       <div className="mb-6">
         <div className="flex flex-wrap border-b border-gray-200 dark:border-dark-700">
           <button
@@ -300,7 +303,7 @@ const Payments = () => {
           </button>
         </div>
       </div>
-      
+
       {activeTab === 'history' && renderTransactionHistory()}
       {activeTab === 'earnings' && renderEarningsAnalytics()}
     </div>

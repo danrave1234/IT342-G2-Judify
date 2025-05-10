@@ -36,10 +36,15 @@ class ChatFragment : BaseFragment() {
     private lateinit var retryButton: Button
     private lateinit var startChatButton: Button
     private lateinit var newMessageFab: FloatingActionButton
+    private lateinit var searchEditText: EditText
+    private lateinit var searchIcon: View
 
     private lateinit var viewModel: ChatViewModel
     private lateinit var conversationAdapter: ConversationAdapter
     private var currentUserId: Long = -1
+
+    // Original list of conversations to filter from
+    private var allConversations: List<NetworkUtils.Conversation> = emptyList()
 
     override fun getLayoutResourceId(): Int {
         return R.layout.fragment_chat
@@ -57,9 +62,11 @@ class ChatFragment : BaseFragment() {
         retryButton = view.findViewById(R.id.retryButton)
         startChatButton = view.findViewById(R.id.startChatButton)
         newMessageFab = view.findViewById(R.id.newMessageFab)
-        
-        // Disable auto-focus for search edit text
-        view.findViewById<EditText>(R.id.searchEditText)?.apply {
+        searchIcon = view.findViewById(R.id.searchIcon)
+
+        // Initialize and configure search edit text
+        searchEditText = view.findViewById(R.id.searchEditText)
+        searchEditText.apply {
             isFocusable = false
             isFocusableInTouchMode = false
             setOnClickListener {
@@ -67,6 +74,22 @@ class ChatFragment : BaseFragment() {
                 isFocusable = true
                 requestFocus()
             }
+
+            // Set up search functionality
+            setOnEditorActionListener { textView, actionId, _ ->
+                if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH) {
+                    val query = textView.text.toString().trim()
+                    searchConversations(query)
+                    return@setOnEditorActionListener true
+                }
+                false
+            }
+        }
+
+        // Set up search icon click listener
+        searchIcon.setOnClickListener {
+            val query = searchEditText.text.toString().trim()
+            searchConversations(query)
         }
 
         // Initialize ViewModel
@@ -106,6 +129,7 @@ class ChatFragment : BaseFragment() {
                 if (conversations.isEmpty()) {
                     emptyStateLayout.visibility = View.VISIBLE
                     conversationsRecyclerView.visibility = View.GONE
+                    allConversations = emptyList()
                 } else {
                     emptyStateLayout.visibility = View.GONE
                     conversationsRecyclerView.visibility = View.VISIBLE
@@ -132,7 +156,18 @@ class ChatFragment : BaseFragment() {
                         }
                     }
 
-                    conversationAdapter.submitList(sortedConversations)
+                    // Store the original sorted list for filtering
+                    allConversations = sortedConversations
+
+                    // Check if there's a search query
+                    val searchQuery = searchEditText.text.toString().trim()
+                    if (searchQuery.isNotEmpty()) {
+                        // Apply the current search filter
+                        searchConversations(searchQuery)
+                    } else {
+                        // Show all conversations
+                        conversationAdapter.submitList(sortedConversations)
+                    }
                 }
                 progressBar.visibility = View.GONE
                 errorStateLayout.visibility = View.GONE
@@ -229,6 +264,49 @@ class ChatFragment : BaseFragment() {
                 // Default fallback
                 viewModel.loadConversations(currentUserId)
             }
+        }
+    }
+
+    /**
+     * Search conversations based on the query
+     * @param query The search query
+     */
+    private fun searchConversations(query: String) {
+        if (query.isEmpty()) {
+            // If query is empty, show all conversations
+            conversationAdapter.submitList(allConversations)
+
+            // Update UI visibility
+            if (allConversations.isEmpty()) {
+                emptyStateLayout.visibility = View.VISIBLE
+                conversationsRecyclerView.visibility = View.GONE
+            } else {
+                emptyStateLayout.visibility = View.GONE
+                conversationsRecyclerView.visibility = View.VISIBLE
+            }
+            return
+        }
+
+        // Filter conversations based on query
+        val filteredConversations = allConversations.filter { conversation ->
+            // Search in student name
+            conversation.studentName.contains(query, ignoreCase = true) ||
+            // Search in tutor name
+            conversation.tutorName.contains(query, ignoreCase = true) ||
+            // Search in last message if available
+            (conversation.lastMessage?.contains(query, ignoreCase = true) == true)
+        }
+
+        // Update adapter with filtered list
+        conversationAdapter.submitList(filteredConversations)
+
+        // Update UI visibility
+        if (filteredConversations.isEmpty()) {
+            emptyStateLayout.visibility = View.VISIBLE
+            conversationsRecyclerView.visibility = View.GONE
+        } else {
+            emptyStateLayout.visibility = View.GONE
+            conversationsRecyclerView.visibility = View.VISIBLE
         }
     }
 

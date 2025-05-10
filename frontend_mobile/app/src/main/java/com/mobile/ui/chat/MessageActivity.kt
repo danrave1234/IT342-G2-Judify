@@ -1,10 +1,20 @@
 package com.mobile.ui.chat
 
+import android.content.ContentValues.TAG
+import android.graphics.Typeface
 import android.os.Bundle
 import android.util.Log
+import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
+import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
+import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.mobile.R
@@ -16,6 +26,9 @@ import com.mobile.ui.chat.adapters.MessageAdapter
 import com.mobile.utils.NetworkUtils
 import com.mobile.utils.PreferenceUtils
 import kotlinx.coroutines.*
+import java.net.URL
+import java.text.SimpleDateFormat
+import java.util.*
 import java.util.concurrent.TimeUnit
 
 /**
@@ -38,10 +51,17 @@ class MessageActivity : AppCompatActivity() {
     private var lastMessageId: Long = -1
     private var messageList: List<Message> = emptyList()
 
+    // Session-related variables
+    private var sessionId: Long = -1
+    private var sessionDetails: NetworkUtils.TutoringSession? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMessageBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // Hide session details card initially
+        binding.sessionDetailsInclude.root.visibility = View.GONE
 
         // Get conversation details from intent
         conversationId = intent.getLongExtra("CONVERSATION_ID", -1L)
@@ -64,7 +84,7 @@ class MessageActivity : AppCompatActivity() {
 
         // Get current user ID
         currentUserId = PreferenceUtils.getUserId(this) ?: -1L
-        userRole = PreferenceUtils.getUserRole(this)
+        userRole = PreferenceUtils.getUserRole(this) ?: "STUDENT" // Provide default value to handle null
 
         if (conversationId == -1L) {
             // No valid conversation ID
@@ -75,7 +95,33 @@ class MessageActivity : AppCompatActivity() {
 
         // Initialize repository and adapter
         messageRepository = MessageRepository()
-        adapter = MessageAdapter(currentUserId)
+        adapter = MessageAdapter(
+            currentUserId,
+            onSessionApprove = { sessionId ->
+                Log.d("MessageActivity", "Approve button clicked in adapter, sessionId: $sessionId")
+                Toast.makeText(this, "Approving session...", Toast.LENGTH_SHORT).show()
+                // Make sure the sessionId is valid before calling approveSession
+                if (sessionId > 0) {
+                    Log.d("MessageActivity", "Calling approveSession with valid sessionId: $sessionId")
+                    approveSession(sessionId)
+                } else {
+                    Log.e("MessageActivity", "Invalid sessionId: $sessionId")
+                    Toast.makeText(this, "Error: Invalid session ID", Toast.LENGTH_SHORT).show()
+                }
+            },
+            onSessionReject = { sessionId ->
+                Log.d("MessageActivity", "Reject button clicked in adapter, sessionId: $sessionId")
+                Toast.makeText(this, "Rejecting session...", Toast.LENGTH_SHORT).show()
+                // Make sure the sessionId is valid before calling rejectSession
+                if (sessionId > 0) {
+                    Log.d("MessageActivity", "Calling rejectSession with valid sessionId: $sessionId")
+                    rejectSession(sessionId)
+                } else {
+                    Log.e("MessageActivity", "Invalid sessionId: $sessionId")
+                    Toast.makeText(this, "Error: Invalid session ID", Toast.LENGTH_SHORT).show()
+                }
+            }
+        )
 
         // Set up RecyclerView
         setupRecyclerView()
@@ -92,12 +138,15 @@ class MessageActivity : AppCompatActivity() {
         // Load messages
         refreshMessages()
 
+        // Fetch session details if available
+        fetchSessionDetails()
+
         // Set up send button
         binding.sendButton.setOnClickListener {
-            val content = binding.messageEditText.text.toString().trim()
+            val content = binding.messageInput.text.toString().trim()
             if (content.isNotEmpty()) {
                 sendMessage(content)
-                binding.messageEditText.text.clear()
+                binding.messageInput.text.clear()
             }
         }
     }
@@ -115,7 +164,7 @@ class MessageActivity : AppCompatActivity() {
 
                 response.onSuccess { conversation ->
                     Log.d("MessageActivity", "Successfully fetched conversation: ${conversation.id}")
-                    
+
                     // Determine the other user ID based on roles if not already set or incorrectly set
                     // This is crucial when opening from sessions where otherUserId might not be passed correctly
                     if (otherUserId == -1L || otherUserId == currentUserId) {
@@ -126,7 +175,7 @@ class MessageActivity : AppCompatActivity() {
                         }
                         Log.d("MessageActivity", "Updated otherUserId to: $otherUserId")
                     }
-                    
+
                     updateConversationNames(conversation)
                 }.onFailure { error ->
                     Log.e("MessageActivity", "Failed to load conversation details: ${error.message}", error)
@@ -244,8 +293,26 @@ class MessageActivity : AppCompatActivity() {
                         lastMessageId = sortedMessages.first().id
                     }
 
+                    // For session approval messages, check if session status was updated
+                    if (sessionDetails != null) {
+                        // If this update was after a session approval/rejection, make sure display reflects it
+                        Log.d("MessageActivity", "Current session status: ${sessionDetails?.status}")
+                        
+                        // Force update the session UI to ensure buttons are hidden if needed
+                        if (sessionDetails?.status?.equals("APPROVED", ignoreCase = true) == true ||
+                            sessionDetails?.status?.equals("CANCELLED", ignoreCase = true) == true) {
+                            Log.d("MessageActivity", "Session is ${sessionDetails?.status}, ensuring UI is updated")
+                            updateSessionDetailsUI()
+                        }
+                    }
+
                     // Update the UI
                     updateMessageList(sortedMessages)
+
+                    // If user is a tutor, check for pending session
+                    if (PreferenceUtils.getUserRole(this@MessageActivity) == "TUTOR") {
+                        checkForPendingSession()
+                    }
                 }.onFailure { error ->
                     Log.e("MessageActivity", "Failed to load messages: ${error.message}", error)
                     Toast.makeText(this@MessageActivity, "Failed to load messages: ${error.message}", Toast.LENGTH_SHORT).show()
@@ -297,7 +364,7 @@ class MessageActivity : AppCompatActivity() {
 
     private fun sendMessageInternal(content: String) {
         Log.d("MessageActivity", "Sending message to user ID: $otherUserId in conversation: $conversationId")
-        
+
         CoroutineScope(Dispatchers.IO).launch {
             val message = Message(
                 id = 0, // Will be assigned by the server
@@ -316,7 +383,7 @@ class MessageActivity : AppCompatActivity() {
                     Log.d("MessageActivity", "Message sent successfully: ${sentMessage.id}")
 
                     // Clear the input field
-                    binding.messageEditText.setText("")
+                    binding.messageInput.setText("")
 
                     // The polling mechanism will automatically fetch the new message
                     // No need to call refreshMessages() here
@@ -430,11 +497,650 @@ class MessageActivity : AppCompatActivity() {
         super.onResume()
         // Start polling when the activity is resumed
         startPolling()
+
+        // Refresh session details to check if it's about to start
+        if (sessionId > 0) {
+            fetchSessionDetails()
+        }
     }
 
     override fun onPause() {
         super.onPause()
         // Stop polling when the activity is paused
         stopPolling()
+    }
+
+    /**
+     * Fetch session details for the current conversation
+     */
+    private fun fetchSessionDetails() {
+        if (conversationId <= 0) {
+            Log.d("MessageActivity", "Cannot fetch session details: Invalid conversation ID: $conversationId")
+            return
+        }
+
+
+        Log.d("MessageActivity", "Fetching session details for conversation ID: $conversationId")
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                // Use SessionUtils to get session details
+                Log.d("MessageActivity", "Calling SessionUtils.getSessionByConversationId($conversationId)")
+                val result = com.mobile.utils.SessionUtils.getSessionByConversationId(conversationId)
+
+                result.fold(
+                    onSuccess = { session ->
+                        // Update the session details
+                        sessionId = session.id
+                        sessionDetails = session
+
+                        Log.d("MessageActivity", "Session details fetched successfully: ID=${session.id}, status=${session.status}, price=${session.price}")
+
+                        // Update the UI on the main thread
+                        withContext(Dispatchers.Main) {
+                            updateSessionDetailsUI()
+                        }
+                    },
+                    onFailure = { exception ->
+                        // Check if this is a 404 error (session not found)
+                        if (exception.message?.contains("404") == true) {
+                            // This is normal - not all conversations have associated sessions
+                            Log.d("MessageActivity", "No session found for conversation ID: $conversationId")
+                            withContext(Dispatchers.Main) {
+                                // No session found - no need to show a toast
+                            }
+                        } else {
+                            // Log other errors as they might be actual issues
+                            Log.e("MessageActivity", "Error fetching session details: ${exception.message}", exception)
+                            withContext(Dispatchers.Main) {
+                                // Error loading session details - no need to show a toast
+                            }
+                        }
+
+                        // In either case, hide the session details UI
+                        withContext(Dispatchers.Main) {
+                            binding.sessionDetailsInclude.root.visibility = View.GONE
+                        }
+                    }
+                )
+            } catch (e: Exception) {
+                Log.e("MessageActivity", "Exception fetching session details: ${e.message}", e)
+                withContext(Dispatchers.Main) {
+                    // Exception fetching session details - no need to show a toast
+                }
+            }
+        }
+    }
+
+    /**
+     * Format a date string from ISO format to a more readable format
+     */
+    private fun formatDate(dateString: String): String {
+        try {
+            val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+            val outputFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+            val date = inputFormat.parse(dateString) ?: return dateString
+            return outputFormat.format(date)
+        } catch (e: Exception) {
+            Log.e("MessageActivity", "Error formatting date: ${e.message}", e)
+            return dateString
+        }
+    }
+
+    /**
+     * Format a time string from ISO format to a more readable format
+     */
+    private fun formatTime(timeString: String): String {
+        try {
+            val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+            val outputFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+            val time = inputFormat.parse(timeString) ?: return timeString
+            return outputFormat.format(time)
+        } catch (e: Exception) {
+            Log.e("MessageActivity", "Error formatting time: ${e.message}", e)
+            return timeString
+        }
+    }
+
+    /**
+     * Update the UI with session details
+     */
+    private fun updateSessionDetailsUI() {
+        try {
+            val session = sessionDetails ?: return
+            Log.d("MessageActivity", "Updating session details UI for session: ${session.id}, status: ${session.status}")
+            
+            // Get references to all the views in the session details card
+            val sessionDetailsView = binding.sessionDetailsInclude.root
+            sessionDetailsView.post {
+                try {
+                    // Find views using the correct IDs from layout_session_details.xml
+                    val sessionSubjectText = sessionDetailsView.findViewById<TextView>(R.id.sessionSubjectText)
+                    val sessionDateText = sessionDetailsView.findViewById<TextView>(R.id.sessionDateText)
+                    val sessionTimeText = sessionDetailsView.findViewById<TextView>(R.id.sessionTimeText)
+                    val sessionTypeText = sessionDetailsView.findViewById<TextView>(R.id.sessionTypeText)
+                    val sessionStatusText = sessionDetailsView.findViewById<TextView>(R.id.sessionStatusText)
+                    val sessionNotesLayout = sessionDetailsView.findViewById<LinearLayout>(R.id.sessionNotesLayout)
+                    val sessionNotesText = sessionDetailsView.findViewById<TextView>(R.id.sessionNotesText)
+                    val tutorActionButtonsLayout = sessionDetailsView.findViewById<LinearLayout>(R.id.tutorActionButtonsLayout)
+                    val approveButton = sessionDetailsView.findViewById<Button>(R.id.approveButton)
+                    val rejectButton = sessionDetailsView.findViewById<Button>(R.id.rejectButton)
+                    
+                    // Set the text fields with session data
+                    sessionSubjectText?.text = session.subject
+                    sessionDateText?.text = formatDate(session.startTime)
+                    sessionTimeText?.text = "${formatTime(session.startTime)} - ${formatTime(session.endTime)}"
+                    sessionTypeText?.text = session.sessionType
+                    sessionStatusText?.text = session.status
+                    
+                    // Handle notes
+                    if (session.notes.isNullOrEmpty()) {
+                        sessionNotesLayout?.visibility = View.GONE
+                    } else {
+                        sessionNotesLayout?.visibility = View.VISIBLE
+                        sessionNotesText?.text = session.notes
+                    }
+                    
+                    // Make status more prominent, especially for APPROVED state
+                    when (session.status.uppercase()) {
+                        "APPROVED" -> {
+                            sessionStatusText?.setTextColor(ContextCompat.getColor(this, R.color.success))
+                            sessionStatusText?.setTypeface(null, Typeface.BOLD)
+                            
+                            // Ensure approve/reject buttons are gone when approved
+                            tutorActionButtonsLayout?.visibility = View.GONE
+                            
+                            // Add a success marker
+                            val mainContainer = (sessionDetailsView as ViewGroup).getChildAt(0) as? LinearLayout
+                            if (mainContainer != null) {
+                                var approvedNotification: TextView? = null
+                                for (i in 0 until mainContainer.childCount) {
+                                    val child = mainContainer.getChildAt(i)
+                                    if (child is TextView && child.getTag() == "approved_notification") {
+                                        approvedNotification = child
+                                        break
+                                    }
+                                }
+                                
+                                if (approvedNotification == null) {
+                                    approvedNotification = TextView(this)
+                                    approvedNotification.setTag("approved_notification")
+                                    approvedNotification.setPadding(20, 20, 20, 20)
+                                    approvedNotification.setTextColor(ContextCompat.getColor(this, android.R.color.white))
+                                    approvedNotification.setGravity(Gravity.CENTER)
+                                    approvedNotification.setTextSize(16f)
+                                    approvedNotification.text = "Session has been approved!"
+                                    approvedNotification.setBackgroundColor(ContextCompat.getColor(this, R.color.success))
+                                    
+                                    val params = LinearLayout.LayoutParams(
+                                        LinearLayout.LayoutParams.MATCH_PARENT,
+                                        LinearLayout.LayoutParams.WRAP_CONTENT
+                                    )
+                                    params.setMargins(0, 0, 0, 16)
+                                    approvedNotification.layoutParams = params
+                                    
+                                    mainContainer.addView(approvedNotification, 0)
+                                }
+                            }
+                        }
+                        else -> {
+                            sessionStatusText?.setTextColor(ContextCompat.getColor(this, 
+                                when (session.status.uppercase()) {
+                                    "PENDING" -> R.color.warning
+                                    "CANCELLED" -> R.color.error
+                                    else -> R.color.text_primary
+                                }
+                            ))
+                            sessionStatusText?.setTypeface(null, Typeface.NORMAL)
+                        }
+                    }
+                    
+                    // Determine if the current user is the tutor
+                    val isTutor = userRole == "ROLE_TUTOR" || userRole == "ROLE_ADMIN"
+                    
+                    // Determine if the session is pending
+                    val isPending = session.status.equals("PENDING", ignoreCase = true)
+                    
+                    // Check if the session has already been approved or cancelled/rejected
+                    val isApproved = session.status.equals("APPROVED", ignoreCase = true)
+                    val isCancelled = session.status.equals("CANCELLED", ignoreCase = true) || 
+                                     session.status.equals("REJECTED", ignoreCase = true)
+                    
+                    // Check if the session has started
+                    val hasStarted = try {
+                        val formatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+                        val sessionStartTime = formatter.parse(session.startTime)
+                        val currentTime = Date()
+                        sessionStartTime != null && !currentTime.before(sessionStartTime)
+                    } catch (e: Exception) {
+                        Log.e("MessageActivity", "Error parsing session time: ${e.message}", e)
+                        false
+                    }
+
+                    // Always hide buttons for non-pending sessions
+                    if (!isPending || isApproved || isCancelled) {
+                        Log.d("MessageActivity", "Hiding tutor action buttons - session is not pending or already processed")
+                        tutorActionButtonsLayout?.visibility = View.GONE
+                    }
+                    // Show buttons only for pending sessions where user is the tutor
+                    else if (isTutor && isPending) {
+                        Log.d("MessageActivity", "Showing tutor action buttons")
+                        tutorActionButtonsLayout?.visibility = View.VISIBLE
+
+                        // Make the tutor action buttons more noticeable
+                        try {
+                            // Add specific styling for the buttons
+                            approveButton?.setBackgroundColor(ContextCompat.getColor(this, R.color.success))
+                            approveButton?.text = "APPROVE SESSION"
+                            approveButton?.textSize = 16f
+                            approveButton?.setPadding(20, 20, 20, 20)
+
+                            rejectButton?.setBackgroundColor(ContextCompat.getColor(this, R.color.error))
+                            rejectButton?.text = "REJECT SESSION"
+                            rejectButton?.textSize = 16f
+                            rejectButton?.setPadding(20, 20, 20, 20)
+                        } catch (e: Exception) {
+                            Log.e("MessageActivity", "Error styling buttons: ${e.message}", e)
+                        }
+
+                        // Set up approve button
+                        approveButton?.setOnClickListener {
+                            Log.d("MessageActivity", "Approve button clicked for session: ${session.id}")
+                            approveSession(session.id)
+                        }
+
+                        // Set up reject button
+                        rejectButton?.setOnClickListener {
+                            Log.d("MessageActivity", "Reject button clicked for session: ${session.id}")
+                            rejectSession(session.id)
+                        }
+                    } else {
+                        Log.d("MessageActivity", "Hiding tutor action buttons - not a tutor or session not pending")
+                        tutorActionButtonsLayout?.visibility = View.GONE
+                    }
+
+                    // Show the session details card
+                    sessionDetailsView.visibility = View.VISIBLE
+
+                    Log.d("MessageActivity", "Session details UI updated successfully")
+                } catch (e: Exception) {
+                    Log.e("MessageActivity", "Error updating session details UI inner: ${e.message}", e)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("MessageActivity", "Error updating session details UI outer: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Approve a session
+     */
+    private fun approveSession(sessionId: Long) {
+        Log.d("MessageActivity", "approveSession called for sessionId: $sessionId")
+
+        // Disable the approve button to prevent multiple clicks
+        try {
+            val approveButton = binding.sessionDetailsInclude.root.findViewById<Button>(R.id.approveButton)
+            approveButton?.isEnabled = false
+        } catch (e: Exception) {
+            Log.e("MessageActivity", "Error disabling approve button: ${e.message}")
+        }
+
+        // Show a toast notification indicating the action in progress
+        Toast.makeText(this, "Approving session request...", Toast.LENGTH_SHORT).show()
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                Log.d("MessageActivity", "Calling SessionUtils.acceptSession($sessionId)")
+                // Use SessionUtils to approve the session
+                val result = com.mobile.utils.SessionUtils.acceptSession(sessionId)
+
+                withContext(Dispatchers.Main) {
+                    result.fold(
+                        onSuccess = { session ->
+                            Log.d("MessageActivity", "Session approved successfully: status=${session.status}, id=${session.id}")
+                            
+                            // Update the session details
+                            sessionDetails = session
+                            
+                            // Re-enable the approve button
+                            try {
+                                // Find and hide approval buttons in the session details card
+                                val approveButton = binding.sessionDetailsInclude.root.findViewById<Button>(R.id.approveButton)
+                                approveButton?.isEnabled = true
+                                approveButton?.visibility = View.GONE // Hide after successful approval
+                                
+                                // Also hide the reject button
+                                val rejectButton = binding.sessionDetailsInclude.root.findViewById<Button>(R.id.rejectButton)
+                                rejectButton?.visibility = View.GONE
+                            } catch (e: Exception) {
+                                Log.e("MessageActivity", "Error updating buttons after approval: ${e.message}")
+                            }
+
+                            // Hide any session approval cards in the message list
+                            hideSessionApprovalCards()
+
+                            // Update the UI to show new session status
+                            updateSessionDetailsUI()
+
+                            // Show success message
+                            Toast.makeText(this@MessageActivity, 
+                                "Session approved successfully! Check your sessions tab for details.", 
+                                Toast.LENGTH_LONG).show()
+
+                            // Add an approval message to the conversation
+                            val message = Message(
+                                id = 0, // Will be set by the server
+                                conversationId = conversationId,
+                                senderId = currentUserId,
+                                receiverId = otherUserId,
+                                content = "Session #$sessionId has been approved. Status: ${session.status}",
+                                timestamp = System.currentTimeMillis(),
+                                readStatus = false,
+                                messageType = Message.MessageType.SESSION_ACTION,
+                                sessionId = sessionId
+                            )
+                            
+                            // Send the approval message
+                            CoroutineScope(Dispatchers.IO).launch {
+                                try {
+                                    messageRepository.sendMessage(message)
+                                    withContext(Dispatchers.Main) {
+                                        // Refresh messages to show the approval message and remove pending approval cards
+                                        refreshMessages()
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e("MessageActivity", "Error sending approval message: ${e.message}")
+                                }
+                            }
+                            
+                            // Broadcast an intent to notify other components that a session was approved
+                            val intent = Intent("com.mobile.SESSION_STATUS_CHANGED")
+                            intent.putExtra("sessionId", sessionId)
+                            intent.putExtra("newStatus", session.status)
+                            sendBroadcast(intent)
+                            
+                            Log.d("MessageActivity", "Broadcast intent sent for session status change")
+                        },
+                        onFailure = { error ->
+                            Log.e("MessageActivity", "Error approving session: ${error.message}")
+                            
+                            // Re-enable the approve button
+                            try {
+                                val approveButton = binding.sessionDetailsInclude.root.findViewById<Button>(R.id.approveButton)
+                                approveButton?.isEnabled = true
+                            } catch (e: Exception) {
+                                // Ignore, already logged earlier
+                            }
+
+                            Toast.makeText(this@MessageActivity, 
+                                "Error approving session: ${error.message}", 
+                                Toast.LENGTH_LONG).show()
+                                
+                            // Try fallback approach - direct status update through NetworkUtils
+                            CoroutineScope(Dispatchers.IO).launch {
+                                try {
+                                    Log.d("MessageActivity", "Trying direct acceptSession call as fallback")
+                                    // This will now use the acceptSession endpoint which sets tutorAccepted=true
+                                    val fallbackResult = NetworkUtils.updateSessionStatus(sessionId, "APPROVED")
+                                    
+                                    withContext(Dispatchers.Main) {
+                                        fallbackResult.fold(
+                                            onSuccess = { session ->
+                                                Log.d("MessageActivity", "Fallback session approval successful: ${session.status}")
+                                                Toast.makeText(this@MessageActivity, 
+                                                    "Session approved successfully (via fallback)!", 
+                                                    Toast.LENGTH_LONG).show()
+                                                    
+                                                // Update session details and UI
+                                                sessionDetails = session
+                                                updateSessionDetailsUI()
+                                                
+                                                // Hide session approval cards
+                                                hideSessionApprovalCards()
+                                                
+                                                // Refresh messages
+                                                refreshMessages()
+                                                
+                                                // Broadcast changes
+                                                val intent = Intent("com.mobile.SESSION_STATUS_CHANGED")
+                                                intent.putExtra("sessionId", sessionId)
+                                                intent.putExtra("newStatus", session.status)
+                                                sendBroadcast(intent)
+                                                
+                                                Log.d("MessageActivity", "Broadcast intent sent after fallback approval")
+                                            },
+                                            onFailure = { fallbackError ->
+                                                Log.e("MessageActivity", "Fallback approval also failed: ${fallbackError.message}")
+                                                Toast.makeText(this@MessageActivity, 
+                                                    "Error approving session: ${fallbackError.message}", 
+                                                    Toast.LENGTH_LONG).show()
+                                            }
+                                        )
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e("MessageActivity", "Exception in fallback approval: ${e.message}")
+                                    withContext(Dispatchers.Main) {
+                                        Toast.makeText(this@MessageActivity, 
+                                            "Error approving session: ${e.message}", 
+                                            Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            }
+                        }
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e("MessageActivity", "Exception in approveSession: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MessageActivity, 
+                        "Error approving session: ${e.message}", 
+                        Toast.LENGTH_LONG).show()
+                        
+                    // Re-enable the approve button
+                    try {
+                        val approveButton = binding.sessionDetailsInclude.root.findViewById<Button>(R.id.approveButton)
+                        approveButton?.isEnabled = true
+                    } catch (e: Exception) {
+                        // Ignore, already logged earlier
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Hide any session approval cards in the message list
+     */
+    private fun hideSessionApprovalCards() {
+        try {
+            // Scan through visible items in the RecyclerView
+            for (i in 0 until binding.messagesRecyclerView.childCount) {
+                val viewHolder = binding.messagesRecyclerView.getChildViewHolder(binding.messagesRecyclerView.getChildAt(i))
+                
+                // Check if this is a TutorSessionApprovalViewHolder
+                if (viewHolder is MessageAdapter.TutorSessionApprovalViewHolder) {
+                    // Find buttons in the view
+                    try {
+                        val itemView = viewHolder.itemView
+                        val approveButton = itemView.findViewById<Button>(R.id.approveButton)
+                        val rejectButton = itemView.findViewById<Button>(R.id.rejectButton)
+                        
+                        // Hide the buttons
+                        approveButton?.visibility = View.GONE
+                        rejectButton?.visibility = View.GONE
+                    } catch (e: Exception) {
+                        Log.e("MessageActivity", "Error hiding buttons in approval card: ${e.message}")
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("MessageActivity", "Error hiding session approval cards: ${e.message}")
+        }
+    }
+
+    /**
+     * Reject a session
+     */
+    private fun rejectSession(sessionId: Long) {
+        Log.d("MessageActivity", "rejectSession called for sessionId: $sessionId")
+
+        // No need to show a toast notification
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                Log.d("MessageActivity", "Calling SessionUtils.rejectSession($sessionId)")
+                // Use SessionUtils to reject the session
+                val result = com.mobile.utils.SessionUtils.rejectSession(sessionId)
+
+                withContext(Dispatchers.Main) {
+                    result.fold(
+                        onSuccess = { session ->
+                            Log.d("MessageActivity", "Session rejected successfully: $session")
+                            // Update the session details
+                            sessionDetails = session
+
+                            // Update the UI
+                            updateSessionDetailsUI()
+
+                            // Refresh messages to update the session status in chat
+                            refreshMessages()
+                        },
+                        onFailure = { exception ->
+                            // Handle error
+                            Log.e("MessageActivity", "Error rejecting session: ${exception.message}", exception)
+                        }
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e("MessageActivity", "Exception rejecting session: ${e.message}", e)
+                withContext(Dispatchers.Main) {
+                    // No need to show a toast notification
+                }
+            }
+        }
+    }
+
+    /**
+     * Show session details card and fetch session details if needed
+     */
+    private fun showSessionDetails() {
+        // If we already have session details, just show the card
+        if (sessionDetails != null) {
+            binding.sessionDetailsInclude.root.visibility = View.VISIBLE
+            return
+        }
+
+        // Otherwise, fetch session details
+        fetchSessionDetails()
+    }
+
+    /**
+     * Check if there's a pending session that needs tutor approval
+     */
+    private fun checkForPendingSession() {
+        if (sessionDetails != null && sessionDetails?.status?.uppercase() == "PENDING") {
+            Log.d("MessageActivity", "Found pending session that needs tutor approval: ${sessionDetails?.id}")
+
+            // Make sure session details are visible at the top
+            binding.sessionDetailsInclude.root.visibility = View.VISIBLE
+
+            // Scroll to top of messages to see the session details
+            binding.messagesRecyclerView.smoothScrollToPosition(0)
+        }
+    }
+
+    /**
+     * Add a standalone approval card for tutors at the top of the messages
+     */
+    private fun addTutorSessionApprovalCard() {
+        try {
+            // First check if we should show this card (only for tutors with pending sessions)
+            if (userRole != "TUTOR") {
+                Log.d("MessageActivity", "Not showing tutor approval card - user is not a tutor")
+                return
+            }
+
+            // We'll add the card after session details are fetched, if the session is pending
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    // Fetch session details if not already available
+                    if (sessionId == -1L) {
+                        Log.d("MessageActivity", "Fetching session details for approval card")
+                        val result = com.mobile.utils.SessionUtils.getSessionByConversationId(conversationId)
+
+                        result.fold(
+                            onSuccess = { session ->
+                                sessionId = session.id
+                                sessionDetails = session
+
+                                // Check if session is pending
+                                if (session.status.uppercase() == "PENDING") {
+                                    withContext(Dispatchers.Main) {
+                                        showTutorApprovalCard(session.id)
+                                    }
+                                } else {
+                                    Log.d("MessageActivity", "Not showing tutor approval card - session is not pending")
+                                }
+                            },
+                            onFailure = { error ->
+                                Log.d("MessageActivity", "Not showing tutor approval card - no session found: ${error.message}")
+                            }
+                        )
+                    } else if (sessionDetails?.status?.uppercase() == "PENDING") {
+                        // We already have session details
+                        withContext(Dispatchers.Main) {
+                            showTutorApprovalCard(sessionId)
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("MessageActivity", "Error checking for pending sessions: ${e.message}", e)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("MessageActivity", "Error adding tutor approval card: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Show the standalone tutor approval card with the given session ID
+     */
+    private fun showTutorApprovalCard(sessionId: Long) {
+        try {
+            // Inflate the approval card
+            val inflater = layoutInflater
+            val approvalCard = inflater.inflate(R.layout.layout_tutor_session_approval, null)
+
+            // Find the buttons
+            val approveButton = approvalCard.findViewById<Button>(R.id.standaloneTutorApproveButton)
+            val rejectButton = approvalCard.findViewById<Button>(R.id.standaloneTutorRejectButton)
+
+            // Set up button click listeners
+            approveButton.setOnClickListener {
+                Log.d("MessageActivity", "Standalone approve button clicked for session: $sessionId")
+                approveSession(sessionId)
+
+                // Hide the card after clicking
+                (approvalCard.parent as? ViewGroup)?.removeView(approvalCard)
+            }
+
+            rejectButton.setOnClickListener {
+                Log.d("MessageActivity", "Standalone reject button clicked for session: $sessionId")
+                rejectSession(sessionId)
+
+                // Hide the card after clicking
+                (approvalCard.parent as? ViewGroup)?.removeView(approvalCard)
+            }
+
+            // Add the card to the top of the layout
+            val container = binding.root as ViewGroup
+            container.addView(approvalCard, 0)
+
+            Log.d("MessageActivity", "Added standalone tutor approval card for session: $sessionId")
+
+            // No need to show a toast notification
+        } catch (e: Exception) {
+            Log.e("MessageActivity", "Error showing tutor approval card: ${e.message}", e)
+        }
     }
 }

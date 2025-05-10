@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { toast } from 'react-toastify';
@@ -6,40 +6,35 @@ import { FaGoogle, FaArrowLeft } from 'react-icons/fa';
 import { useUser } from '../../context/UserContext';
 
 const Login = () => {
-  const { login, isTutor, isStudent } = useUser();
+  const { login } = useUser();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loginError, setLoginError] = useState('');
+  const [email, setEmail] = useState('');
   const navigate = useNavigate();
-  const { register, handleSubmit, setValue, formState: { errors } } = useForm();
-
-  // Function to use test account for quick login
-  const useTestAccount = (role) => {
-    const email = role === 'tutor' ? 'tutor@example.com' : 'student@example.com';
-    const password = 'password123';
-    
-    // Set form values
-    setValue('email', email);
-    setValue('password', password);
-    
-    // Submit the form
-    handleLogin({ email, password });
-  };
+  const { register, handleSubmit, formState: { errors }, setValue } = useForm();
 
   const onSubmit = (data) => {
+    setEmail(data.email);
     handleLogin(data);
   };
+
+  useEffect(() => {
+    if (email) {
+      setValue('email', email);
+    }
+  }, [email, setValue]);
 
   const handleLogin = async (data) => {
     setIsSubmitting(true);
     setLoginError('');
-    
+
     try {
       console.log('Submitting login form...', data.email);
       const result = await login(data.email, data.password);
-      
+
       if (result.success) {
         toast.success('Login successful');
-        
+
         // Extra safety check - guarantee we have user data in localStorage
         let userData = null;
         try {
@@ -51,7 +46,7 @@ const Login = () => {
         } catch (e) {
           console.error("Error parsing stored user:", e);
         }
-        
+
         // Handle missing user data - should not happen with proper backend integration
         if (!userData) {
           console.error("No user data in localStorage after login - this should not happen");
@@ -59,11 +54,11 @@ const Login = () => {
           setIsSubmitting(false);
           return;
         }
-        
+
         // Immediately navigate to appropriate dashboard
         const role = (userData.role || '').toUpperCase();
         console.log(`Login successful - navigating to ${role} dashboard`);
-        
+
         if (role.includes('TUTOR')) {
           navigate('/tutor', { replace: true });
         } else {
@@ -90,21 +85,58 @@ const Login = () => {
     const baseUrl = window.location.hostname === 'localhost' 
       ? 'http://localhost:8080'
       : 'https://judify-795422705086.asia-east1.run.app';
-    
+
     // Use direct URL to the OAuth2 endpoint with the correct base URL
     const googleAuthUrl = `${baseUrl}/oauth2/authorization/google`;
-    
+
     console.log('Redirecting to Google OAuth:', googleAuthUrl);
     window.location.href = googleAuthUrl;
   };
 
+  // Add CSS to handle autocomplete styling
+  const autocompleteStyles = `
+    /* Add these styles to fix autocomplete styling */
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover, 
+    input:-webkit-autofill:focus,
+    input:-webkit-autofill:active {
+      -webkit-box-shadow: 0 0 0 30px white inset !important;
+      transition: background-color 5000s ease-in-out 0s;
+    }
+    
+    .dark input:-webkit-autofill,
+    .dark input:-webkit-autofill:hover, 
+    .dark input:-webkit-autofill:focus,
+    .dark input:-webkit-autofill:active {
+      -webkit-box-shadow: 0 0 0 30px #1f2937 inset !important;
+      -webkit-text-fill-color: #e5e7eb !important;
+    }
+    
+    /* Fix input size consistency */
+    input.auth-form-input {
+      height: 2.5rem !important; /* Fixed height */
+      padding: 0.5rem 0.75rem !important; /* Fixed padding */
+      min-height: 2.5rem !important;
+      box-sizing: border-box !important;
+      font-size: 1rem !important;
+      line-height: 1.5 !important;
+    }
+    
+    /* Ensure suggestions don't affect layout */
+    input:-webkit-autofill {
+      height: 2.5rem !important;
+      padding: 0.5rem 0.75rem !important;
+    }
+  `;
+
   return (
     <div className="relative">
+      <style>{autocompleteStyles}</style>
       {/* Back button */}
       <Link to="/" className="absolute top-0 left-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">
         <FaArrowLeft className="text-xl" />
       </Link>
-      
+
       <div className="text-center mb-8">
         <h1 className="text-primary-600 dark:text-primary-500 text-3xl font-bold mb-2">Judify</h1>
         <h2 className="text-xl font-bold text-gray-800 dark:text-white">Sign in to your account</h2>
@@ -124,6 +156,7 @@ const Login = () => {
             id="email"
             type="email"
             placeholder="your@email.com"
+            autoComplete="username email"
             className={`auth-form-input ${
               errors.email ? 'border-red-500 dark:border-red-400' : ''
             }`}
@@ -146,6 +179,7 @@ const Login = () => {
             id="password"
             type="password"
             placeholder="••••••••"
+            autoComplete="current-password"
             className={`auth-form-input ${
               errors.password ? 'border-red-500 dark:border-red-400' : ''
             }`}
@@ -219,18 +253,13 @@ const Login = () => {
           >
             <FaGoogle className="h-5 w-5 text-red-500 mr-2" />
             <span>Sign in with Google</span>
-          <button
-              type="button"
-              className="auth-social-button flex items-center justify-center"
-              onClick={handleGoogleLogin}>
-            <FaGoogle className="text-red-500 text-xl" />
           </button>
         </div>
       </div>
 
       <div className="text-center mt-6">
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          Don't have an account?{' '}
+          Don&apos;t have an account?{' '}
           <Link to="/register" className="auth-form-link">
             Sign up
           </Link>
@@ -240,4 +269,4 @@ const Login = () => {
   );
 };
 
-export default Login; 
+export default Login;
