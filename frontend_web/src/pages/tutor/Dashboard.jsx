@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { tutoringSessionApi } from '../../api/api';
 import { Link } from 'react-router-dom';
-import { FaCalendarAlt, FaChartLine, FaUserEdit, FaBookOpen, FaCheckCircle, FaExclamationTriangle, FaClock } from 'react-icons/fa';
+import { FaCalendarAlt, FaChartLine, FaUserEdit, FaBookOpen, FaCheckCircle, FaExclamationTriangle, FaClock, FaCheckDouble } from 'react-icons/fa';
+import { toast } from 'react-toastify';
 
 const Dashboard = () => {
   const [sessions, setSessions] = useState([]);
@@ -90,14 +91,47 @@ const Dashboard = () => {
   const getStatusIcon = (status) => {
     switch(status) {
       case 'CONFIRMED':
+      case 'APPROVED':
         return <FaCheckCircle className="text-green-500" />;
       case 'PENDING':
         return <FaClock className="text-yellow-500" />;
       case 'CANCELLED':
         return <FaExclamationTriangle className="text-red-500" />;
+      case 'COMPLETED':
+        return <FaCheckDouble className="text-purple-500" />;
       default:
         return null;
     }
+  };
+
+  // Get payment status badge
+  const getPaymentStatusBadge = (session) => {
+    if (session.paymentStatus === 'COMPLETED' || session.paymentStatus === 'PAID') {
+      return (
+        <div className="mt-2">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300">
+            <FaCheckCircle className="mr-1" /> Payment Received
+          </span>
+        </div>
+      );
+    } else if (session.paymentStatus === 'FAILED') {
+      return (
+        <div className="mt-2">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300">
+            <FaExclamationTriangle className="mr-1" /> Payment Failed
+          </span>
+        </div>
+      );
+    } else if (session.tutorAccepted || session.status === 'APPROVED') {
+      return (
+        <div className="mt-2">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300">
+            <FaClock className="mr-1" /> Awaiting Payment
+          </span>
+        </div>
+      );
+    }
+    return null;
   };
 
   const handleAcceptSession = async (sessionId) => {
@@ -124,10 +158,44 @@ const Dashboard = () => {
         );
 
         setSessions(upcomingSessions.length > 0 ? upcomingSessions : normalizedSessions);
+        
+        // Show success message
+        toast.success('Session accepted successfully');
       }
     } catch (err) {
       console.error('Error accepting session:', err);
       setError('Failed to accept the session. Please try again later.');
+      toast.error('Failed to accept the session');
+    }
+  };
+
+  const handleRejectSession = async (sessionId) => {
+    try {
+      const response = await tutoringSessionApi.rejectSession(sessionId);
+      if (response.data) {
+        console.log('Session rejected successfully');
+        // Refresh sessions
+        const userId = currentUser.userId;
+        const { tutoringSessionApi } = await import('../../api/api');
+        const sessionsResponse = await tutoringSessionApi.getTutorSessionsByUserId(userId);
+        const sessionData = sessionsResponse.data || [];
+        
+        // Normalize sessions
+        const normalizedSessions = sessionData.map(session => ({
+          ...session,
+          id: session.id || session.sessionId,
+          sessionId: session.sessionId || session.id
+        }));
+
+        setSessions(normalizedSessions);
+        
+        // Show success message
+        toast.success('Session rejected successfully');
+      }
+    } catch (err) {
+      console.error('Error rejecting session:', err);
+      setError('Failed to reject the session. Please try again later.');
+      toast.error('Failed to reject the session');
     }
   };
 
@@ -261,12 +329,19 @@ const Dashboard = () => {
                             <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                               {formatDate(session.startTime || session.sessionDate)}
                             </div>
+                            {session.price && (
+                              <div className="mt-1 text-sm font-medium text-green-600 dark:text-green-400">
+                                ${parseFloat(session.price).toFixed(2)}
+                              </div>
+                            )}
+                            {getPaymentStatusBadge(session)}
                           </div>
                           <div className="flex items-center">
                             {getStatusIcon(session.status)}
                             <span className={`ml-1.5 px-2.5 py-0.5 text-xs font-medium rounded-full ${
                               session.status === 'CONFIRMED' || session.status === 'APPROVED' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 
                               session.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' : 
+                              session.status === 'COMPLETED' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300' :
                               'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
                             }`}>
                               {session.status}
@@ -283,15 +358,26 @@ const Dashboard = () => {
                           </Link>
                           
                           {(!session.tutorAccepted && (session.status === 'PENDING')) && (
-                            <button 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleAcceptSession(session.sessionId || session.id);
-                              }}
-                              className="px-3 py-1.5 text-sm font-medium text-white bg-green-600 border border-green-600 rounded hover:bg-green-700"
-                            >
-                              Accept Session
-                            </button>
+                            <>
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAcceptSession(session.sessionId || session.id);
+                                }}
+                                className="px-3 py-1.5 text-sm font-medium text-white bg-green-600 border border-green-600 rounded hover:bg-green-700"
+                              >
+                                Accept
+                              </button>
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRejectSession(session.sessionId || session.id);
+                                }}
+                                className="px-3 py-1.5 text-sm font-medium text-white bg-red-600 border border-red-600 rounded hover:bg-red-700"
+                              >
+                                Reject
+                              </button>
+                            </>
                           )}
                         </div>
                       </div>

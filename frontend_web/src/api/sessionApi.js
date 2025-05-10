@@ -113,7 +113,7 @@ export const tutoringSessionApi = {
     
     console.log(`Fetching tutoring sessions for tutor user ID: ${userId}`);
     
-    // Try multiple endpoints in sequence
+    // Try multiple endpoints in sequence to maximize compatibility
     return api.get(`/tutoring-sessions/tutor/${userId}`)
       .catch(error => {
         console.log('Error with first endpoint, trying alternative format');
@@ -122,6 +122,15 @@ export const tutoringSessionApi = {
       .catch(error => {
         console.log('Error with second endpoint, trying findByUser endpoint');
         return api.get(`/tutoring-sessions/findByUser/${userId}`);
+      })
+      .catch(error => {
+        console.log('Error with third endpoint, trying with API prefix');
+        return api.get(`/api/tutoring-sessions/tutor/${userId}`);
+      })
+      .catch(error => {
+        console.log('Error with fourth endpoint, trying with direct database call');
+        // This is a more direct endpoint that might be implemented
+        return api.get(`/tutoring-sessions/byUserId/${userId}`);
       });
   },
   
@@ -148,6 +157,33 @@ export const tutoringSessionApi = {
         return api.put(`/tutoring-sessions/updateStatus/${sessionId}`, {
           status: 'APPROVED',
           tutorAccepted: true
+        });
+      });
+  },
+  
+  // Reject a tutoring session
+  rejectSession: (sessionId) => {
+    if (!sessionId) {
+      console.error('Cannot reject session: sessionId is undefined');
+      return Promise.reject(new Error('Session ID is required'));
+    }
+    
+    console.log(`Rejecting tutoring session with ID: ${sessionId}`);
+    
+    // Try multiple endpoints in sequence
+    return api.put(`/tutoring-sessions/${sessionId}/reject`, { tutorAccepted: false })
+      .catch(error => {
+        console.log('Error with first endpoint, trying status update');
+        return api.patch(`/tutoring-sessions/${sessionId}/status`, { 
+          status: 'REJECTED',
+          tutorAccepted: false 
+        });
+      })
+      .catch(error => {
+        console.log('Error with second endpoint, trying updateStatus endpoint');
+        return api.put(`/tutoring-sessions/updateStatus/${sessionId}`, {
+          status: 'REJECTED',
+          tutorAccepted: false
         });
       });
   },

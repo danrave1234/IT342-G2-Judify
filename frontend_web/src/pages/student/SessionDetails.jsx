@@ -5,6 +5,7 @@ import { reviewApi, paymentApi } from '../../api/api';
 import { SESSION_STATUS } from '../../types';
 import StripeWrapper from '../../components/payment/StripeWrapper';
 import SessionPayment from '../../components/payment/SessionPayment';
+import { FaCreditCard, FaCheckCircle, FaExclamationTriangle } from 'react-icons/fa';
 
 const SessionDetails = () => {
   const { sessionId } = useParams();
@@ -113,6 +114,36 @@ const SessionDetails = () => {
   
   const handlePaymentError = (error) => {
     console.error('Payment error:', error);
+  };
+
+  // Function to display payment status
+  const getPaymentStatusDisplay = () => {
+    if (paymentStatus === 'COMPLETED' || paymentStatus === 'PAID') {
+      return (
+        <div className="flex items-center mb-4 p-3 bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800/30 rounded-lg">
+          <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mr-3">
+            <FaCheckCircle className="text-green-600 dark:text-green-400" />
+          </div>
+          <div>
+            <p className="font-medium text-green-800 dark:text-green-300">Payment Successful</p>
+            <p className="text-sm text-green-700 dark:text-green-400">Your session has been paid for and is confirmed.</p>
+          </div>
+        </div>
+      );
+    } else if (paymentStatus === 'FAILED') {
+      return (
+        <div className="flex items-center mb-4 p-3 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/30 rounded-lg">
+          <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mr-3">
+            <FaExclamationTriangle className="text-red-600 dark:text-red-400" />
+          </div>
+          <div>
+            <p className="font-medium text-red-800 dark:text-red-300">Payment Failed</p>
+            <p className="text-sm text-red-700 dark:text-red-400">Please try again or contact support if the issue persists.</p>
+          </div>
+        </div>
+      );
+    }
+    return null;
   };
 
   if (loading || !session || paymentLoading) {
@@ -288,18 +319,61 @@ const SessionDetails = () => {
         </div>
       </div>
       
-      {/* Payment Section */}
-      {showPayment && canPay && (
-        <div className="mb-8">
-          <StripeWrapper>
-            <SessionPayment 
-              session={session} 
-              onPaymentSuccess={handlePaymentSuccess}
-              onPaymentError={handlePaymentError}
-            />
-          </StripeWrapper>
+      {/* Payment Section - Show for approved but unpaid sessions */}
+      {(session.tutorAccepted || session.status === 'APPROVED') && 
+       paymentStatus !== 'COMPLETED' && paymentStatus !== 'PAID' && !isPast && (
+        <div className="mt-8 p-6 border border-green-200 dark:border-green-800/30 rounded-lg bg-green-50 dark:bg-green-900/10">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+            <FaCreditCard className="mr-2 text-green-600 dark:text-green-400" />
+            Payment Required
+          </h2>
+          
+          <p className="mb-4 text-gray-700 dark:text-gray-300">
+            Your session has been approved by the tutor. Please complete payment to confirm your booking.
+          </p>
+          
+          {getPaymentStatusDisplay()}
+          
+          <div className="mb-4 p-4 bg-white dark:bg-dark-700 rounded-lg border border-gray-200 dark:border-dark-600">
+            <div className="flex justify-between mb-2">
+              <span className="text-gray-600 dark:text-gray-400">Session Fee:</span>
+              <span className="font-medium text-gray-900 dark:text-white">${session.price}</span>
+            </div>
+            <div className="flex justify-between font-medium">
+              <span className="text-gray-800 dark:text-gray-200">Total:</span>
+              <span className="text-green-600 dark:text-green-400">${session.price}</span>
+            </div>
+          </div>
+          
+          {showPayment ? (
+            <div className="mt-6">
+              <StripeWrapper>
+                <SessionPayment 
+                  sessionId={session.sessionId || session.id}
+                  amount={session.price * 100} // Convert to cents for Stripe
+                  onSuccess={handlePaymentSuccess}
+                  onError={handlePaymentError}
+                />
+              </StripeWrapper>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowPayment(true)}
+              className="mt-4 w-full md:w-auto px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg flex items-center justify-center"
+            >
+              <FaCreditCard className="mr-2" />
+              Pay ${session.price} Now
+            </button>
+          )}
         </div>
       )}
+      
+      {/* Payment Status Display (for paid or failed payments) */}
+      {((paymentStatus === 'COMPLETED' || paymentStatus === 'PAID' || paymentStatus === 'FAILED') && !showPayment) && 
+        <div className="mt-8">
+          {getPaymentStatusDisplay()}
+        </div>
+      }
 
       {/* Review Section */}
       {canSubmitReview && (
