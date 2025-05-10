@@ -24,6 +24,7 @@ import axios from 'axios';
 import { useUser } from '../../context/UserContext';
 import L from 'leaflet';
 import UserAvatar from '../../components/common/UserAvatar';
+import { formatDateTimeString } from '../../utils/dateUtils';
 
 const TutorDetails = () => {
   const { id } = useParams();
@@ -663,8 +664,8 @@ const TutorDetails = () => {
       const sessionData = {
         tutorId: tutor.id,
         studentId: user.id,
-        startTime: selectedTimeSlot.start.toISOString(),
-        endTime: selectedTimeSlot.end.toISOString(),
+        startTime: formatDateTimeString(selectedTimeSlot.start),
+        endTime: formatDateTimeString(selectedTimeSlot.end),
         sessionType: sessionType,
         status: 'PENDING'
       };

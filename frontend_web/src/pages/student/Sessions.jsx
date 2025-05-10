@@ -5,6 +5,7 @@ import { SESSION_STATUS } from '../../types';
 import axios from 'axios';
 import { conversationApi } from '../../api/api';
 import { toast } from 'react-toastify';
+import { formatSessionTime as formatSessionTimeUtil } from '../../utils/dateUtils';
 
 const Sessions = () => {
   const [sessions, setSessions] = useState([]);
@@ -127,27 +128,7 @@ const Sessions = () => {
       );
 
   const formatSessionTime = (startTime, endTime) => {
-    const start = new Date(startTime);
-    const end = new Date(endTime);
-    
-    const date = start.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short', 
-      day: 'numeric',
-      year: 'numeric'
-    });
-    
-    const startStr = start.toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
-      minute: '2-digit'
-    });
-    
-    const endStr = end.toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
-      minute: '2-digit'
-    });
-    
-    return { date, time: `${startStr} - ${endStr}` };
+    return formatSessionTimeUtil(startTime, endTime);
   };
 
   const getStatusClass = (status) => {

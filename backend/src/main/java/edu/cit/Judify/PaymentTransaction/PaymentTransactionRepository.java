@@ -11,4 +11,5 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
     List<PaymentTransactionEntity> findByPayeeOrderByCreatedAtDesc(UserEntity payee);
     List<PaymentTransactionEntity> findByPaymentStatus(String status);
     List<PaymentTransactionEntity> findByPaymentGatewayReference(String reference);
+    List<PaymentTransactionEntity> findByPaymentIntentId(String paymentIntentId);
 } 

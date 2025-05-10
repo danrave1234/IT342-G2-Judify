@@ -97,6 +97,10 @@ public class TutoringSessionService {
         return sessionRepository.findById(id);
     }
 
+    public Optional<TutoringSessionEntity> getTutoringSessionById(Long id) {
+        return sessionRepository.findById(id);
+    }
+
     public List<TutoringSessionEntity> getTutorSessions(UserEntity tutor) {
         return sessionRepository.findByTutorOrderByStartTimeDesc(tutor);
     }
