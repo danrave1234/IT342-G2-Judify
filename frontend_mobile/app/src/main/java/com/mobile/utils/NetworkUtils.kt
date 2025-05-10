@@ -21,6 +21,7 @@ import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.util.*
 import java.text.SimpleDateFormat
+import java.time.LocalDate
 
 /**
  * Utility class for handling network operations
@@ -562,7 +563,7 @@ object NetworkUtils {
         Log.d(TAG, "Getting tutor profile for tutorId: $tutorId")
         return withContext(Dispatchers.IO) {
             try {
-                val url = URL("$BASE_URL/tutors/$tutorId")
+                val url = URL("$BASE_URL/tutors/findById/$tutorId")
                 val connection = createGetConnection(url)
                 
                 return@withContext handleResponse(connection) { response ->
@@ -1088,11 +1089,11 @@ object NetworkUtils {
     /**
      * Create a new conversation with a tutor
      * @param studentUserId The user ID of the student
-     * @param tutorId The tutor profile ID (not user ID)
+     * @param tutorUserId The user ID of the tutor (not the tutor profile ID)
      * @param sessionId Optional session ID to associate with the conversation
      * @return Result<Conversation> containing the created conversation
      */
-    suspend fun createConversationWithTutor(studentUserId: Long, tutorId: Long, sessionId: Long? = null): Result<Conversation> {
+    suspend fun createConversationWithTutor(studentUserId: Long, tutorUserId: Long, sessionId: Long? = null): Result<Conversation> {
         return withContext(Dispatchers.IO) {
             try {
                 // Validation
@@ -1101,17 +1102,17 @@ object NetworkUtils {
                     return@withContext Result.failure(IllegalArgumentException("Invalid student user ID"))
                 }
 
-                if (tutorId <= 0) {
-                    Log.e(TAG, "Failed to create conversation: Invalid tutor ID: $tutorId")
-                    return@withContext Result.failure(IllegalArgumentException("Invalid tutor ID"))
+                if (tutorUserId <= 0) {
+                    Log.e(TAG, "Failed to create conversation: Invalid tutor user ID: $tutorUserId")
+                    return@withContext Result.failure(IllegalArgumentException("Invalid tutor user ID"))
                 }
 
                 // Log the IDs
-                Log.d(TAG, "Creating conversation with studentUserId=$studentUserId, tutorId=$tutorId")
+                Log.d(TAG, "Creating conversation between studentUserId=$studentUserId and tutorUserId=$tutorUserId")
 
-                // Use the new endpoint that handles tutorId to userId conversion
+                // Use the endpoint for creating conversations between users
                 // Add sessionId as a query parameter if provided
-                val baseUrl = "conversations/createWithTutor/$studentUserId/$tutorId"
+                val baseUrl = "conversations/createWithTutor/$studentUserId/$tutorUserId"
                 val urlString = if (sessionId != null) {
                     createApiUrl("$baseUrl?sessionId=$sessionId")
                 } else {
@@ -1137,7 +1138,7 @@ object NetworkUtils {
                     val studentName = json.optString("user1Name", "")
                     val tutorName = json.optString("user2Name", "")
 
-                    Log.d(TAG, "Created conversation with tutor: id=$conversationId, studentId=$responseStudentId, tutorId=$responseTutorId")
+                    Log.d(TAG, "Created conversation: id=$conversationId, studentId=$responseStudentId, tutorId=$responseTutorId")
                     Log.d(TAG, "Names: studentName=$studentName, tutorName=$tutorName")
 
                     Conversation(
@@ -1924,6 +1925,44 @@ object NetworkUtils {
     }
 
     /**
+     * Gets the user ID associated with a tutor profile ID
+     * This is important because many API endpoints (like createTutoringSession) expect a userId 
+     * but our app often works with tutorId (profile ID) which is different 
+     * @param tutorId The tutor profile ID (not user ID)
+     * @return Result containing the userId if found
+     */
+    suspend fun getUserIdFromTutorId(tutorId: Long): Result<Long> {
+        return withContext(Dispatchers.IO) {
+            try {
+                Log.d(TAG, "Getting userId for tutorId: $tutorId")
+                
+                // Use the findTutorById method to get the full tutor profile
+                val tutorResult = findTutorById(tutorId)
+                
+                return@withContext tutorResult.fold(
+                    onSuccess = { tutorProfile ->
+                        val userId = tutorProfile?.userId
+                        if (userId != null && userId > 0) {
+                            Log.d(TAG, "Successfully found userId: $userId for tutorId: $tutorId")
+                            Result.success(userId)
+                        } else {
+                            Log.e(TAG, "No userId found for tutorId: $tutorId")
+                            Result.failure(Exception("No user ID found for tutor ID: $tutorId"))
+                        }
+                    },
+                    onFailure = { error ->
+                        Log.e(TAG, "Error getting userId for tutorId: $tutorId - ${error.message}")
+                        Result.failure(error)
+                    }
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Exception getting userId for tutorId: $tutorId - ${e.message}")
+                Result.failure(e)
+            }
+        }
+    }
+
+    /**
      * Update a tutor's location
      * @param tutorId ID of the tutor profile to update
      * @param latitude Latitude coordinate
@@ -2677,7 +2716,7 @@ object NetworkUtils {
         return withContext(Dispatchers.IO) {
             try {
                 Log.d(TAG, "Fetching sessions for tutor with ID: $tutorId")
-                val url = URL("$BASE_URL/tutoring-sessions/findByTutor/$tutorId")
+                val url = URL("$BASE_URL/tutoring-sessions/findByUser/$tutorId")
                 val connection = createGetConnection(url)
 
                 val result = handleApiResponse(connection)
@@ -2802,7 +2841,7 @@ object NetworkUtils {
     suspend fun getTutorAvailability(tutorId: Long): Result<List<TutorAvailability>> {
         return withContext(Dispatchers.IO) {
             try {
-                val url = URL("$BASE_URL/tutor-availability/findByTutor/$tutorId")
+                val url = URL("$BASE_URL/tutor-availability/findByUser/$tutorId")
                 val connection = createGetConnection(url)
 
                 handleResponse(connection) { response ->
@@ -2814,7 +2853,7 @@ object NetworkUtils {
                         availabilitySlots.add(
                             TutorAvailability(
                                 id = slotJson.optLong("availabilityId", slotJson.optLong("id")),
-                                tutorId = slotJson.optLong("tutorId"),
+                                tutorId = slotJson.optLong("userId", slotJson.optLong("tutorId", 0)), // Try userId first, then tutorId as fallback
                                 dayOfWeek = slotJson.optString("dayOfWeek"),
                                 startTime = slotJson.optString("startTime"),
                                 endTime = slotJson.optString("endTime")
@@ -2839,7 +2878,9 @@ object NetworkUtils {
     suspend fun getTutorAvailabilityByDay(tutorId: Long, dayOfWeek: String): Result<List<TutorAvailability>> {
         return withContext(Dispatchers.IO) {
             try {
-                val url = URL("$BASE_URL/tutor-availability/findByTutorAndDay/$tutorId/$dayOfWeek")
+                Log.d(TAG, "Getting availability for day of week: $dayOfWeek")
+                val url = URL("$BASE_URL/tutor-availability/findByUserAndDay/$tutorId/$dayOfWeek")
+                Log.d(TAG, "Creating GET connection to URL: $url")
                 val connection = createGetConnection(url)
 
                 return@withContext handleResponse(connection) { response ->
@@ -2851,7 +2892,7 @@ object NetworkUtils {
                         availabilitySlots.add(
                             TutorAvailability(
                                 id = slotJson.optLong("availabilityId", slotJson.optLong("id")),
-                                tutorId = slotJson.optLong("tutorId"),
+                                tutorId = slotJson.optLong("userId", slotJson.optLong("tutorId", 0)), // Try userId first, then tutorId as fallback
                                 dayOfWeek = slotJson.optString("dayOfWeek"),
                                 startTime = slotJson.optString("startTime"),
                                 endTime = slotJson.optString("endTime")
@@ -2861,7 +2902,7 @@ object NetworkUtils {
                     availabilitySlots
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error fetching tutor availability by day: ${e.message}", e)
+                Log.e(TAG, "Failed to get availability data for day $dayOfWeek, returning empty list")
                 // Return empty list instead of mock data
                 return@withContext Result.success(emptyList())
             }
@@ -2889,7 +2930,7 @@ object NetworkUtils {
 
                 // Create JSON payload
                 val jsonObject = JSONObject()
-                jsonObject.put("tutorId", tutorId)
+                jsonObject.put("userId", tutorId)  // Using userId as expected by the backend
                 jsonObject.put("dayOfWeek", dayOfWeek)
                 jsonObject.put("startTime", startTime)
                 jsonObject.put("endTime", endTime)
@@ -2898,7 +2939,7 @@ object NetworkUtils {
                     val json = parseJsonResponse(response)
                     TutorAvailability(
                         id = json.optLong("availabilityId", json.optLong("id")),
-                        tutorId = json.optLong("tutorId"),
+                        tutorId = json.optLong("userId", json.optLong("tutorId", 0)), // Map userId to tutorId when parsing response
                         dayOfWeek = json.optString("dayOfWeek"),
                         startTime = json.optString("startTime"),
                         endTime = json.optString("endTime")
@@ -2935,7 +2976,7 @@ object NetworkUtils {
                 // Create JSON payload
                 val jsonObject = JSONObject()
                 jsonObject.put("availabilityId", id)
-                jsonObject.put("tutorId", tutorId)
+                jsonObject.put("userId", tutorId)  // Using userId as expected by the backend
                 jsonObject.put("dayOfWeek", dayOfWeek)
                 jsonObject.put("startTime", startTime)
                 jsonObject.put("endTime", endTime)
@@ -2944,7 +2985,7 @@ object NetworkUtils {
                     val json = parseJsonResponse(response)
                     TutorAvailability(
                         id = json.optLong("availabilityId", json.optLong("id")),
-                        tutorId = json.optLong("tutorId"),
+                        tutorId = json.optLong("userId", json.optLong("tutorId", 0)), // Map userId to tutorId when parsing response
                         dayOfWeek = json.optString("dayOfWeek"),
                         startTime = json.optString("startTime"),
                         endTime = json.optString("endTime")
@@ -2997,17 +3038,17 @@ object NetworkUtils {
 
     /**
      * Create a new tutoring session
-     * @param tutorId ID of the tutor
-     * @param studentId ID of the student
-     * @param startTime Start time of the session (format: yyyy-MM-dd'T'HH:mm:ss)
-     * @param endTime End time of the session (format: yyyy-MM-dd'T'HH:mm:ss)
+     * @param tutorId ID of the tutor user account (userId, not profile ID)
+     * @param studentId Student ID
+     * @param startTime Start time of the session
+     * @param endTime End time of the session
      * @param subject Subject for the session
-     * @param sessionType Type of session (e.g., "Online", "In-Person")
+     * @param sessionType Type of session (e.g., "Online", "In-Person") 
      * @param notes Additional notes for the session
-     * @param latitude Latitude for in-person sessions
-     * @param longitude Longitude for in-person sessions
-     * @param locationName Location name for in-person sessions
-     * @param locationData For backward compatibility
+     * @param latitude Optional latitude for in-person sessions
+     * @param longitude Optional longitude for in-person sessions
+     * @param locationName Optional location name for in-person sessions
+     * @param locationData Legacy location data string
      * @return Result containing the created TutoringSession
      */
     suspend fun createTutoringSession(
@@ -3030,7 +3071,7 @@ object NetworkUtils {
 
                 // Create the request body
                 val jsonObject = JSONObject().apply {
-                    put("tutorId", tutorId)
+                    put("userId", tutorId)  // This is the userId of the tutor, not the profile ID
                     put("studentId", studentId) // Using consistent studentId terminology
                     put("startTime", startTime)
                     put("endTime", endTime)
@@ -3563,7 +3604,7 @@ object NetworkUtils {
         return withContext(Dispatchers.IO) {
             try {
                 Log.d(TAG, "Fetching sessions for student with ID: $studentId")
-                val url = URL("$BASE_URL/tutoring-sessions/findByStudent/$studentId")
+                val url = URL("$BASE_URL/tutoring-sessions/findByUser/$studentId")
                 val connection = createGetConnection(url)
 
                 var result = handleApiResponse(connection)
@@ -3578,7 +3619,7 @@ object NetworkUtils {
                     // If second endpoint fails, try another alternative
                     if (result.isFailure) {
                         Log.d(TAG, "Second endpoint failed, trying third alternative endpoint")
-                        val alternativeUrl2 = URL("$BASE_URL/tutoring-sessions/student/$studentId")
+                        val alternativeUrl2 = URL("$BASE_URL/tutoring-sessions/findByStudent/$studentId")
                         val alternativeConnection2 = createGetConnection(alternativeUrl2)
                         result = handleApiResponse(alternativeConnection2)
 
@@ -3682,7 +3723,7 @@ object NetworkUtils {
         return withContext(Dispatchers.IO) {
             try {
                 Log.d(TAG, "Fetching sessions for student with ID: $studentId")
-                val url = URL("$BASE_URL/tutoring-sessions/findByStudent/$studentId")
+                val url = URL("$BASE_URL/tutoring-sessions/findByUser/$studentId")
                 val connection = createGetConnection(url)
 
                 var result = handleApiResponse(connection)
@@ -3697,7 +3738,7 @@ object NetworkUtils {
                     // If second endpoint fails, try another alternative
                     if (result.isFailure) {
                         Log.d(TAG, "Second endpoint failed, trying third alternative endpoint")
-                        val alternativeUrl2 = URL("$BASE_URL/tutoring-sessions/student/$studentId")
+                        val alternativeUrl2 = URL("$BASE_URL/tutoring-sessions/findByStudent/$studentId")
                         val alternativeConnection2 = createGetConnection(alternativeUrl2)
                         result = handleApiResponse(alternativeConnection2)
 

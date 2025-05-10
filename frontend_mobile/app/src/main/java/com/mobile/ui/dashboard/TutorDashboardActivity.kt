@@ -1212,9 +1212,26 @@ class TutorDashboardActivity : AppCompatActivity() {
                             // Create new conversation using tutorId and studentId
                             Log.d(TAG, "Creating new conversation with tutorId=$tutorId, studentId=$studentId, sessionId=${session.id}")
 
-                            // Use createConversationWithTutor which handles the conversion properly
+                            // First, get the userId associated with the tutorId
+                            val tutorUserIdResult = NetworkUtils.getUserIdFromTutorId(tutorId)
+                            if (tutorUserIdResult.isFailure) {
+                                Log.e(TAG, "Failed to get userId from tutorId: ${tutorUserIdResult.exceptionOrNull()?.message}")
+                                UiUtils.showErrorSnackbar(findViewById(android.R.id.content), "Could not get tutor's user ID")
+                                return@launch
+                            }
+                            
+                            val tutorUserId = tutorUserIdResult.getOrNull()
+                            if (tutorUserId == null) {
+                                Log.e(TAG, "Failed to get userId from tutorId: No user ID returned")
+                                UiUtils.showErrorSnackbar(findViewById(android.R.id.content), "Could not find tutor's user account")
+                                return@launch
+                            }
+                            
+                            Log.d(TAG, "Converting tutorId=$tutorId to userId=$tutorUserId")
+
+                            // Use createConversationWithTutor with the converted userId
                             // Pass the session ID to associate the conversation with the session
-                            val createResult = NetworkUtils.createConversationWithTutor(studentId, tutorId, session.id)
+                            val createResult = NetworkUtils.createConversationWithTutor(studentId, tutorUserId, session.id)
 
                             if (createResult.isSuccess) {
                                 val newConversation = createResult.getOrNull()

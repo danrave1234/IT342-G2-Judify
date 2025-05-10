@@ -254,29 +254,29 @@ public class TutoringSessionService {
     }
 
     /**
-     * Find sessions that overlap with the given time range for a specific tutor and have the specified status.
+     * Find sessions that overlap with the given time range for a specific user and have the specified status.
      * 
-     * @param tutorId The ID of the tutor
+     * @param userId The ID of the user
      * @param startTime The start time of the range
      * @param endTime The end time of the range
      * @param status The status of the sessions to find
      * @return A list of overlapping sessions
      */
-    public List<TutoringSessionEntity> findOverlappingSessionsByTutorAndStatus(Long tutorId, Date startTime, Date endTime, String status) {
-        return sessionRepository.findOverlappingSessionsByTutorAndStatus(tutorId, startTime, endTime, status);
+    public List<TutoringSessionEntity> findOverlappingSessionsByUserAndStatus(Long userId, Date startTime, Date endTime, String status) {
+        return sessionRepository.findOverlappingSessionsByUserAndStatus(userId, startTime, endTime, status);
     }
 
     /**
-     * Check if there are any approved sessions that overlap with the given time range for a specific tutor.
+     * Check if there are any approved sessions that overlap with the given time range for a specific user.
      * 
-     * @param tutorId The ID of the tutor
+     * @param userId The ID of the user
      * @param startTime The start time of the range
      * @param endTime The end time of the range
      * @return true if there are overlapping approved sessions, false otherwise
      */
-    public boolean hasOverlappingApprovedSessions(Long tutorId, Date startTime, Date endTime) {
-        List<TutoringSessionEntity> overlappingSessions = findOverlappingSessionsByTutorAndStatus(
-            tutorId, startTime, endTime, "APPROVED");
+    public boolean hasOverlappingApprovedSessions(Long userId, Date startTime, Date endTime) {
+        List<TutoringSessionEntity> overlappingSessions = findOverlappingSessionsByUserAndStatus(
+            userId, startTime, endTime, "APPROVED");
         return !overlappingSessions.isEmpty();
     }
 

@@ -1,7 +1,8 @@
 package edu.cit.Judify.Review.DTO;
 
-import edu.cit.Judify.Review.ReviewEntity;
 import org.springframework.stereotype.Component;
+
+import edu.cit.Judify.Review.ReviewEntity;
 
 @Component
 public class ReviewDTOMapper {
@@ -13,7 +14,7 @@ public class ReviewDTOMapper {
 
         ReviewDTO dto = new ReviewDTO();
         dto.setReviewId(entity.getReviewId());
-        dto.setTutorId(entity.getTutor().getUserId());
+        dto.setUserId(entity.getTutor().getUserId());
         dto.setStudentId(entity.getStudent().getUserId());
         dto.setRating(entity.getRating());
         dto.setComment(entity.getComment());

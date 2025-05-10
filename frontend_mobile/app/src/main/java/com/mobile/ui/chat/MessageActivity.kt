@@ -1,5 +1,6 @@
 package com.mobile.ui.chat
 
+import android.content.ContentValues.TAG
 import android.os.Bundle
 import android.util.Log
 import android.view.Gravity
@@ -11,6 +12,7 @@ import android.widget.TextView
 import android.widget.Toast
 import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.mobile.R
@@ -589,11 +591,53 @@ class MessageActivity : AppCompatActivity() {
                 sessionLocationLayout.visibility = View.GONE
             }
 
-            // Set price from session data or use a default if not available
-            sessionPriceText.text = if (session.price != null) {
-                "$${String.format("%.2f", session.price)}"
+            // Set price from session data or fetch tutor rate for calculation
+            if (session.price != null) {
+                sessionPriceText.text = "$${String.format("%.2f", session.price)}"
             } else {
-                "$35.00" // Fallback to default price if not provided
+                // Calculate session duration in hours
+                val startTime = try {
+                    SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).parse(session.startTime)
+                } catch (e: Exception) {
+                    SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).parse(session.startTime)
+                }
+                
+                val endTime = try {
+                    SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).parse(session.endTime)
+                } catch (e: Exception) {
+                    SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).parse(session.endTime)
+                }
+                
+                // Calculate duration in hours (default to 1 if calculation fails)
+                val durationHours = if (startTime != null && endTime != null) {
+                    val durationMillis = endTime.time - startTime.time
+                    durationMillis / (1000.0 * 60 * 60)
+                } else {
+                    1.0
+                }
+                
+                // Fetch tutor's hourly rate in background
+                lifecycleScope.launch {
+                    try {
+                        val tutorResult = NetworkUtils.findTutorById(session.tutorId)
+                        if (tutorResult.isSuccess) {
+                            val tutor = tutorResult.getOrNull()
+                            if (tutor != null) {
+                                val hourlyRate = tutor.hourlyRate
+                                // Calculate and display the price
+                                val calculatedPrice = hourlyRate * durationHours
+                                sessionPriceText.text = "$${String.format("%.2f", calculatedPrice)}"
+                            } else {
+                                sessionPriceText.text = "Price not available"
+                            }
+                        } else {
+                            sessionPriceText.text = "Price not available"
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error fetching tutor rate: ${e.message}", e)
+                        sessionPriceText.text = "Price not available"
+                    }
+                }
             }
 
             // Set status

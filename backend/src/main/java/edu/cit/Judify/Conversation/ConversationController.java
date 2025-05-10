@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import edu.cit.Judify.Conversation.DTO.ConversationDTO;
 import edu.cit.Judify.Conversation.DTO.ConversationDTOMapper;
+import edu.cit.Judify.Message.MessageService;
 import edu.cit.Judify.TutorProfile.TutorProfileService;
 import edu.cit.Judify.User.UserEntity;
 import edu.cit.Judify.User.UserService;
@@ -42,18 +43,21 @@ public class ConversationController {
     private final UserService userService;
     private final TutorProfileService tutorProfileService;
     private final edu.cit.Judify.TutoringSession.TutoringSessionService tutoringSessionService;
+    private final MessageService messageService;
 
     @Autowired
     public ConversationController(ConversationService conversationService, 
                                  ConversationDTOMapper conversationDTOMapper, 
                                  UserService userService, 
                                  TutorProfileService tutorProfileService,
-                                 edu.cit.Judify.TutoringSession.TutoringSessionService tutoringSessionService) {
+                                 edu.cit.Judify.TutoringSession.TutoringSessionService tutoringSessionService,
+                                 MessageService messageService) {
         this.conversationService = conversationService;
         this.conversationDTOMapper = conversationDTOMapper;
         this.userService = userService;
         this.tutorProfileService = tutorProfileService;
         this.tutoringSessionService = tutoringSessionService;
+        this.messageService = messageService;
     }
 
     @Operation(summary = "Create a new conversation or find existing", description = "Creates a new conversation between two users or returns an existing one")
@@ -151,7 +155,7 @@ public class ConversationController {
         return ResponseEntity.ok().build();
     }
 
-    @Operation(summary = "Create conversation with tutor", description = "Creates a conversation between a student and tutor using student's userId and tutor's tutorId")
+    @Operation(summary = "Create conversation with tutor", description = "Creates a conversation between a student and tutor using student's userId and tutor's userId")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Conversation successfully created or found"),
         @ApiResponse(responseCode = "400", description = "Invalid input or users not found")
@@ -159,30 +163,27 @@ public class ConversationController {
     @PostMapping("/createWithTutor/{studentUserId}/{tutorId}")
     public ResponseEntity<ConversationDTO> createConversationWithTutor(
             @Parameter(description = "Student user ID") @PathVariable Long studentUserId,
-            @Parameter(description = "Tutor profile ID") @PathVariable Long tutorId,
+            @Parameter(description = "User ID") @PathVariable Long tutorId,
             @Parameter(description = "Session ID (optional)") @RequestParam(required = false) Long sessionId) {
         try {
             // Get student user
             UserEntity studentUser = userService.getUserById(studentUserId)
                     .orElseThrow(() -> new RuntimeException("Student user not found with ID: " + studentUserId));
 
-            // Get tutor's userId from tutorId
-            Long tutorUserId = tutorProfileService.getUserIdFromTutorId(tutorId);
-
             // Debug logging to verify IDs
             System.out.println("DEBUG: Creating conversation between student userId: " + studentUserId +
-                              " and tutor userId: " + tutorUserId + " (from tutorId: " + tutorId + ")");
+                              " and tutor userId: " + tutorId);
 
             // Safety check - ensure the userIds are different
-            if (studentUserId.equals(tutorUserId)) {
+            if (studentUserId.equals(tutorId)) {
                 System.out.println("ERROR: Cannot create conversation between the same user! " +
-                                 "studentUserId: " + studentUserId + ", tutorUserId: " + tutorUserId);
+                                 "studentUserId: " + studentUserId + ", tutorUserId: " + tutorId);
                 return ResponseEntity.badRequest().body(null);
             }
 
             // Get tutor user
-            UserEntity tutorUser = userService.getUserById(tutorUserId)
-                    .orElseThrow(() -> new RuntimeException("Tutor user not found with ID: " + tutorUserId));
+            UserEntity tutorUser = userService.getUserById(tutorId)
+                    .orElseThrow(() -> new RuntimeException("Tutor user not found with ID: " + tutorId));
 
             // Find or create the conversation
             ConversationEntity conversation = conversationService.findOrCreateStudentTutorConversation(studentUser, tutorUser);
@@ -254,6 +255,52 @@ public class ConversationController {
         } catch (Exception e) {
             System.out.println("Error updating conversation names: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+        }
+    }
+
+    @Operation(summary = "Create a conversation with a user", 
+        description = "Creates a new conversation between a student and a user using student's userId and user's userId")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Conversation successfully created",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ConversationDTO.class))),
+        @ApiResponse(responseCode = "400", description = "Invalid input")
+    })
+    @PostMapping("/createWithUser/{studentUserId}/{userId}")
+    public ResponseEntity<ConversationDTO> createConversationWithUser(
+            @Parameter(description = "Student user ID") @PathVariable Long studentUserId,
+            @Parameter(description = "User ID") @PathVariable Long userId,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Optional initial message", required = false)
+            @RequestBody(required = false) String initialMessage) {
+        try {
+            // Log the operation
+            System.out.println("Creating conversation between student userId: " + studentUserId + 
+                            " and user userId: " + userId);
+            
+            // Get user entities
+            UserEntity student = userService.getUserById(studentUserId)
+                .orElseThrow(() -> new RuntimeException("Student not found with ID: " + studentUserId));
+            
+            UserEntity tutor = userService.getUserById(userId)
+                .orElseThrow(() -> new RuntimeException("Tutor user not found with ID: " + userId));
+            
+            // Create the conversation
+            ConversationEntity conversation = conversationService.findOrCreateConversationByUserIds(
+                studentUserId, userId, student, tutor);
+            
+            // If an initial message was provided, add it
+            if (initialMessage != null && !initialMessage.isEmpty()) {
+                edu.cit.Judify.Message.DTO.MessageDTO messageDTO = new edu.cit.Judify.Message.DTO.MessageDTO();
+                messageDTO.setConversationId(conversation.getConversationId());
+                messageDTO.setSenderId(student.getUserId());
+                messageDTO.setReceiverId(tutor.getUserId());
+                messageDTO.setContent(initialMessage);
+                messageService.sendMessage(messageDTO);
+            }
+            
+            return ResponseEntity.ok(conversationDTOMapper.toDTO(conversation));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.badRequest().body(null);
         }
     }
 } 

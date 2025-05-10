@@ -47,7 +47,20 @@ export const tutoringSessionApi = {
   },
   createSession: (sessionData) => {
     console.log('API: Creating session with data:', sessionData);
-    return api.post('/tutoring-sessions/createSession', sessionData);
+    
+    // Keep tutorId in the client code but map it to userId for the backend
+    const updatedSessionData = {
+      ...sessionData,
+      userId: sessionData.tutorId, // Map tutorId to userId for backend compatibility
+    };
+    
+    // Delete the tutorId field to avoid confusion
+    if (updatedSessionData.tutorId) {
+      delete updatedSessionData.tutorId;
+    }
+    
+    console.log('API: Modified session data:', updatedSessionData);
+    return api.post('/tutoring-sessions/createSession', updatedSessionData);
   },
   updateSession: (sessionId, sessionData) => api.put(`/tutoring-sessions/${sessionId}`, sessionData),
   updateSessionStatus: (sessionId, status) => 
@@ -56,22 +69,27 @@ export const tutoringSessionApi = {
     // tutorId should be the profile ID, not the user ID
     console.log(`Fetching tutoring sessions for tutor profile ID: ${tutorId}`);
     
-    // Try the endpoint with "tutor" path
-    return api.get(`/tutoring-sessions/findByTutor/${tutorId}`, { params })
+    // Try the endpoint with "user" path
+    return api.get(`/tutoring-sessions/findByUser/${tutorId}`, { params })
       .catch(error => {
-        console.log('Error with tutor endpoint, trying alternative format');
+        console.log('Error with user endpoint, trying alternative format');
         // Try alternative endpoint format if first one fails
         return api.get(`/tutoring-sessions`, { params: { tutorId, ...params } });
       });
   },
   getStudentSessions: (studentId, params) => {
     console.log(`Fetching tutoring sessions for student ID: ${studentId}`);
-    // Try the endpoint with "student" path
-    return api.get(`/tutoring-sessions/student/${studentId}`, { params })
+    // Try the endpoint with "user" path
+    return api.get(`/tutoring-sessions/findByUser/${studentId}`, { params })
       .catch(error => {
-        console.log('Error with student endpoint, trying alternative format');
+        console.log('Error with user endpoint, trying alternative format');
         // Try alternative endpoint format if first one fails
-        return api.get(`/tutoring-sessions`, { params: { studentId, ...params } });
+        return api.get(`/tutoring-sessions/student/${studentId}`, { params })
+          .catch(error2 => {
+            console.log('Error with student endpoint, trying findByStudent endpoint');
+            // Try the findByStudent endpoint as a last resort
+            return api.get(`/tutoring-sessions/findByStudent/${studentId}`, { params });
+          });
       });
   },
 }; 

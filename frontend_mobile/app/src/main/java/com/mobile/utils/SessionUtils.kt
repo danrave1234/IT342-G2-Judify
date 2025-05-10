@@ -194,7 +194,7 @@ object SessionUtils {
     /**
      * Create a new tutoring session
      * @param studentId Student ID
-     * @param tutorId Tutor ID
+     * @param tutorId Tutor profile ID (not user ID)
      * @param startTime Start time of the session (format: yyyy-MM-dd'T'HH:mm:ss)
      * @param endTime End time of the session (format: yyyy-MM-dd'T'HH:mm:ss)
      * @param subject Subject for the session
@@ -228,54 +228,102 @@ object SessionUtils {
                 if (studentIdLong == -1L) {
                     throw IllegalArgumentException("Invalid student ID: $studentId")
                 }
+                
+                // First, get the userId associated with the tutorId
+                val tutorUserIdResult = NetworkUtils.getUserIdFromTutorId(tutorId)
+                
+                // Create a mutable copy of notes that we can modify
+                var finalNotes = notes
+                
+                // Variable to store the ID we'll actually use for session creation
+                var finalTutorId = tutorId
+                
+                if (tutorUserIdResult.isFailure) {
+                    Log.e(TAG, "Failed to get userId from tutorId: ${tutorUserIdResult.exceptionOrNull()?.message}")
+                    // We'll try to make another direct call to get the tutor data
+                    val tutorResult = NetworkUtils.findTutorById(tutorId)
+                    
+                    if (tutorResult.isSuccess) {
+                        val tutor = tutorResult.getOrNull()
+                        if (tutor != null && tutor.userId != null) {
+                            finalTutorId = tutor.userId
+                            Log.d(TAG, "Successfully got userId ${finalTutorId} from direct tutor profile call")
+                        } else {
+                            Log.e(TAG, "No userId found in tutor profile data")
+                            // Add to notes that we couldn't convert the ID
+                            finalNotes = if (notes.isNotEmpty()) {
+                                "$notes\n\nTutor Profile ID: $tutorId (could not be converted to userId)"
+                            } else {
+                                "Tutor Profile ID: $tutorId (could not be converted to userId)"
+                            }
+                        }
+                    } else {
+                        Log.d(TAG, "Proceeding with original tutorId: $tutorId")
+                        // Add to notes that we couldn't convert the ID
+                        finalNotes = if (notes.isNotEmpty()) {
+                            "$notes\n\nTutor Profile ID: $tutorId (could not be converted to userId)"
+                        } else {
+                            "Tutor Profile ID: $tutorId (could not be converted to userId)"
+                        }
+                    }
+                } else {
+                    val tutorUserId = tutorUserIdResult.getOrNull()
+                    if (tutorUserId != null) {
+                        Log.d(TAG, "Successfully converted tutorId=$tutorId to userId=$tutorUserId")
+                        // Use the userId instead of the profile ID
+                        finalTutorId = tutorUserId
+                        // Add some metadata to the notes to indicate the original tutorId for reference
+                        finalNotes = if (notes.isNotEmpty()) {
+                            "$notes\n\nTutor Profile ID: $tutorId"
+                        } else {
+                            "Tutor Profile ID: $tutorId"
+                        }
+                    }
+                }
 
                 // Parse location string if provided but no specific coordinates
                 var parsedLatitude = latitude
                 var parsedLongitude = longitude
                 var parsedLocationName = locationName
 
-                // If we have a legacy location string but no specific coordinates, try to parse it
-                if (location.isNotEmpty() && sessionType == "In-Person" && latitude == null && longitude == null) {
-                    // Try to parse the location string (expected format: "Lat: X.X, Long: Y.Y, Name: Z")
+                if (location.isNotEmpty() && sessionType == "In-Person" && 
+                    (parsedLatitude == null || parsedLongitude == null || parsedLocationName.isNullOrEmpty())) {
+                    // Try to extract location details from legacy format
                     try {
-                        val parts = location.split(",")
-                        if (parts.size >= 2) {
-                            // Extract latitude
-                            val latPart = parts[0].trim()
-                            if (latPart.startsWith("Lat:")) {
-                                parsedLatitude = latPart.substring(4).trim().toDoubleOrNull()
-                            }
+                        // Example format: "Lat: 12.345, Long: 67.890, Name: Location Name"
+                        val latPattern = "Lat:\\s*([0-9.-]+)".toRegex()
+                        val longPattern = "Long:\\s*([0-9.-]+)".toRegex()
+                        val namePattern = "Name:\\s*(.+)$".toRegex()
 
-                            // Extract longitude
-                            val longPart = parts[1].trim()
-                            if (longPart.startsWith("Long:")) {
-                                parsedLongitude = longPart.substring(5).trim().toDoubleOrNull()
-                            }
+                        val latMatch = latPattern.find(location)
+                        val longMatch = longPattern.find(location)
+                        val nameMatch = namePattern.find(location)
 
-                            // Extract name if available
-                            if (parts.size >= 3) {
-                                val namePart = parts[2].trim()
-                                if (namePart.startsWith("Name:")) {
-                                    parsedLocationName = namePart.substring(5).trim()
-                                }
-                            }
+                        if (latMatch != null && parsedLatitude == null) {
+                            parsedLatitude = latMatch.groupValues[1].toDoubleOrNull()
+                        }
+
+                        if (longMatch != null && parsedLongitude == null) {
+                            parsedLongitude = longMatch.groupValues[1].toDoubleOrNull()
+                        }
+
+                        if (nameMatch != null && parsedLocationName.isNullOrEmpty()) {
+                            parsedLocationName = nameMatch.groupValues[1].trim()
                         }
                     } catch (e: Exception) {
-                        Log.e(TAG, "Error parsing location string: ${e.message}", e)
-                        // If parsing fails, just use the original string as locationName
-                        parsedLocationName = location
+                        Log.e(TAG, "Error parsing location string: $location", e)
                     }
                 }
 
-                // Use NetworkUtils API instead of creating our own connection
+                // Use NetworkUtils API for creating the tutoring session
                 return@withContext NetworkUtils.createTutoringSession(
-                    tutorId = tutorId,
+                    tutorId = finalTutorId, // Use the user ID if conversion was successful
                     studentId = studentIdLong,
                     startTime = startTime,
                     endTime = endTime,
                     subject = subject,
                     sessionType = sessionType,
-                    notes = notes,
+                    notes = finalNotes,
                     latitude = parsedLatitude,
                     longitude = parsedLongitude,
                     locationName = parsedLocationName,

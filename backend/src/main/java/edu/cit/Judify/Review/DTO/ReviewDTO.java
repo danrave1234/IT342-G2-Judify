@@ -4,7 +4,7 @@ import java.util.Date;
 
 public class ReviewDTO {
     private Long reviewId;
-    private Long tutorId;
+    private Long userId;
     private Long studentId;
     private Integer rating;
     private String comment;
@@ -23,12 +23,12 @@ public class ReviewDTO {
         this.reviewId = reviewId;
     }
 
-    public Long getTutorId() {
-        return tutorId;
+    public Long getUserId() {
+        return userId;
     }
 
-    public void setTutorId(Long tutorId) {
-        this.tutorId = tutorId;
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
 
     public Long getStudentId() {

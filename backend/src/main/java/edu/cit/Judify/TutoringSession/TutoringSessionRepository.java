@@ -38,10 +38,10 @@ public interface TutoringSessionRepository extends JpaRepository<TutoringSession
      * A session overlaps if:
      * - It starts before the end time and ends after the start time
      */
-    @Query("SELECT s FROM TutoringSessionEntity s WHERE s.tutor.userId = :tutorId AND s.status = :status " +
+    @Query("SELECT s FROM TutoringSessionEntity s WHERE s.tutor.userId = :userId AND s.status = :status " +
            "AND s.startTime < :endTime AND s.endTime > :startTime")
-    List<TutoringSessionEntity> findOverlappingSessionsByTutorAndStatus(
-            @Param("tutorId") Long tutorId,
+    List<TutoringSessionEntity> findOverlappingSessionsByUserAndStatus(
+            @Param("userId") Long userId,
             @Param("startTime") Date startTime,
             @Param("endTime") Date endTime,
             @Param("status") String status);

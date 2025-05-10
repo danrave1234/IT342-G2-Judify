@@ -42,14 +42,13 @@ class BookingActivity : AppCompatActivity() {
     private lateinit var tutorNameText: TextView
     private lateinit var tutorExpertiseText: TextView
     private lateinit var tutorRatingText: RatingBar
-    private lateinit var tutorPriceText: TextView
+    private lateinit var tutorRateText: TextView
+    private lateinit var notesEditText: TextInputEditText
     private lateinit var dateEditText: TextInputEditText
     private lateinit var timeEditText: TextInputEditText
     private lateinit var durationDropdown: AutoCompleteTextView
     private lateinit var subjectDropdown: AutoCompleteTextView
     private lateinit var sessionTypeDropdown: AutoCompleteTextView
-    private lateinit var notesEditText: TextInputEditText
-    private lateinit var tutorRateText: TextView
     private lateinit var summaryDurationText: TextView
     private lateinit var totalPriceText: TextView
     private lateinit var bookButton: Button
@@ -157,6 +156,7 @@ class BookingActivity : AppCompatActivity() {
         tutorNameText = findViewById(R.id.mentorNameTextView)
         tutorExpertiseText = findViewById(R.id.mentorSpecialtyTextView)
         tutorRatingText = findViewById(R.id.mentorRatingBar)
+        tutorRateText = findViewById(R.id.tutorRateText)
         notesEditText = findViewById(R.id.notesEditText)
         bookButton = findViewById(R.id.bookButton)
         messageButton = findViewById(R.id.messageButton)
@@ -207,6 +207,24 @@ class BookingActivity : AppCompatActivity() {
                 // Extract the numeric part (e.g., "1.5" from "1.5 hours")
                 selectedDuration = durationStr.split(" ")[0].toDouble()
                 updateSessionSummary()
+                
+                // Refresh time slots when duration changes
+                val selectedDateText = findViewById<TextView>(R.id.selectedDateTextView).text.toString()
+                if (selectedDateText != "Select a date") {
+                    try {
+                        val date = dateFormatter.parse(selectedDateText)
+                        if (date != null) {
+                            calendar.time = date
+                            val dayOfWeek = calendar.getDisplayName(Calendar.DAY_OF_WEEK, Calendar.LONG, Locale.getDefault())?.uppercase() ?: ""
+                            val formattedDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(date)
+                            
+                            // Reload time slots with the new duration
+                            viewModel.loadTutorAvailability(dayOfWeek, formattedDate, selectedDuration)
+                        }
+                    } catch (e: Exception) {
+                        Log.e("BookingActivity", "Error parsing date: ${e.message}")
+                    }
+                }
             }
 
             override fun onNothingSelected(parent: AdapterView<*>?) {
@@ -316,15 +334,20 @@ class BookingActivity : AppCompatActivity() {
                 tutorExpertiseText.text = profile.subjects.joinToString(", ")
                 tutorRatingText.rating = profile.rating
 
-                // Set hourly rate in all places
-                tutorRateText.text = String.format("$%.2f/hr", profile.hourlyRate)
-                findViewById<TextView>(R.id.blueRateText)?.text = String.format("$%.2f/hr", profile.hourlyRate)
-                findViewById<TextView>(R.id.cardBlueRateText)?.text = String.format("$%.2f/hr", profile.hourlyRate)
-                findViewById<TextView>(R.id.summaryCardBlueRateText1)?.text = String.format("$%.2f/hr", profile.hourlyRate)
-                findViewById<TextView>(R.id.summaryCardBlueRateText3)?.text = String.format("$%.2f/hr", profile.hourlyRate)
-
-                // Update the session summary with new rate
-                updateSessionSummary()
+                // Set hourly rate with error handling
+                try {
+                    // Format the rate string once
+                    val rateString = String.format("$%.2f/hr", profile.hourlyRate)
+                    
+                    // Apply to the main rate text view and light blue summary element only
+                    tutorRateText?.let { it.text = rateString }
+                    findViewById<TextView>(R.id.summaryCardBlueRateText3)?.text = rateString
+                    
+                    // Update the session summary with new rate
+                    updateSessionSummary()
+                } catch (e: Exception) {
+                    Log.e("BookingActivity", "Error setting tutor rate text: ${e.message}", e)
+                }
             }
 
             // Handle loading state - IMPORTANT FIX: Only show progressBar when actively loading
@@ -529,8 +552,8 @@ class BookingActivity : AppCompatActivity() {
                 val apiDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
                 val specificDate = apiDateFormat.format(calendar.time)
 
-                // Pass both the day of week and the specific date to the ViewModel
-                viewModel.loadTutorAvailability(dayOfWeek, specificDate)
+                // Pass both the day of week, specific date, and selected duration to the ViewModel
+                viewModel.loadTutorAvailability(dayOfWeek, specificDate, selectedDuration)
             },
             calendar.get(Calendar.YEAR),
             calendar.get(Calendar.MONTH),
@@ -714,22 +737,7 @@ class BookingActivity : AppCompatActivity() {
             // Find primary text views if not already initialized
             val tutorRateTextView = findViewById<TextView>(R.id.tutorRateText)
             
-            // Find blue card section text views
-            val blueRateTextView = findViewById<TextView>(R.id.blueRateText)
-            val blueDurationTextView = findViewById<TextView>(R.id.blueDurationText)
-            val blueTotalTextView = findViewById<TextView>(R.id.blueTotalText)
-            
-            // Find card blue section text views (renamed to avoid duplicates)
-            val cardBlueRateTextView = findViewById<TextView>(R.id.cardBlueRateText)
-            val cardBlueDurationTextView = findViewById<TextView>(R.id.cardBlueDurationText)
-            val cardBlueTotalTextView = findViewById<TextView>(R.id.cardBlueTotalText)
-            
-            // Find summary card blue section text views with suffix 1
-            val summaryCardBlueRateTextView1 = findViewById<TextView>(R.id.summaryCardBlueRateText1)
-            val summaryCardBlueDurationTextView1 = findViewById<TextView>(R.id.summaryCardBlueDurationText1)
-            val summaryCardBlueTotalTextView1 = findViewById<TextView>(R.id.summaryCardBlueTotalText1)
-            
-            // Find summary card blue section text views with suffix 3
+            // Find summary card blue section text views with suffix 3 (light blue summary)
             val summaryCardBlueRateTextView3 = findViewById<TextView>(R.id.summaryCardBlueRateText3)
             val summaryCardBlueDurationTextView3 = findViewById<TextView>(R.id.summaryCardBlueDurationText3)
             val summaryCardBlueTotalTextView3 = findViewById<TextView>(R.id.summaryCardBlueTotalText3)
@@ -751,22 +759,7 @@ class BookingActivity : AppCompatActivity() {
             // Update tutor rate text view
             tutorRateTextView?.text = String.format("$%.2f/hr", hourlyRate)
             
-            // Update the blue card section
-            blueRateTextView?.text = String.format("$%.2f/hr", hourlyRate)
-            blueDurationTextView?.text = durationText
-            blueTotalTextView?.text = String.format("$%.2f", totalPrice)
-            
-            // Update the blue card section in bottom card
-            cardBlueRateTextView?.text = String.format("$%.2f/hr", hourlyRate)
-            cardBlueDurationTextView?.text = durationText
-            cardBlueTotalTextView?.text = String.format("$%.2f", totalPrice)
-            
-            // Update the summary card blue section 1
-            summaryCardBlueRateTextView1?.text = String.format("$%.2f/hr", hourlyRate)
-            summaryCardBlueDurationTextView1?.text = durationText
-            summaryCardBlueTotalTextView1?.text = String.format("$%.2f", totalPrice)
-            
-            // Update the summary card blue section 3
+            // Update the light blue summary section only
             summaryCardBlueRateTextView3?.text = String.format("$%.2f/hr", hourlyRate)
             summaryCardBlueDurationTextView3?.text = durationText
             summaryCardBlueTotalTextView3?.text = String.format("$%.2f", totalPrice)
@@ -795,8 +788,32 @@ class BookingActivity : AppCompatActivity() {
                     return@launch
                 }
 
-                // Create conversation with tutor using the new API method
-                val result = NetworkUtils.createConversationWithTutor(currentUserId, tutorId)
+                // Get the userId from tutorId first
+                val userIdResult = NetworkUtils.getUserIdFromTutorId(tutorId)
+                
+                if (userIdResult.isFailure) {
+                    Log.e("BookingActivity", "Failed to get userId from tutorId: ${userIdResult.exceptionOrNull()?.message}")
+                    showLoading(false)
+                    UiUtils.showErrorSnackbar(
+                        rootView,
+                        "Could not get tutor's user ID: ${userIdResult.exceptionOrNull()?.message}"
+                    )
+                    return@launch
+                }
+                
+                val tutorUserId = userIdResult.getOrNull()
+                if (tutorUserId == null) {
+                    Log.e("BookingActivity", "Failed to get userId from tutorId: No user ID returned")
+                    showLoading(false)
+                    UiUtils.showErrorSnackbar(rootView, "Could not find tutor's user account")
+                    return@launch
+                }
+                
+                // Log the conversion for debugging
+                Log.d("BookingActivity", "Converting tutorId=$tutorId to userId=$tutorUserId")
+
+                // Create conversation with tutor's userId instead of tutorId
+                val result = NetworkUtils.createConversationWithTutor(currentUserId, tutorUserId)
 
                 // Hide progress indicator
                 showLoading(false)

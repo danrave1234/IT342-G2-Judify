@@ -5,9 +5,9 @@ import org.springframework.stereotype.Component;
 
 import edu.cit.Judify.Conversation.ConversationEntity;
 import edu.cit.Judify.Conversation.ConversationRepository;
-import edu.cit.Judify.TutoringSession.TutoringSessionEntity;
 import edu.cit.Judify.TutorProfile.TutorProfileRepository;
 import edu.cit.Judify.TutorProfile.TutorProfileService;
+import edu.cit.Judify.TutoringSession.TutoringSessionEntity;
 import edu.cit.Judify.User.UserEntity;
 import edu.cit.Judify.User.UserRepository;
 
@@ -33,7 +33,7 @@ public class TutoringSessionDTOMapper {
 
         TutoringSessionDTO dto = new TutoringSessionDTO();
         dto.setSessionId(entity.getSessionId());
-        dto.setTutorId(entity.getTutor() != null ? entity.getTutor().getUserId() : null);
+        dto.setUserId(entity.getTutor() != null ? entity.getTutor().getUserId() : null);
         dto.setStudentId(entity.getStudent() != null ? entity.getStudent().getUserId() : null);
         dto.setStartTime(entity.getStartTime());
         dto.setEndTime(entity.getEndTime());
@@ -117,34 +117,17 @@ public class TutoringSessionDTOMapper {
         TutoringSessionEntity entity = new TutoringSessionEntity();
         entity.setSessionId(dto.getSessionId());
 
-        // Set Tutor and Student entities from IDs
-        if (dto.getTutorId() != null) {
+        if (dto.getUserId() != null) {
             try {
-                // First try to find the user directly (assuming tutorId is a userId)
-                UserEntity tutor = userRepository.findById(dto.getTutorId()).orElse(null);
-
-                // If not found, it might be a tutorProfileId instead of a userId
-                if (tutor == null) {
-                    System.out.println("User not found with ID: " + dto.getTutorId() + ". Trying to convert from tutorProfileId to userId...");
-
-                    try {
-                        // Try to get the userId from the tutorId
-                        Long tutorUserId = tutorProfileService.getUserIdFromTutorId(dto.getTutorId());
-                        System.out.println("Converted tutorProfileId " + dto.getTutorId() + " to userId " + tutorUserId);
-
-                        // Now try to find the user with the converted ID
-                        tutor = userRepository.findById(tutorUserId)
-                            .orElseThrow(() -> new IllegalArgumentException("Tutor user not found with converted ID: " + tutorUserId));
-                    } catch (Exception e) {
-                        System.out.println("Error converting tutorProfileId to userId: " + e.getMessage());
-                        throw new IllegalArgumentException("Failed to find tutor with ID: " + dto.getTutorId() + ". Error: " + e.getMessage());
-                    }
-                }
-
+                // Get the user entity directly with userId
+                UserEntity tutor = userRepository.findById(dto.getUserId())
+                    .orElseThrow(() -> new IllegalArgumentException("Tutor user not found with ID: " + dto.getUserId()));
+                
                 entity.setTutor(tutor);
             } catch (Exception e) {
-                System.out.println("Error setting tutor: " + e.getMessage());
-                throw new IllegalArgumentException("Tutor not found with ID: " + dto.getTutorId() + ". Error: " + e.getMessage());
+                System.out.println("[TutoringSessionDTOMapper] Error setting tutor: " + e.getMessage());
+                e.printStackTrace();
+                throw new IllegalArgumentException("Tutor not found with ID: " + dto.getUserId() + ". Error: " + e.getMessage());
             }
         }
 

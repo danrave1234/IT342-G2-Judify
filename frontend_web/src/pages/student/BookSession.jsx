@@ -336,14 +336,38 @@ const BookSession = () => {
 
         // Create conversation for the session
         try {
-          const { conversationApi } = await import('../../api/api');
-          await conversationApi.createConversation({
-            tutorId: tutor.profileId,
-            studentId: user.userId,
-            sessionId: result.session.sessionId || result.session.id,
-            lastMessageTime: new Date().toISOString()
-          });
-          console.log('Conversation created for session');
+          const { conversationApi, tutorProfileApi } = await import('../../api/api');
+          
+          // First, get the userId from tutorId
+          try {
+            const tutorUserIdResponse = await tutorProfileApi.getUserIdFromTutorId(tutor.profileId);
+            const tutorUserId = tutorUserIdResponse.data;
+            
+            console.log(`Converting tutorId ${tutor.profileId} to userId ${tutorUserId}`);
+            
+            // Create conversation with proper user IDs
+            await conversationApi.createConversation({
+              tutorId: tutorUserId, // Use tutorUserId instead of profileId
+              studentId: user.userId,
+              sessionId: result.session.sessionId || result.session.id,
+              lastMessageTime: new Date().toISOString()
+            });
+            
+            console.log('Conversation created for session with proper userId');
+          } catch (convError) {
+            console.error('Error converting tutorId to userId:', convError);
+            
+            // Fallback to using tutorId directly if conversion fails
+            console.log('Falling back to using tutorId directly for conversation creation');
+            await conversationApi.createConversation({
+              tutorId: tutor.profileId,
+              studentId: user.userId,
+              sessionId: result.session.sessionId || result.session.id,
+              lastMessageTime: new Date().toISOString()
+            });
+            
+            console.log('Conversation created for session using tutorId (fallback method)');
+          }
         } catch (convError) {
           console.error('Error creating conversation:', convError);
           // Don't block the flow if conversation creation fails

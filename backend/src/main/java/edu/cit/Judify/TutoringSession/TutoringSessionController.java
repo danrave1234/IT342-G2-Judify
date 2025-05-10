@@ -26,6 +26,7 @@ import edu.cit.Judify.TutorProfile.TutorProfileService;
 import edu.cit.Judify.TutoringSession.DTO.TutoringSessionDTO;
 import edu.cit.Judify.TutoringSession.DTO.TutoringSessionDTOMapper;
 import edu.cit.Judify.User.UserEntity;
+import edu.cit.Judify.User.UserRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -44,6 +45,7 @@ public class TutoringSessionController {
     private final TutoringSessionDTOMapper sessionDTOMapper;
     private final ConversationService conversationService;
     private final MessageService messageService;
+    private final UserRepository userRepository;
 
     @Autowired
     private TutorProfileService tutorProfileService;
@@ -52,11 +54,40 @@ public class TutoringSessionController {
     public TutoringSessionController(TutoringSessionService sessionService, 
                                     TutoringSessionDTOMapper sessionDTOMapper,
                                     ConversationService conversationService,
-                                    MessageService messageService) {
+                                    MessageService messageService,
+                                    UserRepository userRepository) {
         this.sessionService = sessionService;
         this.sessionDTOMapper = sessionDTOMapper;
         this.conversationService = conversationService;
         this.messageService = messageService;
+        this.userRepository = userRepository;
+    }
+
+    /**
+     * Helper method to ensure we always get a userId from either a userId or tutorProfileId
+     * @param id The ID to check (could be either a userId or tutorProfileId)
+     * @return The userId (either the original ID if it's a valid userId, or converted from tutorProfileId)
+     */
+    private Long ensureUserId(Long id) {
+        try {
+            // First check if this ID exists as a userId
+            boolean userExists = userRepository.existsById(id);
+            if (userExists) {
+                System.out.println("ID " + id + " is already a valid userId");
+                return id;  // It's already a userId
+            }
+            
+            // If not, try to convert from tutorProfileId
+            System.out.println("ID " + id + " is not a userId, trying to convert from tutorProfileId...");
+            Long userId = tutorProfileService.getUserIdFromTutorId(id);
+            System.out.println("Successfully converted tutorProfileId " + id + " to userId " + userId);
+            return userId;
+        } catch (Exception e) {
+            System.out.println("ERROR converting ID: " + e.getMessage());
+            e.printStackTrace();
+            // Return original as fallback
+            return id;
+        }
     }
 
     @Operation(summary = "Create a new tutoring session", description = "Creates a new tutoring session between a tutor and a student")
@@ -108,9 +139,36 @@ public class TutoringSessionController {
                 return ResponseEntity.badRequest().body(null);
             }
 
-            if (sessionDTO.getTutorId() == null) {
+            if (sessionDTO.getUserId() == null) {
                 System.out.println("Tutor ID is missing");
                 return ResponseEntity.badRequest().body(null);
+            }
+            
+            // EARLY CONVERSION: Pre-process tutorId to ensure it's a valid userId BEFORE entity conversion
+            // This ensures the conversation will be created with the proper userId
+            Long initialTutorId = sessionDTO.getUserId();
+            Long processedTutorId = null;
+            
+            try {
+                // From API 30, we need to actually try using the tutorId value (which might be a tutorProfileId)
+                // to get a userId from the TutorProfile service
+                processedTutorId = tutorProfileService.getUserIdFromTutorId(initialTutorId);
+                System.out.println("Successfully mapped tutorProfileId " + initialTutorId + 
+                                  " to userId " + processedTutorId + " BEFORE any operations");
+                // Modify the DTO to use the processed ID for all subsequent operations
+                sessionDTO.setUserId(processedTutorId);
+            } catch (Exception e) {
+                // If this fails, it could mean either:
+                // 1. The ID is already a valid userId (which is what we want)
+                // 2. The ID is invalid
+                // Let's check if it's a valid userId
+                boolean isUserIdValid = userRepository.existsById(initialTutorId);
+                if (isUserIdValid) {
+                    System.out.println("tutorId " + initialTutorId + " is already a valid userId, using directly");
+                } else {
+                    System.out.println("Failed to pre-process tutorId: " + e.getMessage());
+                    return ResponseEntity.badRequest().body(null);
+                }
             }
 
             // Set initial status to PENDING for negotiation
@@ -122,14 +180,78 @@ public class TutoringSessionController {
             sessionDTO.setStudentAccepted(true); // Student initiates, so they accept by default
             sessionDTO.setTutorAccepted(false);  // Tutor needs to accept
 
+            // Now convert to entity using the potentially modified DTO (with corrected tutorId)
             TutoringSessionEntity session = sessionDTOMapper.toEntity(sessionDTO);
-            System.out.println("Converted DTO to entity, student ID: " + (session.getStudent() != null ? session.getStudent().getUserId() : "null"));
+            System.out.println("Converted DTO to entity, student ID: " + 
+                             (session.getStudent() != null ? session.getStudent().getUserId() : "null") +
+                             ", tutor ID: " + 
+                             (session.getTutor() != null ? session.getTutor().getUserId() : "null"));
 
-            // Create a conversation for the session
-            ConversationEntity conversation = new ConversationEntity();
-            conversation.setStudent(session.getStudent());
-            conversation.setTutor(session.getTutor());
-            ConversationEntity savedConversation = conversationService.createConversation(conversation);
+            // Create a conversation for the session with proper user entities
+            Long studentUserId = session.getStudent().getUserId();
+            
+            // For tutor, we need to be especially careful to ensure we have a userId, not a tutorProfileId
+            // The tutorId should now be a valid userId due to our early preprocessing
+            Long tutorUserId = sessionDTO.getUserId();
+            
+            // Debug information
+            System.out.println("Using preprocessed tutorId=" + tutorUserId + " for conversation creation");
+            
+            System.out.println("Creating conversation between student userId=" + studentUserId +
+                             " and tutor userId=" + tutorUserId);
+            
+            // Verify the users from the repository to ensure we have full user entities
+            UserEntity studentUser;
+            UserEntity tutorUser;
+            
+            try {
+                studentUser = userRepository.findById(studentUserId)
+                    .orElseThrow(() -> new IllegalArgumentException("Student user not found with ID: " + studentUserId));
+                System.out.println("Found student user: " + studentUser.getUsername() + " (ID: " + studentUser.getUserId() + ")");
+            } catch (Exception e) {
+                System.out.println("Error finding student user: " + e.getMessage());
+                e.printStackTrace();
+                throw new IllegalArgumentException("Failed to find student user: " + e.getMessage());
+            }
+            
+            try {
+                // Always use our explicitly converted ID, not the one from the session entity
+                tutorUser = userRepository.findById(tutorUserId)
+                    .orElseThrow(() -> new IllegalArgumentException("Tutor user not found with ID: " + tutorUserId));
+                System.out.println("Found tutor user: " + tutorUser.getUsername() + " (ID: " + tutorUser.getUserId() + ")");
+                
+                // Safety check: If session's tutorId doesn't match our converted one, update it
+                if (session.getTutor() == null || !session.getTutor().getUserId().equals(tutorUserId)) {
+                    System.out.println("WARNING: Session's tutor doesn't match expected ID, updating...");
+                    UserEntity tutor = userRepository.findById(tutorUserId)
+                        .orElseThrow(() -> new RuntimeException("Tutor not found with ID: " + tutorUserId));
+                    session.setTutor(tutor);
+                }
+            } catch (Exception e) {
+                System.out.println("Error finding tutor user: " + e.getMessage());
+                e.printStackTrace();
+                throw new IllegalArgumentException("Failed to find tutor user: " + e.getMessage());
+            }
+            
+            // Create the conversation through the service, which will check for existing conversations
+            ConversationEntity savedConversation;
+            try {
+                // Always use our explicitly verified user entities
+                savedConversation = conversationService.findOrCreateStudentTutorConversation(studentUser, tutorUser);
+                System.out.println("Created/found conversation ID: " + savedConversation.getConversationId() +
+                                  " between student=" + savedConversation.getStudent().getUserId() +
+                                  " and tutor=" + savedConversation.getTutor().getUserId());
+                
+                // Final verification that we're using the right tutor user 
+                if (!savedConversation.getTutor().getUserId().equals(tutorUserId)) {
+                    System.out.println("WARNING: Conversation created with different tutor user ID: " + 
+                                      savedConversation.getTutor().getUserId() + " instead of " + tutorUserId);
+                }
+            } catch (Exception e) {
+                System.out.println("Error creating conversation: " + e.getMessage());
+                e.printStackTrace();
+                throw new IllegalArgumentException("Failed to create conversation: " + e.getMessage());
+            }
 
             // Link the conversation to the session
             session.setConversation(savedConversation);
@@ -138,17 +260,26 @@ public class TutoringSessionController {
             TutoringSessionEntity savedSession = sessionService.createSession(session);
             System.out.println("Session saved successfully with ID: " + savedSession.getSessionId());
 
+            // Double-check conversion from tutorId to userId
+            boolean isTutorIdSameAsUser = sessionDTO.getUserId().equals(session.getTutor().getUserId());
+            if (!isTutorIdSameAsUser) {
+                System.out.println("Note: Successfully converted tutorProfileId " + sessionDTO.getUserId() + 
+                                 " to tutorUserId " + session.getTutor().getUserId() + " for session");
+            }
+            
             // Send a session details message in the conversation
             try {
+                // For extra safety, use the tutor user ID from the conversation entity
                 messageService.sendSessionDetailsMessage(
                     savedConversation.getConversationId(),
                     savedSession.getSessionId(),
-                    session.getStudent().getUserId(), // Student is the sender of the booking
-                    session.getTutor().getUserId()    // Tutor is the receiver of the booking
+                    session.getStudent().getUserId(),   // Student is the sender of the booking
+                    savedConversation.getTutor().getUserId()  // Use conversation's tutor ID for consistency
                 );
                 System.out.println("Session details message sent in conversation: " + savedConversation.getConversationId());
             } catch (Exception e) {
                 System.out.println("Error sending session details message: " + e.getMessage());
+                e.printStackTrace();  // Print stack trace for better debugging
                 // Continue even if message sending fails
             }
 
@@ -175,16 +306,16 @@ public class TutoringSessionController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @Operation(summary = "Get sessions by tutor", description = "Returns all tutoring sessions for a specific tutor")
+    @Operation(summary = "Get sessions by user", description = "Returns all tutoring sessions for a specific user")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Successfully retrieved the tutor's sessions")
+        @ApiResponse(responseCode = "200", description = "Successfully retrieved the user's sessions")
     })
-    @GetMapping("/findByTutor/{tutorId}")
-    public ResponseEntity<List<TutoringSessionDTO>> getTutorSessions(
-            @Parameter(description = "Tutor ID") @PathVariable("tutorId") Long tutorId) {
-        // Find the tutor by ID
+    @GetMapping("/findByUser/{userId}")
+    public ResponseEntity<List<TutoringSessionDTO>> getUserSessions(
+            @Parameter(description = "User ID") @PathVariable("userId") Long userId) {
+        // Find the user by ID
         UserEntity tutor = new UserEntity();
-        tutor.setUserId(tutorId);
+        tutor.setUserId(userId);
 
         return ResponseEntity.ok(sessionService.getTutorSessions(tutor)
                 .stream()
@@ -213,7 +344,7 @@ public class TutoringSessionController {
         System.out.println("Found " + sessionDTOs.size() + " sessions for student ID: " + studentId);
         for (TutoringSessionDTO session : sessionDTOs) {
             System.out.println("Session ID: " + session.getSessionId() + 
-                              ", Tutor ID: " + session.getTutorId() + 
+                              ", Tutor ID: " + session.getUserId() + 
                               ", Tutor Name: " + session.getTutorName());
         }
 
@@ -291,17 +422,17 @@ public class TutoringSessionController {
         return ResponseEntity.ok().build();
     }
 
-    @Operation(summary = "Get tutor sessions by status", description = "Returns all tutoring sessions for a specific tutor with a specific status")
+    @Operation(summary = "Get user sessions by status", description = "Returns all tutoring sessions for a specific user with a specific status")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Successfully retrieved tutor's sessions by status")
+        @ApiResponse(responseCode = "200", description = "Successfully retrieved user's sessions by status")
     })
-    @GetMapping("/findByTutorAndStatus/{tutorId}/{status}")
-    public ResponseEntity<List<TutoringSessionDTO>> getTutorSessionsByStatus(
-            @Parameter(description = "Tutor ID") @PathVariable("tutorId") Long tutorId,
+    @GetMapping("/findByUserAndStatus/{userId}/{status}")
+    public ResponseEntity<List<TutoringSessionDTO>> getUserSessionsByStatus(
+            @Parameter(description = "User ID") @PathVariable("userId") Long userId,
             @Parameter(description = "Session status") @PathVariable String status) {
-        // Find the tutor by ID
+        // Find the user by ID
         UserEntity tutor = new UserEntity();
-        tutor.setUserId(tutorId);
+        tutor.setUserId(userId);
 
         return ResponseEntity.ok(sessionService.getTutorSessionsByStatus(tutor, status)
                 .stream()
@@ -327,13 +458,13 @@ public class TutoringSessionController {
                 .collect(Collectors.toList()));
     }
 
-    @Operation(summary = "Get tutor sessions with pagination", description = "Returns a paginated list of tutoring sessions for a specific tutor with optional date filtering")
+    @Operation(summary = "Get user sessions with pagination", description = "Returns a paginated list of tutoring sessions for a specific user with optional date filtering")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Successfully retrieved paginated tutor sessions")
+        @ApiResponse(responseCode = "200", description = "Successfully retrieved paginated user sessions")
     })
-    @GetMapping("/findByTutorPaginated/{tutorId}")
-    public ResponseEntity<Page<TutoringSessionDTO>> getTutorSessionsPaginated(
-            @Parameter(description = "Tutor ID") @PathVariable("tutorId") Long tutorId,
+    @GetMapping("/findByUserPaginated/{userId}")
+    public ResponseEntity<Page<TutoringSessionDTO>> getUserSessionsPaginated(
+            @Parameter(description = "User ID") @PathVariable("userId") Long userId,
             @Parameter(description = "Start date filter (optional)") 
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date startDate,
             @Parameter(description = "End date filter (optional)") 
@@ -341,9 +472,9 @@ public class TutoringSessionController {
             @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Page size") @RequestParam(defaultValue = "10") int size) {
 
-        // Find the tutor by ID
+        // Find the user by ID
         UserEntity tutor = new UserEntity();
-        tutor.setUserId(tutorId);
+        tutor.setUserId(userId);
 
         Page<TutoringSessionEntity> sessions = sessionService.getTutorSessionsPaginated(
                 tutor, startDate, endDate, page, size);
@@ -399,22 +530,22 @@ public class TutoringSessionController {
     }
 
     @Operation(summary = "Check for overlapping approved sessions", 
-               description = "Checks if there are any approved sessions that overlap with the given time range for a specific tutor")
+               description = "Checks if there are any approved sessions that overlap with the given time range for a specific user")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Check completed successfully"),
         @ApiResponse(responseCode = "400", description = "Invalid input parameters")
     })
     @GetMapping("/checkOverlap")
     public ResponseEntity<Boolean> checkOverlappingApprovedSessions(
-            @Parameter(description = "Tutor ID") @RequestParam Long tutorId,
+            @Parameter(description = "User ID") @RequestParam Long userId,
             @Parameter(description = "Start time") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Date startTime,
             @Parameter(description = "End time") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Date endTime) {
 
-        if (tutorId == null || startTime == null || endTime == null) {
+        if (userId == null || startTime == null || endTime == null) {
             return ResponseEntity.badRequest().body(null);
         }
 
-        boolean hasOverlap = sessionService.hasOverlappingApprovedSessions(tutorId, startTime, endTime);
+        boolean hasOverlap = sessionService.hasOverlappingApprovedSessions(userId, startTime, endTime);
         return ResponseEntity.ok(hasOverlap);
     }
 

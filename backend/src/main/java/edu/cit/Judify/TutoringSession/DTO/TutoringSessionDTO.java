@@ -4,7 +4,7 @@ import java.util.Date;
 
 public class TutoringSessionDTO {
     private Long sessionId;
-    private Long tutorId;
+    private Long userId;
     private Long studentId;
     private Date startTime;
     private Date endTime;
@@ -39,12 +39,12 @@ public class TutoringSessionDTO {
         this.sessionId = sessionId;
     }
 
-    public Long getTutorId() {
-        return tutorId;
+    public Long getUserId() {
+        return userId;
     }
 
-    public void setTutorId(Long tutorId) {
-        this.tutorId = tutorId;
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
 
     public Long getStudentId() {

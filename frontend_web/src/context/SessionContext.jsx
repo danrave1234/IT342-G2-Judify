@@ -19,6 +19,42 @@ export const SessionProvider = ({ children }) => {
     setError(null);
     
     try {
+      // First, try to get the userId from tutorId if available
+      if (sessionData.tutorId) {
+        try {
+          const { tutorProfileApi } = await import('../api/api');
+          console.log(`Converting tutorId ${sessionData.tutorId} to userId before creating session`);
+          
+          const tutorUserIdResponse = await tutorProfileApi.getUserIdFromTutorId(sessionData.tutorId);
+          const tutorUserId = tutorUserIdResponse.data;
+          
+          if (tutorUserId) {
+            console.log(`Successfully converted tutorId ${sessionData.tutorId} to userId ${tutorUserId}`);
+            
+            // Create a new session data object with userId instead of tutorId
+            const updatedSessionData = {
+              ...sessionData,
+              userId: tutorUserId
+            };
+            
+            // Remove tutorId to avoid confusion
+            delete updatedSessionData.tutorId;
+            
+            const response = await tutoringSessionApi.createSession(updatedSessionData);
+            toast.success('Session scheduled successfully');
+            return { 
+              success: true, 
+              session: response.data, 
+              tutorId: sessionData.tutorId  // Keep original tutorId for reference
+            };
+          }
+        } catch (convError) {
+          console.error('Error converting tutorId to userId:', convError);
+          // Continue with original sessionData if conversion fails
+        }
+      }
+      
+      // Fallback to original method if conversion fails or tutorId not available
       const response = await tutoringSessionApi.createSession(sessionData);
       toast.success('Session scheduled successfully');
       return { 
